@@ -1,0 +1,587 @@
+﻿@{
+    ViewData["Title"] = "Mapa Curricular - Economía";
+}
+
+<style>
+    /* Estructura del Grid */
+    .mapa-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 15px;
+        overflow-x: auto;
+        padding: 20px 0;
+        min-width: 1200px;
+    }
+
+    .periodo-columna {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .periodo-header {
+        text-align: center;
+        font-weight: bold;
+        background-color: #343a40;
+        color: white;
+        padding: 5px;
+        border-radius: 5px;
+        font-size: 0.9rem;
+    }
+
+    .materia-card {
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 10px;
+        text-align: center;
+        font-size: 0.85rem;
+        cursor: pointer;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+        transition: transform 0.2s;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+    }
+
+        .materia-card:hover {
+            transform: scale(1.05);
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.15);
+        }
+
+    /* Colores base por Área */
+    .bg-basica {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+        color: #856404;
+    }
+
+    .bg-optativa {
+        background-color: #cce5ff;
+        border-color: #007bff;
+        color: #004085;
+    }
+
+    .bg-disciplinar {
+        background-color: #d4edda;
+        border-color: #28a745;
+        color: #155724;
+    }
+
+    .bg-general {
+        background-color: #f8f9fa;
+        border-color: #6c757d;
+        color: #383d41;
+    }
+
+    .bg-terminal {
+        background-color: #f8d7da;
+        border-color: #dc3545;
+        color: #721c24;
+    }
+
+    /* Estados visuales de Aprobación / Reprobación */
+    .estado-aprobada {
+        border: 3px solid #28a745 !important;
+        opacity: 0.7;
+    }
+
+        .estado-aprobada::after {
+            content: '✅ Aprobada';
+            display: block;
+            font-size: 0.75rem;
+            color: #155724;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+    .estado-reprobada {
+        border: 3px solid #dc3545 !important;
+    }
+
+        .estado-reprobada::after {
+            content: '❌ Reprobada';
+            display: block;
+            font-size: 0.75rem;
+            color: #721c24;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+    .prerequisito-text {
+        font-size: 0.7rem;
+        color: #dc3545;
+        font-weight: bold;
+        margin-top: 5px;
+    }
+</style>
+
+<div class="container-fluid">
+
+    <!-- Panel de Búsqueda de Alumno -->
+    <div class="card my-4 shadow-sm">
+        <div class="card-body d-flex flex-wrap justify-content-between align-items-end gap-3">
+            <div class="d-flex gap-3 flex-grow-1">
+                <div class="flex-grow-1" style="max-width: 250px;">
+                    <label class="form-label fw-bold">Matrícula:</label>
+                    <input type="text" id="inputMatricula" class="form-control" placeholder="Ej. S20012345">
+                </div>
+                <div class="flex-grow-1">
+                    <label class="form-label fw-bold">Nombre del Alumno:</label>
+                    <input type="text" id="inputNombreAlumno" class="form-control" placeholder="Nombre completo" readonly>
+                </div>
+            </div>
+            <div>
+                <button class="btn btn-primary me-2" onclick="buscarAlumno()">Buscar / Cargar Alumno</button>
+                <button class="btn btn-success" onclick="exportarAvance()">Exportar Avance a Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mb-4">
+        <h2 class="display-6">Mapa Curricular - Licenciatura en Economía (Plan 2024)</h2>
+        <p>Haz clic en una materia para gestionar el avance del estudiante.</p>
+    </div>
+
+    <!-- Contenedor del Mapa (Grid Estático) -->
+    <div class="mapa-grid">
+        <!-- 1er Periodo -->
+        <div class="periodo-columna">
+            <div class="periodo-header">1er Periodo</div>
+            <div class="materia-card bg-general" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Lengua I" data-creditos="4">
+                <strong>Lengua I</strong><br />(4 Créditos)
+            </div>
+            <div class="materia-card bg-general" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Literacidad Digital" data-creditos="4">
+                <strong>Literacidad Digital</strong><br />(4 Créditos)
+            </div>
+            <div class="materia-card bg-general" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Lectura y escritura de textos" data-creditos="4">
+                <strong>Lectura y escritura de textos</strong><br />(4 Créditos)
+            </div>
+            <div class="materia-card bg-basica" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Introducción a la Economía" data-creditos="6">
+                <strong>Introducción a la Economía</strong><br />(6 Créditos)
+            </div>
+            <div class="materia-card bg-optativa" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Optativa I" data-creditos="6">
+                <strong>Optativa I</strong><br />(6 Créditos)
+            </div>
+        </div>
+
+        <!-- 2do Periodo -->
+        <div class="periodo-columna">
+            <div class="periodo-header">2do Periodo</div>
+            <div class="materia-card bg-general" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Lengua II" data-creditos="4">
+                <strong>Lengua II</strong><br />(4 Créditos)
+                <span class="prerequisito-text">Req: Lengua I</span>
+            </div>
+            <div class="materia-card bg-general" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Pensamiento Crítico" data-creditos="4">
+                <strong>Pensamiento Crítico</strong><br />(4 Créditos)
+            </div>
+            <div class="materia-card bg-basica" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Cálculo I" data-creditos="9">
+                <strong>Cálculo I</strong><br />(9 Créditos)
+            </div>
+            <div class="materia-card bg-basica" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Álgebra Lineal" data-creditos="9">
+                <strong>Álgebra Lineal</strong><br />(9 Créditos)
+            </div>
+            <div class="materia-card bg-basica" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Historia del Pensamiento Económico" data-creditos="8">
+                <strong>Historia del Pensamiento Econ.</strong><br />(8 Créditos)
+            </div>
+        </div>
+
+        <!-- 3er Periodo -->
+        <div class="periodo-columna">
+            <div class="periodo-header">3er Periodo</div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Microeconomía I" data-creditos="10">
+                <strong>Microeconomía I</strong><br />(10 Créditos)
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Cálculo II" data-creditos="9">
+                <strong>Cálculo II</strong><br />(9 Créditos)
+                <span class="prerequisito-text">Req: Cálculo I</span>
+            </div>
+            <div class="materia-card bg-basica" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Probabilidad" data-creditos="8">
+                <strong>Probabilidad</strong><br />(8 Créditos)
+            </div>
+            <div class="materia-card bg-basica" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Historia Económica General" data-creditos="8">
+                <strong>Historia Econ. General</strong><br />(8 Créditos)
+            </div>
+            <div class="materia-card bg-general" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Acreditación de la lengua" data-creditos="8">
+                <strong>Acreditación de la lengua</strong><br />(8 Créditos)
+            </div>
+        </div>
+
+        <!-- 4to Periodo -->
+        <div class="periodo-columna">
+            <div class="periodo-header">4to Periodo</div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Microeconomía II" data-creditos="10">
+                <strong>Microeconomía II</strong><br />(10 Créditos)
+                <span class="prerequisito-text">Req: Microeconomía I</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Macroeconomía I" data-creditos="10">
+                <strong>Macroeconomía I</strong><br />(10 Créditos)
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Estadística" data-creditos="8">
+                <strong>Estadística</strong><br />(8 Créditos)
+                <span class="prerequisito-text">Req: Probabilidad</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Economía Mexicana I" data-creditos="8">
+                <strong>Economía Mexicana I</strong><br />(8 Créditos)
+            </div>
+            <div class="materia-card bg-basica" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Técnicas de Investigación" data-creditos="8">
+                <strong>Técnicas de Invest.</strong><br />(8 Créditos)
+            </div>
+        </div>
+
+        <!-- 5to Periodo -->
+        <div class="periodo-columna">
+            <div class="periodo-header">5to Periodo</div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Organización Industrial" data-creditos="8">
+                <strong>Organización Industrial</strong><br />(8 Créditos)
+                <span class="prerequisito-text">Req: Microeconomía II</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Microeconomía III" data-creditos="9">
+                <strong>Microeconomía III</strong><br />(9 Créditos)
+                <span class="prerequisito-text">Req: Microeconomía II</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Macroeconomía II" data-creditos="10">
+                <strong>Macroeconomía II</strong><br />(10 Créditos)
+                <span class="prerequisito-text">Req: Macroeconomía I</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Econometría I" data-creditos="8">
+                <strong>Econometría I</strong><br />(8 Créditos)
+                <span class="prerequisito-text">Req: Estadística</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Modelos Dinámicos" data-creditos="8">
+                <strong>Modelos Dinámicos</strong><br />(8 Créditos)
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Economía Mexicana II" data-creditos="8">
+                <strong>Economía Mexicana II</strong><br />(8 Créditos)
+                <span class="prerequisito-text">Req: Econ. Mexicana I</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Finanzas Públicas" data-creditos="9">
+                <strong>Finanzas Públicas</strong><br />(9 Créditos)
+            </div>
+            <div class="materia-card bg-optativa" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Optativa II" data-creditos="6">
+                <strong>Optativa II</strong><br />(6 Créditos)
+            </div>
+        </div>
+
+        <!-- 6to Periodo -->
+        <div class="periodo-columna">
+            <div class="periodo-header">6to Periodo</div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Economía Internacional I" data-creditos="9">
+                <strong>Economía Internacional I</strong><br />(9 Créditos)
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Macroeconomía III" data-creditos="10">
+                <strong>Macroeconomía III</strong><br />(10 Créditos)
+                <span class="prerequisito-text">Req: Macroeconomía II</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Análisis de Series de Tiempo" data-creditos="8">
+                <strong>Análisis de Series de Tiempo</strong><br />(8 Créditos)
+                <span class="prerequisito-text">Req: Econometría I</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Econometría II" data-creditos="8">
+                <strong>Econometría II</strong><br />(8 Créditos)
+                <span class="prerequisito-text">Req: Econometría I</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Seminario de Investigación" data-creditos="7">
+                <strong>Seminario de Investigación</strong><br />(7 Créditos)
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Planeación, program. y presup." data-creditos="8">
+                <strong>Planeación, program. y presup.</strong><br />(8 Créditos)
+            </div>
+            <div class="materia-card bg-optativa" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Optativa III" data-creditos="6">
+                <strong>Optativa III</strong><br />(6 Créditos)
+            </div>
+        </div>
+
+        <!-- 7mo Periodo -->
+        <div class="periodo-columna">
+            <div class="periodo-header">7mo Periodo</div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Economía Internacional II" data-creditos="9">
+                <strong>Economía Internacional II</strong><br />(9 Créditos)
+                <span class="prerequisito-text">Req: Econ. Internacional I</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Crecimiento Económico" data-creditos="9">
+                <strong>Crecimiento Económico</strong><br />(9 Créditos)
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Política Económica" data-creditos="8">
+                <strong>Política Económica</strong><br />(8 Créditos)
+            </div>
+            <div class="materia-card bg-terminal" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Servicio Social" data-creditos="12">
+                <strong>Servicio Social</strong><br />(12 Créditos)
+            </div>
+            <div class="materia-card bg-optativa" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Optativa IV" data-creditos="6">
+                <strong>Optativa IV</strong><br />(6 Créditos)
+            </div>
+        </div>
+
+        <!-- 8vo Periodo -->
+        <div class="periodo-columna">
+            <div class="periodo-header">8vo Periodo</div>
+            <div class="materia-card bg-terminal" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Práctica profesional" data-creditos="12">
+                <strong>Práctica profesional</strong><br />(12 Créditos)
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Desarrollo Económico" data-creditos="9">
+                <strong>Desarrollo Económico</strong><br />(9 Créditos)
+                <span class="prerequisito-text">Req: Crecimiento Económico</span>
+            </div>
+            <div class="materia-card bg-disciplinar" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Formulación y eval. de proyectos" data-creditos="6">
+                <strong>Formulación y eval. de proyectos</strong><br />(6 Créditos)
+            </div>
+            <div class="materia-card bg-terminal" data-bs-toggle="modal" data-bs-target="#modalAvance" data-nombre="Experiencia recepcional" data-creditos="12">
+                <strong>Experiencia recepcional</strong><br />(12 Créditos)
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Gestión de Avance -->
+<div class="modal fade" id="modalAvance" tabindex="-1" aria-labelledby="modalAvanceLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalMateriaNombre">Nombre de la Materia</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Créditos:</strong> <span id="modalMateriaCreditos"></span></p>
+
+                <div class="mb-3 d-none" id="divOptativa">
+                    <label class="form-label fw-bold text-primary">Nombre de la Optativa:</label>
+                    <input type="text" class="form-control" id="inputOptativa" placeholder="Ej. Finanzas Internacionales">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Tipo de Inscripción:</label>
+                    <select class="form-select" id="selectInscripcion">
+                        <option value="primera">Primera inscripción</option>
+                        <option value="segunda">Segunda inscripción</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Último Examen Presentado:</label>
+                    <select class="form-select" id="selectExamen">
+                        <!-- Las opciones se llenan dinámicamente con JS -->
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Resultado del Examen:</label>
+                    <select class="form-select" id="selectAprobacion">
+                        <option value="ninguno" selected disabled>Seleccione una opción...</option>
+                        <option value="si">Aprobado</option>
+                        <option value="no">Reprobado</option>
+                    </select>
+                </div>
+
+                <!-- Alerta Dinámica de Consecuencias -->
+                <div id="alertaEstatus" class="alert d-none mt-3" role="alert">
+                    <!-- El mensaje se inserta con JS -->
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarAvance()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let tarjetaActual = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const tarjetas = document.querySelectorAll('.materia-card');
+
+            tarjetas.forEach(tarjeta => {
+                tarjeta.addEventListener('click', function() {
+                    tarjetaActual = this;
+
+                    const nombre = this.getAttribute('data-nombre');
+                    const creditos = this.getAttribute('data-creditos');
+                    const esOptativa = this.classList.contains('bg-optativa');
+
+                    document.getElementById('modalMateriaNombre').innerText = nombre;
+                    document.getElementById('modalMateriaCreditos').innerText = creditos;
+
+                    const divOptativa = document.getElementById('divOptativa');
+                    const inputOptativa = document.getElementById('inputOptativa');
+
+                    if (esOptativa) {
+                        divOptativa.classList.remove('d-none');
+                        inputOptativa.value = this.getAttribute('data-nombre-personalizado') || '';
+                    } else {
+                        divOptativa.classList.add('d-none');
+                    }
+
+                    // Recuperar el estado previo de la tarjeta
+                    const inscripcionPrevia = this.getAttribute('data-inscripcion') || 'primera';
+                    const examenPrevio = this.getAttribute('data-examen') || 'ordinario';
+                    const estadoPrevio = this.getAttribute('data-estado'); // 'aprobada' o 'reprobada'
+
+                    document.getElementById('selectInscripcion').value = inscripcionPrevia;
+
+                    // Actualizar las opciones de examen antes de setear el valor
+                    actualizarOpcionesExamen(inscripcionPrevia);
+                    document.getElementById('selectExamen').value = examenPrevio;
+
+                    if (estadoPrevio === 'aprobada') {
+                        document.getElementById('selectAprobacion').value = 'si';
+                    } else if (estadoPrevio === 'reprobada') {
+                        document.getElementById('selectAprobacion').value = 'no';
+                    } else {
+                        document.getElementById('selectAprobacion').value = 'ninguno';
+                    }
+
+                    evaluarLogicaInscripcion();
+                });
+            });
+
+            // Listeners para los cambios en los selects
+            document.getElementById('selectInscripcion').addEventListener('change', function() {
+                actualizarOpcionesExamen(this.value);
+                document.getElementById('selectAprobacion').value = 'ninguno'; // Resetear resultado al cambiar
+                evaluarLogicaInscripcion();
+            });
+
+            document.getElementById('selectExamen').addEventListener('change', evaluarLogicaInscripcion);
+            document.getElementById('selectAprobacion').addEventListener('change', evaluarLogicaInscripcion);
+        });
+
+        // Función para cambiar los exámenes disponibles según la inscripción
+        function actualizarOpcionesExamen(tipoInscripcion) {
+            const selectExamen = document.getElementById('selectExamen');
+            selectExamen.innerHTML = ''; // Limpiar opciones
+
+            const opcionesPrimera = [
+                { val: 'ordinario', text: 'Examen Ordinario' },
+                { val: 'extraordinario', text: 'Examen Extraordinario' },
+                { val: 'titulo', text: 'Examen a Título de Suficiencia' }
+            ];
+
+            const opcionesSegunda = [
+                { val: 'ordinario', text: 'Examen Ordinario' },
+                { val: 'extraordinario', text: 'Examen Extraordinario' },
+                { val: 'ultima', text: 'Examen de Última Oportunidad' }
+            ];
+
+            const opcionesMapear = (tipoInscripcion === 'primera') ? opcionesPrimera : opcionesSegunda;
+
+            opcionesMapear.forEach(opc => {
+                let nuevaOpcion = new Option(opc.text, opc.val);
+                selectExamen.add(nuevaOpcion);
+            });
+        }
+
+        function evaluarLogicaInscripcion() {
+            var inscripcion = document.getElementById('selectInscripcion').value;
+            var examen = document.getElementById('selectExamen').value;
+            var aprobacion = document.getElementById('selectAprobacion').value;
+            var alerta = document.getElementById('alertaEstatus');
+
+            // Limpiar clases previas de la alerta
+            alerta.className = 'alert mt-3';
+
+            if (aprobacion === 'ninguno') {
+                alerta.classList.add('d-none');
+                return;
+            }
+
+            alerta.classList.remove('d-none');
+
+            // LOGICA DE APROBACIÓN
+            if (aprobacion === 'si') {
+                alerta.classList.add('alert-success');
+                alerta.innerHTML = `<strong>¡Materia Aprobada!</strong> en ${inscripcion} inscripción mediante ${document.getElementById('selectExamen').options[document.getElementById('selectExamen').selectedIndex].text}.`;
+                return;
+            }
+
+            // LÓGICA DE REPROBACIÓN: Secuencia de Exámenes y Consecuencias
+            if (aprobacion === 'no') {
+                if (inscripcion === 'primera') {
+                    if (examen === 'ordinario') {
+                        alerta.classList.add('alert-warning');
+                        alerta.innerHTML = 'Reprobó Ordinario. <strong>Debe presentar Examen Extraordinario.</strong>';
+                    } else if (examen === 'extraordinario') {
+                        alerta.classList.add('alert-warning');
+                        alerta.innerHTML = 'Reprobó Extraordinario. <strong>Debe presentar Examen a Título de Suficiencia.</strong>';
+                    } else if (examen === 'titulo') {
+                        alerta.classList.add('alert-danger');
+                        alerta.innerHTML = 'Reprobó Título. <strong>Debe recursar la materia en Segunda Inscripción.</strong>';
+                    }
+                } else if (inscripcion === 'segunda') {
+                    if (examen === 'ordinario') {
+                        alerta.classList.add('alert-warning');
+                        alerta.innerHTML = 'Reprobó Ordinario de 2da. <strong>Debe presentar Examen Extraordinario.</strong>';
+                    } else if (examen === 'extraordinario') {
+                        alerta.classList.add('alert-warning');
+                        alerta.innerHTML = 'Reprobó Extra de 2da. <strong>Debe presentar Examen de Última Oportunidad.</strong>';
+                    } else if (examen === 'ultima') {
+                        alerta.classList.add('alert-danger');
+                        alerta.innerHTML = '<strong>❌ CANDIDATO A BAJA DEFINITIVA.</strong> Reprobó el examen de Última Oportunidad.';
+                    }
+                }
+            }
+        }
+
+        function guardarAvance() {
+            if (tarjetaActual && tarjetaActual.classList.contains('bg-optativa')) {
+                const nuevoNombre = document.getElementById('inputOptativa').value.trim();
+                if (nuevoNombre) {
+                    tarjetaActual.setAttribute('data-nombre-personalizado', nuevoNombre);
+                    tarjetaActual.setAttribute('data-nombre', nuevoNombre);
+                    const creditos = tarjetaActual.getAttribute('data-creditos');
+                    tarjetaActual.innerHTML = `<strong>${nuevoNombre}</strong><br/>(${creditos} Créditos)`;
+                }
+            }
+
+            var inscripcion = document.getElementById('selectInscripcion').value;
+            var examen = document.getElementById('selectExamen').value;
+            var aprobacion = document.getElementById('selectAprobacion').value;
+
+            if (aprobacion === 'ninguno') {
+                alert("Por favor seleccione un resultado de examen antes de guardar.");
+                return;
+            }
+
+            tarjetaActual.classList.remove('estado-aprobada', 'estado-reprobada');
+
+            if (aprobacion === "si") {
+                tarjetaActual.classList.add('estado-aprobada');
+                tarjetaActual.setAttribute('data-estado', 'aprobada');
+            } else if (aprobacion === "no") {
+                tarjetaActual.classList.add('estado-reprobada');
+                tarjetaActual.setAttribute('data-estado', 'reprobada');
+            }
+
+            tarjetaActual.setAttribute('data-inscripcion', inscripcion);
+            tarjetaActual.setAttribute('data-examen', examen);
+
+            var modalEl = document.getElementById('modalAvance');
+            var modal = bootstrap.Modal.getInstance(modalEl);
+            modal.hide();
+        }
+
+        function buscarAlumno() {
+            var matricula = document.getElementById('inputMatricula').value;
+            if(!matricula) {
+                alert("Por favor ingresa una matrícula.");
+                return;
+            }
+            document.getElementById('inputNombreAlumno').value = "Alumno de Prueba (Simulado)";
+            alert("Simulación: Se cargarían las materias previamente guardadas del alumno.");
+        }
+
+        function exportarAvance() {
+            var matricula = document.getElementById('inputMatricula').value;
+            if(!matricula) {
+                alert("Busca o ingresa la matrícula del alumno antes de exportar.");
+                return;
+            }
+            alert("Los datos se enviarán a ASP.NET para actualizar el archivo Excel.");
+        }
+    </script>
+}
