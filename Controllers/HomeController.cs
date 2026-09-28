@@ -128,5 +128,109 @@ namespace PlaneaUV_Economia.Controllers
                 return Json(new { success = true, data = avance });
             }
         }
+        [HttpGet]
+        public IActionResult ObtenerAlumnosRegistrados()
+        {
+            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
+            var listaAlumnos = new List<object>();
+
+            if (System.IO.File.Exists(filePath))
+            {
+                using (var workbook = new XLWorkbook(filePath))
+                {
+                    // Recorremos cada pestaña del Excel
+                    foreach (var worksheet in workbook.Worksheets)
+                    {
+                        var matricula = worksheet.Name;
+                        // Leemos el nombre del alumno que siempre guardamos en la celda B2
+                        var nombre = worksheet.Cell(2, 2).GetString();
+
+                        listaAlumnos.Add(new { Matricula = matricula, Nombre = nombre });
+                    }
+                }
+            }
+
+            return Json(listaAlumnos);
+        }
+        [HttpGet]
+        public IActionResult ObtenerReporteAlertas()
+        {
+            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
+            var alertas = new List<object>();
+
+            if (!System.IO.File.Exists(filePath))
+                return Json(new { success = true, data = alertas });
+
+            using (var workbook = new ClosedXML.Excel.XLWorkbook(filePath))
+            {
+                // Recorrer todos los alumnos (cada pestaña es un alumno)
+                foreach (var worksheet in workbook.Worksheets)
+                {
+                    var matricula = worksheet.Name;
+                    var nombreAlumno = worksheet.Cell(2, 2).GetString();
+
+                    int fila = 5; // Asume que las materias empiezan en la fila 5
+                    while (!string.IsNullOrWhiteSpace(worksheet.Cell(fila, 1).GetString()))
+                    {
+                        var materia = worksheet.Cell(fila, 1).GetString();
+                        var inscripcion = worksheet.Cell(fila, 3).GetString()?.ToLower();
+                        var examen = worksheet.Cell(fila, 4).GetString()?.ToLower();
+                        var estado = worksheet.Cell(fila, 5).GetString()?.ToLower();
+
+                        // Si la columna 6 está vacía, devuelve falso por defecto
+                        bool enRiesgo = false;
+                        bool.TryParse(worksheet.Cell(fila, 6).GetString(), out enRiesgo);
+
+                        int nivelRiesgo = 0;
+                        string mensajeAlerta = "";
+                        string badgeClass = "";
+
+                        // Reglas de negocio (Prioridad)
+                        if (inscripcion == "segunda" && examen == "ultima" && estado == "reprobada")
+                        {
+                            nivelRiesgo = 100;
+                            mensajeAlerta = "Candidato a Baja (Reprobó Última Op.)";
+                            badgeClass = "bg-danger";
+                        }
+                        else if (inscripcion == "segunda" && estado != "aprobada")
+                        {
+                            nivelRiesgo = 80;
+                            mensajeAlerta = "Cursando Segunda Inscripción";
+                            badgeClass = "bg-danger";
+                        }
+                        else if (enRiesgo)
+                        {
+                            nivelRiesgo = 60;
+                            mensajeAlerta = "Materia en Riesgo Manual";
+                            badgeClass = "bg-warning text-dark";
+                        }
+                        else if (estado == "reprobada" && inscripcion == "primera")
+                        {
+                            nivelRiesgo = 40;
+                            mensajeAlerta = $"Reprobada en 1ª Insc. ({examen})";
+                            badgeClass = "bg-warning text-dark";
+                        }
+
+                        if (nivelRiesgo > 0)
+                        {
+                            alertas.Add(new
+                            {
+                                matricula = matricula,
+                                nombre = nombreAlumno,
+                                materia = materia,
+                                mensaje = mensajeAlerta,
+                                badge = badgeClass,
+                                score = nivelRiesgo
+                            });
+                        }
+                        fila++;
+                    }
+                }
+            }
+
+            // Ordenar descendente (los puntajes más altos primero)
+            var alertasOrdenadas = alertas.OrderByDescending(a => (int)((dynamic)a).score).ToList();
+            return Json(new { success = true, data = alertasOrdenadas });
+        }
     }
 }

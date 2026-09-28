@@ -6,7 +6,9 @@ namespace PlaneaUV_Economia.Models
     {
         public string Matricula { get; set; }
         public string Nombre { get; set; }
-
+        public string Tutoria1 { get; set; }
+        public string Tutoria2 { get; set; }
+        public string Tutoria3 { get; set; }
         public List<MateriaCursada> Materias { get; set; } = new List<MateriaCursada>();
     }
 
