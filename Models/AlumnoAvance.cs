@@ -6,28 +6,24 @@ namespace PlaneaUV_Economia.Models
     {
         public string? Matricula { get; set; }
         public string? Nombre { get; set; }
-
-        // Sesión 1
-        public string? Tutoria1 { get; set; }
-        public string? FechaTutoria1 { get; set; }
-        public string? AsistenciaTutoria1 { get; set; }
-
-        // Sesión 2
-        public string? Tutoria2 { get; set; }
-        public string? FechaTutoria2 { get; set; }
-        public string? AsistenciaTutoria2 { get; set; }
-
-        // Sesión 3
-        public string? Tutoria3 { get; set; }
-        public string? FechaTutoria3 { get; set; }
-        public string? AsistenciaTutoria3 { get; set; }
-
+        public string? Situacion { get; set; }
+        public List<TutoriaRecord> Tutorias { get; set; } = new List<TutoriaRecord>();
         public List<MateriaCursada> Materias { get; set; } = new List<MateriaCursada>();
+    }
+
+    public class TutoriaRecord
+    {
+        public string? Periodo { get; set; }
+        public int Sesion { get; set; }
+        public string? Fecha { get; set; }
+        public string? Asistencia { get; set; }
+        public string? Comentarios { get; set; }
     }
 
     public class MateriaCursada
     {
         public string? Nombre { get; set; }
+        public string? Periodo { get; set; }
         public int Creditos { get; set; }
         public string? TipoInscripcion { get; set; }
         public string? UltimoExamen { get; set; }
