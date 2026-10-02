@@ -1,195 +1,428 @@
-﻿let tarjetaActual = null;
+﻿// Función global para sanitizar entradas y evitar inyección de código (XSS)
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag]));
+}
+
+let tarjetaActual = null;
 let modalBootstrapInstance = null;
 let modalInicioInstance = null;
 let modalTutoriasInstance = null;
 let modalReporteGlobalInstance = null;
 let huboCambios = false;
 
+// Variables Globales Históricas
+let tutoriasGlobal = [];
+
+// =========================================================
+// MAPEO DE ESTADOS
+// El <select> usa si/no, pero el historial, el Excel y el backend
+// siempre usan aprobada/reprobada/cursando/ninguno.
+// =========================================================
+function selectAEstado(v) {
+    return v === 'si' ? 'aprobada' : v === 'no' ? 'reprobada' : v;
+}
+function estadoASelect(e) {
+    return e === 'aprobada' ? 'si' : e === 'reprobada' ? 'no' : e;
+}
+
+// Helper para no repetir getElementById en cada línea
+function $(id) {
+    return document.getElementById(id);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
-    const modalInicioEl = document.getElementById('modalInicio');
-    if (modalInicioEl) {
-        modalInicioInstance = new bootstrap.Modal(modalInicioEl);
-        modalInicioInstance.show();
-    }
+    try {
+        const modalInicioEl = $('modalInicio');
+        if (modalInicioEl) {
+            modalInicioInstance = new bootstrap.Modal(modalInicioEl);
+            setTimeout(() => {
+                modalInicioInstance.show();
+            }, 150);
+        }
 
-    const modalTutEl = document.getElementById('modalTutorias');
-    if (modalTutEl) modalTutoriasInstance = new bootstrap.Modal(modalTutEl);
+        const modalTutEl = $('modalTutorias');
+        if (modalTutEl) {
+            modalTutoriasInstance = new bootstrap.Modal(modalTutEl);
+        }
 
-    const modalReporteEl = document.getElementById('modalReporteGlobal');
-    if (modalReporteEl) modalReporteGlobalInstance = new bootstrap.Modal(modalReporteEl);
+        const modalReporteEl = $('modalReporteGlobal');
+        if (modalReporteEl) {
+            modalReporteGlobalInstance = new bootstrap.Modal(modalReporteEl);
+        }
 
-    cargarListaAlumnosInicio();
-    cargarListaAlumnos();
-    cargarAlertas();
-    actualizarProgreso();
+        cargarListaAlumnosInicio();
+        cargarListaAlumnos();
+        cargarAlertas();
+        actualizarProgreso();
 
-    const modalEl = document.getElementById('modalAvance');
-    if (modalEl) modalBootstrapInstance = new bootstrap.Modal(modalEl);
+        const modalEl = $('modalAvance');
+        if (modalEl) {
+            modalBootstrapInstance = new bootstrap.Modal(modalEl);
+        }
 
-    const tarjetas = document.querySelectorAll('.materia-card');
+        const tarjetas = document.querySelectorAll('.materia-card');
 
-    tarjetas.forEach(tarjeta => {
-        tarjeta.addEventListener('click', function (e) {
-            if (this.classList.contains('estado-bloqueada')) {
-                const prereq = this.getAttribute('data-prerequisito');
-                alert(`Materia bloqueada. Debes aprobar primero su prerrequisito: "${prereq}".`);
-                return;
-            }
+        tarjetas.forEach(tarjeta => {
+            tarjeta.addEventListener('click', function (e) {
+                if (this.classList.contains('estado-bloqueada')) {
+                    alert(`Materia bloqueada. Debes aprobar primero: "${this.getAttribute('data-prerequisito')}".`);
+                    return;
+                }
 
-            tarjetaActual = this;
-            const nombre = this.getAttribute('data-nombre');
-            const creditos = this.getAttribute('data-creditos');
-            const esOptativa = this.classList.contains('bg-optativa');
+                tarjetaActual = this;
+                $('modalMateriaNombre').innerText = this.getAttribute('data-nombre');
+                $('modalMateriaCreditos').innerText = this.getAttribute('data-creditos') + ' Cr.';
 
-            document.getElementById('modalMateriaNombre').innerText = nombre;
-            document.getElementById('modalMateriaCreditos').innerText = creditos;
+                const divOptativa = $('divOptativa');
+                const inputOptativa = $('inputOptativa');
 
-            const divOptativa = document.getElementById('divOptativa');
-            const inputOptativa = document.getElementById('inputOptativa');
+                if (this.classList.contains('bg-optativa')) {
+                    if (divOptativa) divOptativa.classList.remove('d-none');
+                    if (inputOptativa) inputOptativa.value = this.getAttribute('data-nombre-personalizado') || '';
+                } else {
+                    if (divOptativa) divOptativa.classList.add('d-none');
+                }
 
-            if (esOptativa) {
-                divOptativa.classList.remove('d-none');
-                inputOptativa.value = this.getAttribute('data-nombre-personalizado') || '';
-            } else {
-                divOptativa.classList.add('d-none');
-            }
+                let historialJSON = this.getAttribute('data-historial');
+                let historialArray = historialJSON ? JSON.parse(historialJSON) : [];
+                let periodoSelect = $('selectPeriodoGlobal');
+                let periodoActual = periodoSelect ? periodoSelect.value : '';
 
-            const inscripcionPrevia = this.getAttribute('data-inscripcion') || 'primera';
-            const examenPrevio = this.getAttribute('data-examen') || 'ordinario';
-            const estadoPrevio = this.getAttribute('data-estado');
-            const riesgoPrevio = this.getAttribute('data-riesgo') === 'true';
-            const rezagoPrevio = this.getAttribute('data-rezago') === 'true';
+                let intentoActual = historialArray.find(x => x.Periodo === periodoActual);
+                let ultimoIntento = historialArray.length > 0 ? historialArray[historialArray.length - 1] : null;
+                let intentoAprobado = historialArray.find(x => x.Estado === 'aprobada');
 
-            document.getElementById('selectInscripcion').value = inscripcionPrevia;
-            actualizarOpcionesExamen(inscripcionPrevia);
-            document.getElementById('selectExamen').value = examenPrevio;
-            document.getElementById('checkRiesgo').checked = riesgoPrevio;
-            document.getElementById('checkRezago').checked = rezagoPrevio;
+                // Desbloquear controles
+                if ($('selectInscripcion')) $('selectInscripcion').disabled = false;
+                if ($('selectExamen')) $('selectExamen').disabled = false;
+                if ($('selectAprobacion')) $('selectAprobacion').disabled = false;
+                if ($('checkRiesgo')) $('checkRiesgo').disabled = false;
+                if ($('checkRezago')) $('checkRezago').disabled = false;
 
-            if (estadoPrevio === 'aprobada') {
-                document.getElementById('selectAprobacion').value = 'si';
-            } else if (estadoPrevio === 'reprobada') {
-                document.getElementById('selectAprobacion').value = 'no';
-            } else if (estadoPrevio === 'cursando') {
-                document.getElementById('selectAprobacion').value = 'cursando';
-            } else {
-                document.getElementById('selectAprobacion').value = 'ninguno';
-            }
+                let btnGuardar = document.querySelector('#modalAvance .modal-footer .btn-primary');
+                if (btnGuardar) btnGuardar.style.display = 'block';
 
-            evaluarLogicaInscripcion();
-            modalBootstrapInstance.show();
+                // =========================================================
+                // BLOQUEO: Aprobada en el pasado
+                // =========================================================
+                if (intentoAprobado && intentoAprobado.Periodo !== periodoActual) {
+                    let modalPerVinc = $('modalPeriodoVinculado');
+                    if (modalPerVinc) modalPerVinc.innerHTML = `<span class="badge bg-success">Aprobada en: ${escapeHTML(intentoAprobado.Periodo)}</span>`;
+
+                    if ($('selectInscripcion')) $('selectInscripcion').value = intentoAprobado.TipoInscripcion;
+                    actualizarOpcionesExamen(intentoAprobado.TipoInscripcion);
+
+                    if ($('selectExamen')) $('selectExamen').value = intentoAprobado.UltimoExamen;
+                    if ($('selectAprobacion')) $('selectAprobacion').value = 'si';
+                    if ($('checkRiesgo')) $('checkRiesgo').checked = intentoAprobado.EnRiesgo;
+                    if ($('checkRezago')) $('checkRezago').checked = intentoAprobado.EnRezago;
+
+                    // Bloqueos UI
+                    if ($('selectInscripcion')) $('selectInscripcion').disabled = true;
+                    if ($('selectExamen')) $('selectExamen').disabled = true;
+                    if ($('selectAprobacion')) $('selectAprobacion').disabled = true;
+                    if ($('checkRiesgo')) $('checkRiesgo').disabled = true;
+                    if ($('checkRezago')) $('checkRezago').disabled = true;
+                    if (btnGuardar) btnGuardar.style.display = 'none';
+
+                    let alerta = $('alertaEstatus');
+                    if (alerta) {
+                        alerta.className = 'alert alert-success mt-3 py-2 small';
+                        alerta.innerHTML = `<strong>Bloqueada.</strong> Materia acreditada en <strong>${escapeHTML(intentoAprobado.Periodo)}</strong>. Cambia a ese periodo para editarla.`;
+                        alerta.classList.remove('d-none');
+                    }
+
+                    renderizarHistorialUI(historialArray, true);
+                    if (modalBootstrapInstance) modalBootstrapInstance.show();
+                    return;
+                }
+
+                // =========================================================
+                // LÓGICA NORMAL
+                // =========================================================
+                let modalPerVinc = $('modalPeriodoVinculado');
+                if (modalPerVinc) modalPerVinc.innerText = 'Periodo a registrar: ' + periodoActual;
+
+                if (intentoActual) {
+                    if ($('selectInscripcion')) $('selectInscripcion').value = intentoActual.TipoInscripcion;
+                    actualizarOpcionesExamen(intentoActual.TipoInscripcion);
+                    if ($('selectExamen')) $('selectExamen').value = intentoActual.UltimoExamen;
+                    // Convierte aprobada/reprobada -> si/no para el select
+                    if ($('selectAprobacion')) $('selectAprobacion').value = estadoASelect(intentoActual.Estado);
+                    if ($('checkRiesgo')) $('checkRiesgo').checked = intentoActual.EnRiesgo;
+                    if ($('checkRezago')) $('checkRezago').checked = intentoActual.EnRezago;
+                } else if (ultimoIntento) {
+                    if ($('selectInscripcion')) $('selectInscripcion').value = ultimoIntento.TipoInscripcion;
+                    actualizarOpcionesExamen(ultimoIntento.TipoInscripcion);
+                    if ($('selectExamen')) $('selectExamen').value = ultimoIntento.UltimoExamen;
+                    if ($('selectAprobacion')) $('selectAprobacion').value = 'ninguno';
+                    if ($('checkRiesgo')) $('checkRiesgo').checked = ultimoIntento.EnRiesgo;
+                    if ($('checkRezago')) $('checkRezago').checked = ultimoIntento.EnRezago;
+                } else {
+                    if ($('selectInscripcion')) $('selectInscripcion').value = 'primera';
+                    actualizarOpcionesExamen('primera');
+                    if ($('selectExamen')) $('selectExamen').value = 'ordinario';
+                    if ($('selectAprobacion')) $('selectAprobacion').value = 'ninguno';
+                    if ($('checkRiesgo')) $('checkRiesgo').checked = false;
+                    if ($('checkRezago')) $('checkRezago').checked = false;
+                }
+
+                evaluarLogicaInscripcion();
+                renderizarHistorialUI(historialArray, false);
+                if (modalBootstrapInstance) modalBootstrapInstance.show();
+            });
         });
-    });
 
-    document.getElementById('selectInscripcion').addEventListener('change', function () {
-        actualizarOpcionesExamen(this.value);
-        document.getElementById('selectAprobacion').value = 'ninguno';
-        evaluarLogicaInscripcion();
-    });
+        const selInsc = $('selectInscripcion');
+        if (selInsc) {
+            selInsc.addEventListener('change', function () {
+                actualizarOpcionesExamen(this.value);
+                $('selectAprobacion').value = 'ninguno';
+                evaluarLogicaInscripcion();
+            });
+        }
 
-    document.getElementById('selectExamen').addEventListener('change', evaluarLogicaInscripcion);
-    document.getElementById('selectAprobacion').addEventListener('change', evaluarLogicaInscripcion);
+        const selExamen = $('selectExamen');
+        if (selExamen) {
+            selExamen.addEventListener('change', evaluarLogicaInscripcion);
+        }
+
+        const selAprob = $('selectAprobacion');
+        if (selAprob) {
+            selAprob.addEventListener('change', evaluarLogicaInscripcion);
+        }
+
+        const selPeriodo = $('selectPeriodoGlobal');
+        if (selPeriodo) {
+            selPeriodo.addEventListener('change', () => {
+                cargarTutoriasALaVista();
+                marcarCambios();
+            });
+        }
+
+    } catch (err) {
+        console.error("Error iniciando script:", err);
+    }
 });
 
-function abrirModalTutorias() {
-    var matricula = document.getElementById('inputMatricula').value.trim();
-    if (!matricula) {
-        alert("Por favor selecciona un alumno primero.");
+function limpiarEstadoMateria() {
+    if (!tarjetaActual) return;
+
+    let historialJSON = tarjetaActual.getAttribute('data-historial');
+    let historialArray = historialJSON ? JSON.parse(historialJSON) : [];
+    let intentoAprobado = historialArray.find(x => x.Estado === 'aprobada');
+
+    let selPeriodo = $('selectPeriodoGlobal');
+    let periodoActual = selPeriodo ? selPeriodo.value : '';
+
+    if (intentoAprobado && intentoAprobado.Periodo !== periodoActual) {
+        if (!confirm(`Esta materia fue aprobada en ${intentoAprobado.Periodo}. ¿Seguro que deseas borrarla?`)) return;
+    } else {
+        if (!confirm("¿Seguro que deseas reiniciar esta materia? Se borrará TODO el historial.")) return;
+    }
+
+    tarjetaActual.removeAttribute('data-historial');
+
+    if ($('selectInscripcion')) $('selectInscripcion').disabled = false;
+    if ($('selectExamen')) $('selectExamen').disabled = false;
+    if ($('selectAprobacion')) $('selectAprobacion').disabled = false;
+    if ($('checkRiesgo')) $('checkRiesgo').disabled = false;
+    if ($('checkRezago')) $('checkRezago').disabled = false;
+
+    let btnGuardar = document.querySelector('#modalAvance .modal-footer .btn-primary');
+    if (btnGuardar) btnGuardar.style.display = 'block';
+
+    if ($('selectInscripcion')) $('selectInscripcion').value = 'primera';
+    actualizarOpcionesExamen('primera');
+
+    if ($('selectExamen')) $('selectExamen').value = 'ordinario';
+    if ($('selectAprobacion')) $('selectAprobacion').value = 'ninguno';
+    if ($('checkRiesgo')) $('checkRiesgo').checked = false;
+    if ($('checkRezago')) $('checkRezago').checked = false;
+
+    evaluarLogicaInscripcion();
+    renderizarHistorialUI([], false);
+    actualizarTarjetaVisual(tarjetaActual, []);
+    huboCambios = true;
+    actualizarProgreso();
+}
+
+function renderizarHistorialUI(historialArray, isLocked) {
+    const ul = $('listaHistorialIntentos');
+    if (!ul) return;
+
+    ul.innerHTML = '';
+
+    if (historialArray.length === 0) {
+        ul.innerHTML = '<li class="list-group-item text-center text-muted">No hay intentos registrados.</li>';
+    } else {
+        historialArray.forEach(intento => {
+            let badge = '';
+            if (intento.Estado === 'aprobada') badge = 'bg-success';
+            else if (intento.Estado === 'reprobada') badge = 'bg-danger';
+            else badge = 'bg-info text-dark';
+
+            let txtInsc = intento.TipoInscripcion === 'primera' ? '1ra Insc.' : '2da Insc.';
+
+            ul.innerHTML += `
+                <li class="list-group-item d-flex justify-content-between align-items-center bg-light">
+                    <div>
+                        <strong>${txtInsc} - ${escapeHTML((intento.UltimoExamen || '').toUpperCase())}</strong><br/>
+                        <small class="text-muted"><i class="bi bi-calendar-event"></i> ${escapeHTML(intento.Periodo)}</small>
+                    </div>
+                    <span class="badge ${badge} fs-6">${escapeHTML((intento.Estado || '').toUpperCase())}</span>
+                </li>
+            `;
+        });
+    }
+
+    const btnSiguiente = $('btnSiguienteOp');
+    if (!btnSiguiente) return;
+
+    if (isLocked) {
+        btnSiguiente.classList.add('d-none');
         return;
     }
-    modalTutoriasInstance.show();
+
+    let periodoSelect = $('selectPeriodoGlobal');
+    let periodoActual = periodoSelect ? periodoSelect.value : '';
+    let ultimoIntento = historialArray.length > 0 ? historialArray[historialArray.length - 1] : null;
+    let tieneIntentoEstePeriodo = historialArray.some(x => x.Periodo === periodoActual);
+
+    if (ultimoIntento && ultimoIntento.Estado === 'reprobada' && !tieneIntentoEstePeriodo) {
+        btnSiguiente.classList.remove('d-none');
+    } else {
+        btnSiguiente.classList.add('d-none');
+    }
+}
+
+function prepararSiguienteOportunidad() {
+    let historialJSON = tarjetaActual.getAttribute('data-historial');
+    let historialArray = historialJSON ? JSON.parse(historialJSON) : [];
+    let ultimo = historialArray[historialArray.length - 1];
+
+    if (!ultimo) return;
+
+    let nextInsc = ultimo.TipoInscripcion;
+    let nextExam = 'ordinario';
+
+    if (ultimo.TipoInscripcion === 'primera') {
+        if (ultimo.UltimoExamen === 'ordinario') nextExam = 'extraordinario';
+        else if (ultimo.UltimoExamen === 'extraordinario') nextExam = 'titulo';
+        else if (ultimo.UltimoExamen === 'titulo') {
+            nextInsc = 'segunda';
+            nextExam = 'ordinario';
+        }
+    } else if (ultimo.TipoInscripcion === 'segunda') {
+        if (ultimo.UltimoExamen === 'ordinario') nextExam = 'extraordinario';
+        else if (ultimo.UltimoExamen === 'extraordinario') nextExam = 'ultima';
+        else if (ultimo.UltimoExamen === 'ultima') {
+            alert('Ya agotó sus oportunidades. Candidato a baja.');
+            return;
+        }
+    }
+
+    if ($('selectInscripcion')) {
+        $('selectInscripcion').value = nextInsc;
+    }
+    actualizarOpcionesExamen(nextInsc);
+
+    if ($('selectExamen')) {
+        $('selectExamen').value = nextExam;
+    }
+    if ($('selectAprobacion')) {
+        $('selectAprobacion').value = 'ninguno';
+    }
+    evaluarLogicaInscripcion();
+}
+
+function abrirModalTutorias() {
+    let inputMat = $('inputMatricula');
+    if (!inputMat || !inputMat.value.trim()) {
+        alert("Selecciona un alumno primero.");
+        return;
+    }
+    cargarTutoriasALaVista();
+    if (modalTutoriasInstance) modalTutoriasInstance.show();
 }
 
 function marcarCambios() {
     huboCambios = true;
 }
 
+function guardarTutoriasEnMemoria() {
+    let selP = $('selectPeriodoGlobal');
+    let periodoActual = selP ? selP.value : '';
+    tutoriasGlobal = tutoriasGlobal.filter(t => t.Periodo !== periodoActual);
 
-function actualizarProgreso() {
-    let creditosTotales = 0;
-    let creditosAprobados = 0;
-    let materiasEnRiesgo = 0;
-    let materiasEnCurso = 0;
-
-    document.querySelectorAll('.materia-card').forEach(t => {
-        let cr = parseInt(t.getAttribute('data-creditos')) || 0;
-        creditosTotales += cr;
-
-        const estado = t.getAttribute('data-estado');
-        if (estado === 'aprobada') {
-            creditosAprobados += cr;
-        } else if (estado === 'cursando') {
-            materiasEnCurso++;
-        }
-
-        if (t.getAttribute('data-riesgo') === 'true') {
-            materiasEnRiesgo++;
-        }
-    });
-
-    let porcentaje = creditosTotales === 0 ? 0 : Math.round((creditosAprobados / 441) * 100);
-
-    document.getElementById('textoPorcentaje').innerText = porcentaje + '%';
-    document.getElementById('textoCreditos').innerText = creditosAprobados + ' / 441 Cr.';
-    document.getElementById('graficaAvance').style.background = `conic-gradient(#28a745 ${porcentaje}%, #e9ecef ${porcentaje}%)`;
-
-    document.getElementById('textoRiesgo').innerText = materiasEnRiesgo;
-    document.getElementById('textoCurso').innerText = materiasEnCurso;
-
-    document.querySelectorAll('.materia-card[data-prerequisito]').forEach(tarjeta => {
-        const prereqAttr = tarjeta.getAttribute('data-prerequisito');
-        const prereqs = prereqAttr.split(',').map(p => p.trim());
-        let todasAprobadas = true;
-
-        prereqs.forEach(prereq => {
-            const tarjetaPrereq = Array.from(document.querySelectorAll('.materia-card')).find(t =>
-                t.getAttribute('data-nombre') === prereq ||
-                t.getAttribute('data-nombre-personalizado') === prereq
-            );
-            if (tarjetaPrereq && tarjetaPrereq.getAttribute('data-estado') !== 'aprobada') {
-                todasAprobadas = false;
-            }
+    for (let n = 1; n <= 3; n++) {
+        tutoriasGlobal.push({
+            Periodo: periodoActual,
+            Sesion: n,
+            Fecha: $('fechaTutoria' + n) ? $('fechaTutoria' + n).value : '',
+            Asistencia: $('asistenciaTutoria' + n) ? $('asistenciaTutoria' + n).value : 'pendiente',
+            Comentarios: $('tutoria' + n) ? $('tutoria' + n).value : ''
         });
+    }
+}
 
-        const spanTexto = tarjeta.querySelector('.prerequisito-text');
+function cargarTutoriasALaVista() {
+    let selectP = $('selectPeriodoGlobal');
+    let periodoActual = selectP ? selectP.value : '';
+    let tuts = tutoriasGlobal.filter(t => t.Periodo === periodoActual);
 
-        if (todasAprobadas) {
-            if (spanTexto) spanTexto.style.display = 'none';
-            tarjeta.classList.remove('estado-bloqueada');
-        } else {
-            if (spanTexto) spanTexto.style.display = 'block';
-            tarjeta.classList.add('estado-bloqueada');
-        }
-    });
+    for (let n = 1; n <= 3; n++) {
+        let t = tuts.find(x => x.Sesion === n);
+        if ($('fechaTutoria' + n)) $('fechaTutoria' + n).value = t ? t.Fecha : '';
+        if ($('asistenciaTutoria' + n)) $('asistenciaTutoria' + n).value = t ? t.Asistencia : 'pendiente';
+        if ($('tutoria' + n)) $('tutoria' + n).value = t ? t.Comentarios : '';
+    }
 }
 
 function actualizarOpcionesExamen(tipoInscripcion) {
-    const selectExamen = document.getElementById('selectExamen');
-    selectExamen.innerHTML = '';
-    const opcionesPrimera = [
-        { val: 'ordinario', text: 'Examen Ordinario' },
-        { val: 'extraordinario', text: 'Examen Extraordinario' },
-        { val: 'titulo', text: 'Examen a Título de Suficiencia' }
-    ];
-    const opcionesSegunda = [
-        { val: 'ordinario', text: 'Examen Ordinario' },
-        { val: 'extraordinario', text: 'Examen Extraordinario' },
-        { val: 'ultima', text: 'Examen de Última Oportunidad' }
-    ];
-    const opcionesMapear = (tipoInscripcion === 'primera') ? opcionesPrimera : opcionesSegunda;
-    opcionesMapear.forEach(opc => {
-        let nuevaOpcion = new Option(opc.text, opc.val);
-        selectExamen.add(nuevaOpcion);
+    const sel = $('selectExamen');
+    if (!sel) return;
+
+    sel.innerHTML = '';
+
+    let opts = [];
+    if (tipoInscripcion === 'primera') {
+        opts = [
+            { v: 'ordinario', t: 'Examen Ordinario' },
+            { v: 'extraordinario', t: 'Examen Extraordinario' },
+            { v: 'titulo', t: 'Examen a Título' }
+        ];
+    } else {
+        opts = [
+            { v: 'ordinario', t: 'Examen Ordinario' },
+            { v: 'extraordinario', t: 'Examen Extraordinario' },
+            { v: 'ultima', t: 'Última Oportunidad' }
+        ];
+    }
+
+    opts.forEach(o => {
+        sel.add(new Option(o.t, o.v));
     });
 }
 
 function evaluarLogicaInscripcion() {
-    var inscripcion = document.getElementById('selectInscripcion').value;
-    var examen = document.getElementById('selectExamen').value;
-    var aprobacion = document.getElementById('selectAprobacion').value;
-    var alerta = document.getElementById('alertaEstatus');
+    var selInsc = $('selectInscripcion');
+    var selExam = $('selectExamen');
+    var selAprob = $('selectAprobacion');
 
-    alerta.className = 'alert mt-3';
+    if (!selInsc || !selExam || !selAprob) return;
+
+    var inscripcion = selInsc.value;
+    var examen = selExam.value;
+    var aprobacion = selAprob.value;
+    var alerta = $('alertaEstatus');
+
+    if (!alerta) return;
+
+    alerta.className = 'alert mt-3 py-2 small';
 
     if (aprobacion === 'ninguno') {
         alerta.classList.add('d-none');
@@ -200,13 +433,13 @@ function evaluarLogicaInscripcion() {
 
     if (aprobacion === 'cursando') {
         alerta.classList.add('alert-info');
-        alerta.innerHTML = `<strong>Semestre en curso.</strong> Pendiente de calificación final.`;
+        alerta.innerHTML = `<strong>En curso.</strong> Pendiente de calificar.`;
         return;
     }
 
     if (aprobacion === 'si') {
         alerta.classList.add('alert-success');
-        alerta.innerHTML = `<strong>Materia Aprobada!</strong>`;
+        alerta.innerHTML = `<strong>¡Materia Aprobada!</strong>`;
         return;
     }
 
@@ -214,21 +447,21 @@ function evaluarLogicaInscripcion() {
         if (inscripcion === 'primera') {
             if (examen === 'ordinario') {
                 alerta.classList.add('alert-warning');
-                alerta.innerHTML = 'Reprobó Ordinario. <strong>Debe presentar Extraordinario.</strong>';
+                alerta.innerHTML = 'Reprobó Ordinario. <strong>Sigue Extra.</strong>';
             } else if (examen === 'extraordinario') {
                 alerta.classList.add('alert-warning');
-                alerta.innerHTML = 'Reprobó Extraordinario. <strong>Debe presentar Título.</strong>';
+                alerta.innerHTML = 'Reprobó Extra. <strong>Sigue Título.</strong>';
             } else if (examen === 'titulo') {
                 alerta.classList.add('alert-danger');
-                alerta.innerHTML = 'Reprobó Título. <strong>Pasa a Segunda Inscripción.</strong>';
+                alerta.innerHTML = 'Reprobó Título. <strong>Pasa a 2da Inscripción.</strong>';
             }
-        } else if (inscripcion === 'segunda') {
+        } else {
             if (examen === 'ordinario') {
                 alerta.classList.add('alert-warning');
-                alerta.innerHTML = 'Reprobó Ordinario de 2da. <strong>Debe presentar Extraordinario.</strong>';
+                alerta.innerHTML = 'Reprobó Ord. de 2da. <strong>Sigue Extra.</strong>';
             } else if (examen === 'extraordinario') {
                 alerta.classList.add('alert-warning');
-                alerta.innerHTML = 'Reprobó Extra de 2da. <strong>Debe presentar Última Oportunidad.</strong>';
+                alerta.innerHTML = 'Reprobó Extra de 2da. <strong>Sigue Última Op.</strong>';
             } else if (examen === 'ultima') {
                 alerta.classList.add('alert-danger');
                 alerta.innerHTML = '<strong>CANDIDATO A BAJA.</strong> Reprobó Última Oportunidad.';
@@ -238,104 +471,206 @@ function evaluarLogicaInscripcion() {
 }
 
 function guardarAvance() {
-    if (tarjetaActual && tarjetaActual.classList.contains('bg-optativa')) {
-        const nuevoNombre = document.getElementById('inputOptativa').value.trim();
-        if (nuevoNombre) {
-            tarjetaActual.setAttribute('data-nombre-personalizado', nuevoNombre);
-            tarjetaActual.setAttribute('data-nombre', nuevoNombre);
+    let nuevoNombre = tarjetaActual.getAttribute('data-nombre');
+
+    if (tarjetaActual.classList.contains('bg-optativa')) {
+        let inputOp = $('inputOptativa');
+        // Se guarda el texto tal cual; el escape se hace al renderizar
+        let ipt = inputOp ? inputOp.value.trim() : '';
+        if (ipt) {
+            tarjetaActual.setAttribute('data-nombre-personalizado', ipt);
+            nuevoNombre = ipt;
+        } else {
+            tarjetaActual.removeAttribute('data-nombre-personalizado');
         }
     }
 
-    var inscripcion = document.getElementById('selectInscripcion').value;
-    var examen = document.getElementById('selectExamen').value;
-    var aprobacion = document.getElementById('selectAprobacion').value;
-    var enRiesgo = document.getElementById('checkRiesgo').checked;
-    var enRezago = document.getElementById('checkRezago').checked;
+    let selAprob = $('selectAprobacion');
+    var aprobacion = selAprob ? selAprob.value : 'ninguno';
+
+    var chkR = $('checkRiesgo');
+    var chkZ = $('checkRezago');
+    var enRiesgo = chkR ? chkR.checked : false;
+    var enRezago = chkZ ? chkZ.checked : false;
 
     if (aprobacion === 'ninguno' && !enRiesgo && !enRezago) {
-        alert("Por favor seleccione el estado de la materia o marque riesgo/rezago.");
+        alert("Seleccione un estado o marque riesgo/rezago.");
         return;
     }
 
-    tarjetaActual.classList.remove('estado-aprobada', 'estado-reprobada', 'estado-cursando');
+    let historialJSON = tarjetaActual.getAttribute('data-historial');
+    let historialArray = historialJSON ? JSON.parse(historialJSON) : [];
 
-    if (aprobacion === "si") {
-        tarjetaActual.classList.add('estado-aprobada');
-        tarjetaActual.setAttribute('data-estado', 'aprobada');
-        enRiesgo = false;
-        enRezago = false;
-    } else if (aprobacion === "no") {
-        tarjetaActual.classList.add('estado-reprobada');
-        tarjetaActual.setAttribute('data-estado', 'reprobada');
-    } else if (aprobacion === "cursando") {
-        tarjetaActual.classList.add('estado-cursando');
-        tarjetaActual.setAttribute('data-estado', 'cursando');
+    let selPeriodo = $('selectPeriodoGlobal');
+    let periodoActual = selPeriodo ? selPeriodo.value : '';
+
+    let intentoAprobado = historialArray.find(x => x.Estado === 'aprobada');
+    if (intentoAprobado && intentoAprobado.Periodo !== periodoActual) {
+        alert("No se puede modificar: La materia ya fue aprobada en otro periodo.");
+        return;
     }
 
-    if (enRiesgo) tarjetaActual.setAttribute('data-riesgo', 'true');
-    else tarjetaActual.removeAttribute('data-riesgo');
+    let index = historialArray.findIndex(x => x.Periodo === periodoActual);
+    let selInsc = $('selectInscripcion');
+    let selExam = $('selectExamen');
 
-    if (enRezago) tarjetaActual.setAttribute('data-rezago', 'true');
-    else tarjetaActual.removeAttribute('data-rezago');
+    let valInsc = selInsc ? selInsc.value : 'primera';
+    let valExam = selExam ? selExam.value : 'ordinario';
+    let estadoGuardar = selectAEstado(aprobacion);
 
-    tarjetaActual.setAttribute('data-inscripcion', inscripcion);
-    tarjetaActual.setAttribute('data-examen', examen);
-
-    const nombreActual = tarjetaActual.getAttribute('data-nombre-personalizado') || tarjetaActual.getAttribute('data-nombre');
-    const creditosActual = tarjetaActual.getAttribute('data-creditos');
-
-    const prereqSpan = tarjetaActual.querySelector('.prerequisito-text');
-    let htmlContenido = `<strong>${nombreActual}</strong><br/>(${creditosActual} Cr.)`;
-
-    if (aprobacion !== 'ninguno') {
-        const textoInscripcionCorto = (inscripcion === 'primera') ? '1ª Insc.' : '2ª Insc.';
-        const textosExamenes = { 'ordinario': 'Ord.', 'extraordinario': 'Ext.', 'titulo': 'Título', 'ultima': 'Últ. Op.' };
-        let textoExamenCorto = textosExamenes[examen] || examen;
-        if (aprobacion === 'cursando') textoExamenCorto = 'En Curso';
-
-        htmlContenido += `<div class="badge-info-materia">${textoInscripcionCorto} • ${textoExamenCorto}</div>`;
+    if (index === -1) {
+        historialArray.push({
+            Nombre: nuevoNombre,
+            Periodo: periodoActual,
+            Creditos: parseInt(tarjetaActual.getAttribute('data-creditos')),
+            TipoInscripcion: valInsc,
+            UltimoExamen: valExam,
+            Estado: estadoGuardar,
+            EnRiesgo: enRiesgo,
+            EnRezago: enRezago
+        });
+    } else {
+        historialArray[index].Nombre = nuevoNombre;
+        historialArray[index].TipoInscripcion = valInsc;
+        historialArray[index].UltimoExamen = valExam;
+        historialArray[index].Estado = estadoGuardar;
+        historialArray[index].EnRiesgo = enRiesgo;
+        historialArray[index].EnRezago = enRezago;
     }
 
-    if (prereqSpan) htmlContenido += `<span class="prerequisito-text">${prereqSpan.innerHTML}</span>`;
+    tarjetaActual.setAttribute('data-historial', JSON.stringify(historialArray));
+    actualizarTarjetaVisual(tarjetaActual, historialArray);
 
-    if (aprobacion === "si") {
-        htmlContenido += `<div class="badge bg-success text-white mt-1 shadow-sm" style="font-size:0.65rem; width:100%">APROBADA</div>`;
-    }
-    if (enRiesgo) {
-        htmlContenido += `<div class="badge bg-warning text-dark mt-1 shadow-sm" style="font-size:0.65rem; width:100%">EN RIESGO</div>`;
-    }
-    if (enRezago) {
-        htmlContenido += `<div class="badge bg-secondary text-white mt-1 shadow-sm" style="font-size:0.65rem; width:100%">EN REZAGO</div>`;
-    }
-
-    tarjetaActual.innerHTML = htmlContenido;
-    modalBootstrapInstance.hide();
-
+    if (modalBootstrapInstance) modalBootstrapInstance.hide();
     huboCambios = true;
     actualizarProgreso();
 }
 
+function actualizarTarjetaVisual(tarjeta, historialArray) {
+    tarjeta.classList.remove('estado-aprobada', 'estado-reprobada', 'estado-cursando');
+    const nombreActual = tarjeta.getAttribute('data-nombre-personalizado') || tarjeta.getAttribute('data-nombre');
+    const creditosActual = tarjeta.getAttribute('data-creditos');
+    const prereqSpan = tarjeta.querySelector('.prerequisito-text');
+
+    let htmlContenido = `<strong>${escapeHTML(nombreActual)}</strong><br/>(${creditosActual} Cr.)`;
+    if (prereqSpan) {
+        htmlContenido += `<span class="prerequisito-text">${prereqSpan.innerHTML}</span>`;
+    }
+
+    if (historialArray.length === 0) {
+        // Limpia atributos de estado para que no queden datos viejos
+        tarjeta.removeAttribute('data-estado');
+        tarjeta.removeAttribute('data-riesgo');
+        tarjeta.removeAttribute('data-rezago');
+        tarjeta.innerHTML = htmlContenido;
+        return;
+    }
+
+    let last = historialArray[historialArray.length - 1];
+
+    if (last.Estado && last.Estado !== 'ninguno') {
+        tarjeta.setAttribute('data-estado', last.Estado);
+
+        if (last.Estado === "aprobada") tarjeta.classList.add('estado-aprobada');
+        else if (last.Estado === "reprobada") tarjeta.classList.add('estado-reprobada');
+        else if (last.Estado === "cursando") tarjeta.classList.add('estado-cursando');
+
+        let txInsc = last.TipoInscripcion === 'primera' ? '1ª Insc.' : '2ª Insc.';
+        let ex = last.UltimoExamen;
+        let txExm = ex === 'ordinario' ? 'Ord.' : ex === 'extraordinario' ? 'Ext.' : ex === 'titulo' ? 'Título' : ex === 'ultima' ? 'Últ. Op.' : '';
+
+        if (last.Estado === 'cursando') {
+            txExm = 'En Curso';
+        }
+
+        htmlContenido += `<div class="badge-info-materia">${txInsc} • ${txExm}<br/><span style="font-size: 0.60rem; opacity: 0.85;">${escapeHTML(last.Periodo)}</span></div>`;
+
+        if (last.Estado === "aprobada") {
+            htmlContenido += `<div class="badge bg-success text-white mt-1 shadow-sm" style="font-size:0.65rem; width:100%">APROBADA</div>`;
+        }
+    } else {
+        tarjeta.removeAttribute('data-estado');
+    }
+
+    tarjeta.setAttribute('data-riesgo', last.EnRiesgo);
+    tarjeta.setAttribute('data-rezago', last.EnRezago);
+
+    if (last.EnRiesgo) {
+        htmlContenido += `<div class="badge bg-warning text-dark mt-1 shadow-sm" style="font-size:0.65rem; width:100%">EN RIESGO</div>`;
+    }
+    if (last.EnRezago) {
+        htmlContenido += `<div class="badge bg-secondary text-white mt-1 shadow-sm" style="font-size:0.65rem; width:100%">EN REZAGO</div>`;
+    }
+
+    tarjeta.innerHTML = htmlContenido;
+}
+
+function actualizarProgreso() {
+    let creditosAprobados = 0;
+    let materiasEnRiesgo = 0;
+    let materiasEnCurso = 0;
+
+    document.querySelectorAll('.materia-card').forEach(t => {
+        const estado = t.getAttribute('data-estado');
+        if (estado === 'aprobada') creditosAprobados += parseInt(t.getAttribute('data-creditos')) || 0;
+        else if (estado === 'cursando') materiasEnCurso++;
+
+        if (t.getAttribute('data-riesgo') === 'true') materiasEnRiesgo++;
+    });
+
+    let porcentaje = Math.round((creditosAprobados / 441) * 100);
+
+    let txtPorc = $('textoPorcentaje');
+    if (txtPorc) txtPorc.innerText = porcentaje + '%';
+
+    let txtCred = $('textoCreditos');
+    if (txtCred) txtCred.innerText = creditosAprobados + ' / 441 Cr.';
+
+    let grAv = $('graficaAvance');
+    if (grAv) grAv.style.background = `conic-gradient(#28a745 ${porcentaje}%, #e9ecef ${porcentaje}%)`;
+
+    let txRiesgo = $('textoRiesgo');
+    if (txRiesgo) txRiesgo.innerText = materiasEnRiesgo;
+
+    let txCurso = $('textoCurso');
+    if (txCurso) txCurso.innerText = materiasEnCurso;
+
+    document.querySelectorAll('.materia-card[data-prerequisito]').forEach(tarjeta => {
+        let todasAprobadas = true;
+
+        tarjeta.getAttribute('data-prerequisito').split(',').map(p => p.trim()).forEach(prereq => {
+            const tPrereq = Array.from(document.querySelectorAll('.materia-card')).find(x => x.getAttribute('data-nombre') === prereq || x.getAttribute('data-nombre-personalizado') === prereq);
+            if (tPrereq && tPrereq.getAttribute('data-estado') !== 'aprobada') {
+                todasAprobadas = false;
+            }
+        });
+
+        const s = tarjeta.querySelector('.prerequisito-text');
+        if (todasAprobadas) {
+            if (s) s.style.display = 'none';
+            tarjeta.classList.remove('estado-bloqueada');
+        } else {
+            if (s) s.style.display = 'block';
+            tarjeta.classList.add('estado-bloqueada');
+        }
+    });
+}
+
 function puedeCambiarDeContexto() {
     if (huboCambios) {
-        return confirm("Tienes calificaciones o tutorías sin guardar. Si cambias de alumno ahora, perderás ese avance. ¿Deseas continuar sin guardar?");
+        return confirm("Tienes cambios sin guardar. Si cambias de alumno perderás ese avance. ¿Continuar?");
     }
     return true;
 }
 
-function filtrarAlumnosModal() {
-    const texto = document.getElementById('inputBuscarAlumnoModal').value.toLowerCase();
-    const botones = document.querySelectorAll('#listaAlumnosModal button');
-    botones.forEach(btn => {
-        if (btn.innerText.toLowerCase().includes(texto)) btn.style.display = 'block';
-        else btn.style.display = 'none';
-    });
-}
-
 function buscarAlumno(materiaAResaltar = null) {
-    var matricula = document.getElementById('inputMatricula').value.trim();
+    let inputMat = $('inputMatricula');
+    if (!inputMat) return;
+
+    var matricula = inputMat.value.trim();
     if (!matricula) return;
 
-    fetch(`/Home/BuscarAlumnoExcel?matricula=${matricula}`)
+    fetch(`/Home/BuscarAlumnoExcel?matricula=${encodeURIComponent(matricula)}`)
         .then(response => response.json())
         .then(res => {
             if (!res.success) {
@@ -343,96 +678,69 @@ function buscarAlumno(materiaAResaltar = null) {
                 return;
             }
 
-            document.getElementById('inputNombreAlumno').value = res.data.nombre;
+            if ($('inputNombreAlumno')) {
+                $('inputNombreAlumno').value = res.data.nombre;
+            }
+            if ($('selectSituacionAlumno')) {
+                $('selectSituacionAlumno').value = res.data.situacion || 'Activo';
+            }
 
-            document.getElementById('tutoria1').value = res.data.tutoria1 || '';
-            document.getElementById('fechaTutoria1').value = res.data.fechaTutoria1 || '';
-            document.getElementById('asistenciaTutoria1').value = res.data.asistenciaTutoria1 || 'pendiente';
+            tutoriasGlobal = (res.data.tutorias || []).map(t => ({
+                Periodo: t.periodo,
+                Sesion: t.sesion,
+                Fecha: t.fecha,
+                Asistencia: t.asistencia,
+                Comentarios: t.comentarios
+            }));
 
-            document.getElementById('tutoria2').value = res.data.tutoria2 || '';
-            document.getElementById('fechaTutoria2').value = res.data.fechaTutoria2 || '';
-            document.getElementById('asistenciaTutoria2').value = res.data.asistenciaTutoria2 || 'pendiente';
+            cargarTutoriasALaVista();
 
-            document.getElementById('tutoria3').value = res.data.tutoria3 || '';
-            document.getElementById('fechaTutoria3').value = res.data.fechaTutoria3 || '';
-            document.getElementById('asistenciaTutoria3').value = res.data.asistenciaTutoria3 || 'pendiente';
-
-            document.querySelectorAll('.materia-card').forEach(t => {
-                t.classList.remove('estado-aprobada', 'estado-reprobada', 'estado-cursando', 'resaltado-alerta', 'estado-bloqueada');
-                t.removeAttribute('data-estado');
-                t.removeAttribute('data-inscripcion');
-                t.removeAttribute('data-examen');
-                t.removeAttribute('data-riesgo');
-                t.removeAttribute('data-rezago');
-
-                const baseName = t.getAttribute('data-nombre');
-                const creds = t.getAttribute('data-creditos');
-                const prereqSpan = t.querySelector('.prerequisito-text');
-
-                if (t.classList.contains('bg-optativa')) {
-                    t.removeAttribute('data-nombre-personalizado');
-                    t.setAttribute('data-nombre', 'Optativa');
-                    t.innerHTML = `<strong>Optativa</strong><br/>(${creds} Cr.)`;
-                } else {
-                    let htmlContenido = `<strong>${baseName}</strong><br/>(${creds} Cr.)`;
-                    if (prereqSpan) htmlContenido += `<span class="prerequisito-text">${prereqSpan.innerHTML}</span>`;
-                    t.innerHTML = htmlContenido;
+            let materiasAgrupadas = {};
+            res.data.materias.forEach(m => {
+                let matParseada = {
+                    Nombre: m.nombre,
+                    Periodo: m.periodo,
+                    Creditos: m.creditos,
+                    TipoInscripcion: m.tipoInscripcion,
+                    UltimoExamen: m.ultimoExamen,
+                    // Normaliza datos viejos (si/no) a aprobada/reprobada
+                    Estado: selectAEstado(m.estado),
+                    EnRiesgo: m.enRiesgo,
+                    EnRezago: m.enRezago
+                };
+                if (!materiasAgrupadas[matParseada.Nombre]) {
+                    materiasAgrupadas[matParseada.Nombre] = [];
                 }
+                materiasAgrupadas[matParseada.Nombre].push(matParseada);
             });
 
-            res.data.materias.forEach(mat => {
-                let tarjeta = Array.from(document.querySelectorAll('.materia-card')).find(t =>
-                    t.getAttribute('data-nombre') === mat.nombre ||
-                    t.getAttribute('data-nombre-personalizado') === mat.nombre
-                );
+            document.querySelectorAll('.materia-card').forEach(t => {
+                let baseName = t.getAttribute('data-nombre');
+                let historialArray = materiasAgrupadas[baseName] || [];
 
-                if (!tarjeta) {
-                    tarjeta = Array.from(document.querySelectorAll('.materia-card.bg-optativa')).find(t => !t.hasAttribute('data-estado'));
-                    if (tarjeta) {
-                        tarjeta.setAttribute('data-nombre-personalizado', mat.nombre);
-                        tarjeta.setAttribute('data-nombre', mat.nombre);
+                if (t.classList.contains('bg-optativa') && historialArray.length === 0) {
+                    for (let k in materiasAgrupadas) {
+                        if (!document.querySelector(`.materia-card[data-nombre="${CSS.escape(k)}"]`)) {
+                            if (!t.hasAttribute('data-historial')) {
+                                historialArray = materiasAgrupadas[k];
+                                t.setAttribute('data-nombre-personalizado', k);
+                                delete materiasAgrupadas[k];
+                                break;
+                            }
+                        }
                     }
                 }
 
-                if (tarjeta) {
-                    tarjeta.setAttribute('data-inscripcion', mat.tipoInscripcion);
-                    tarjeta.setAttribute('data-examen', mat.ultimoExamen);
-                    tarjeta.setAttribute('data-estado', mat.estado);
-
-                    if (mat.enRiesgo) tarjeta.setAttribute('data-riesgo', 'true');
-                    if (mat.enRezago) tarjeta.setAttribute('data-rezago', 'true');
-
-                    if (mat.estado === 'aprobada') tarjeta.classList.add('estado-aprobada');
-                    if (mat.estado === 'reprobada') tarjeta.classList.add('estado-reprobada');
-                    if (mat.estado === 'cursando') tarjeta.classList.add('estado-cursando');
-
-                    const creds = tarjeta.getAttribute('data-creditos');
-                    let htmlContenido = `<strong>${mat.nombre}</strong><br/>(${creds} Cr.)`;
-
-                    if (mat.estado && mat.estado !== 'ninguno') {
-                        const textoInscripcionCorto = (mat.tipoInscripcion === 'primera') ? '1ª Insc.' : '2ª Insc.';
-                        const textosExamenes = { 'ordinario': 'Ord.', 'extraordinario': 'Ext.', 'titulo': 'Título', 'ultima': 'Últ. Op.' };
-                        let textoExamenCorto = textosExamenes[mat.ultimoExamen] || mat.ultimoExamen;
-                        if (mat.estado === 'cursando') textoExamenCorto = 'En Curso';
-
-                        htmlContenido += `<div class="badge-info-materia">${textoInscripcionCorto} • ${textoExamenCorto}</div>`;
+                if (historialArray.length > 0) {
+                    t.setAttribute('data-historial', JSON.stringify(historialArray));
+                } else {
+                    t.removeAttribute('data-historial');
+                    if (t.classList.contains('bg-optativa')) {
+                        t.removeAttribute('data-nombre-personalizado');
                     }
-
-                    const prereqSpan = tarjeta.querySelector('.prerequisito-text');
-                    if (prereqSpan) htmlContenido += `<span class="prerequisito-text">${prereqSpan.innerHTML}</span>`;
-
-                    if (mat.estado === 'aprobada') {
-                        htmlContenido += `<div class="badge bg-success text-white mt-1 shadow-sm" style="font-size:0.65rem; width:100%">APROBADA</div>`;
-                    }
-                    if (mat.enRiesgo || tarjeta.getAttribute('data-riesgo') === 'true') {
-                        htmlContenido += `<div class="badge bg-warning text-dark mt-1 shadow-sm" style="font-size:0.65rem; width:100%">EN RIESGO</div>`;
-                    }
-                    if (mat.enRezago || tarjeta.getAttribute('data-rezago') === 'true') {
-                        htmlContenido += `<div class="badge bg-secondary text-white mt-1 shadow-sm" style="font-size:0.65rem; width:100%">EN REZAGO</div>`;
-                    }
-
-                    tarjeta.innerHTML = htmlContenido;
                 }
+
+                actualizarTarjetaVisual(t, historialArray);
             });
 
             huboCambios = false;
@@ -440,241 +748,234 @@ function buscarAlumno(materiaAResaltar = null) {
 
             if (materiaAResaltar) {
                 setTimeout(() => {
-                    const tarjetaAnimar = Array.from(document.querySelectorAll('.materia-card')).find(t =>
-                        t.getAttribute('data-nombre') === materiaAResaltar ||
-                        t.getAttribute('data-nombre-personalizado') === materiaAResaltar
-                    );
-                    if (tarjetaAnimar) {
-                        tarjetaAnimar.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        tarjetaAnimar.classList.add('resaltado-alerta');
-                        setTimeout(() => tarjetaAnimar.classList.remove('resaltado-alerta'), 3000);
+                    const anim = Array.from(document.querySelectorAll('.materia-card')).find(t => t.getAttribute('data-nombre') === materiaAResaltar || t.getAttribute('data-nombre-personalizado') === materiaAResaltar);
+                    if (anim) {
+                        anim.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        anim.classList.add('resaltado-alerta');
+                        setTimeout(() => anim.classList.remove('resaltado-alerta'), 3000);
                     }
                 }, 300);
             }
-        })
-        .catch(error => { console.error('Error:', error); alert("Error de comunicación."); });
+        }).catch(e => {
+            console.error(e);
+            alert("Error de comunicación.");
+        });
 }
 
 function exportarAvance() {
-    var matricula = document.getElementById('inputMatricula').value.trim();
-    var nombre = document.getElementById('inputNombreAlumno').value.trim();
+    let inputMat = $('inputMatricula');
+    if (!inputMat) return;
 
-    if (!matricula || !nombre) {
-        alert("Por favor selecciona un alumno del menú de inicio antes de guardar.");
+    var matricula = inputMat.value.trim();
+    if (!matricula) {
+        alert("Selecciona un alumno antes de guardar.");
         return;
     }
 
-    var materiasCursadas = [];
-    document.querySelectorAll('.materia-card').forEach(t => {
-        const estado = t.getAttribute('data-estado');
-        const riesgo = t.getAttribute('data-riesgo') === 'true';
-        const rezago = t.getAttribute('data-rezago') === 'true';
+    guardarTutoriasEnMemoria();
 
-        if (estado || riesgo || rezago) {
-            materiasCursadas.push({
-                Nombre: t.getAttribute('data-nombre') || t.getAttribute('data-nombre-personalizado'),
-                Creditos: parseInt(t.getAttribute('data-creditos')),
-                TipoInscripcion: t.getAttribute('data-inscripcion') || 'primera',
-                UltimoExamen: t.getAttribute('data-examen') || 'ordinario',
-                Estado: estado || 'ninguno',
-                EnRiesgo: riesgo,
-                EnRezago: rezago
-            });
+    var materiasAExportar = [];
+    document.querySelectorAll('.materia-card').forEach(t => {
+        let hist = t.getAttribute('data-historial');
+        if (hist) {
+            materiasAExportar.push(...JSON.parse(hist));
         }
     });
 
-    var alumnoAvance = {
+    var alumnoData = {
         Matricula: matricula,
-        Nombre: nombre,
-        Tutoria1: document.getElementById('tutoria1').value.trim(),
-        FechaTutoria1: document.getElementById('fechaTutoria1').value,
-        AsistenciaTutoria1: document.getElementById('asistenciaTutoria1').value,
-        Tutoria2: document.getElementById('tutoria2').value.trim(),
-        FechaTutoria2: document.getElementById('fechaTutoria2').value,
-        AsistenciaTutoria2: document.getElementById('asistenciaTutoria2').value,
-        Tutoria3: document.getElementById('tutoria3').value.trim(),
-        FechaTutoria3: document.getElementById('fechaTutoria3').value,
-        AsistenciaTutoria3: document.getElementById('asistenciaTutoria3').value,
-        Materias: materiasCursadas
+        Nombre: $('inputNombreAlumno') ? $('inputNombreAlumno').value.trim() : '',
+        Situacion: $('selectSituacionAlumno') ? $('selectSituacionAlumno').value : 'Activo',
+        Tutorias: tutoriasGlobal,
+        Materias: materiasAExportar
     };
 
     fetch('/Home/ExportarExcel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(alumnoAvance)
+        body: JSON.stringify(alumnoData)
     })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert("Cambios guardados exitosamente en el servidor!");
+                alert("¡Cambios guardados exitosamente!");
                 huboCambios = false;
                 cargarListaAlumnos();
                 cargarListaAlumnosInicio();
                 cargarAlertas();
             } else {
-                alert("Error al procesar los datos.");
+                alert("Error al procesar datos.");
+            }
+        }).catch(e => {
+            console.error(e);
+            alert("Error de servidor.");
+        });
+}
+
+function exportarAvanceSilencioso(matricula, nombre) {
+    let selSit = $('selectSituacionAlumno');
+    let situacion = selSit ? selSit.value : 'Activo';
+
+    // Se envía el texto tal cual; el escape se hace al mostrarlo
+    let reqBody = {
+        Matricula: matricula,
+        Nombre: nombre,
+        Situacion: situacion,
+        Tutorias: [],
+        Materias: []
+    };
+
+    fetch('/Home/ExportarExcel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reqBody)
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cargarListaAlumnos();
+                cargarListaAlumnosInicio();
+            } else {
+                alert("Error al registrar el alumno.");
             }
         })
-        .catch(error => { console.error('Error:', error); alert("Error de comunicación con el servidor."); });
+        .catch(e => {
+            console.error(e);
+            alert("Error de servidor.");
+        });
 }
 
 function cargarListaAlumnos() {
     fetch('/Home/ObtenerAlumnosRegistrados')
-        .then(response => response.json())
+        .then(res => res.json())
         .then(alumnos => {
-            const ul = document.getElementById('listaAlumnosRegistrados');
+            const ul = $('listaAlumnosRegistrados');
+            if (!ul) return;
+
             ul.innerHTML = '';
             if (alumnos.length === 0) {
-                ul.innerHTML = '<li><span class="dropdown-item-text text-muted">No hay alumnos guardados</span></li>';
+                ul.innerHTML = '<li><span class="dropdown-item-text text-muted">Vacio</span></li>';
             } else {
-                ul.innerHTML = '<li><h6 class="dropdown-header">Seleccionar Alumno</h6></li>';
-                alumnos.forEach(alum => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.className = 'dropdown-item';
-                    a.href = '#';
-                    a.innerHTML = `<strong>${alum.matricula}</strong> - ${alum.nombre}`;
-                    a.onclick = (e) => {
+                ul.innerHTML = '<li><h6 class="dropdown-header">Alumnos</h6></li>';
+                alumnos.forEach(a => {
+                    let li = document.createElement('li');
+                    let btn = document.createElement('a');
+                    btn.className = 'dropdown-item d-flex justify-content-between';
+                    btn.href = '#';
+
+                    let ic = a.situacion === 'Activo' ? '🟢' : (a.situacion === 'Egresado' ? '🎓' : '🔴');
+                    btn.innerHTML = `<span><strong>${escapeHTML(a.matricula)}</strong> - ${escapeHTML(a.nombre)}</span> <span>${ic}</span>`;
+
+                    btn.onclick = (e) => {
                         e.preventDefault();
                         if (!puedeCambiarDeContexto()) return;
-                        document.getElementById('inputMatricula').value = alum.matricula;
-                        document.getElementById('inputNombreAlumno').value = alum.nombre;
+                        if ($('inputMatricula')) {
+                            $('inputMatricula').value = a.matricula;
+                        }
                         buscarAlumno();
                     };
-                    li.appendChild(a);
+
+                    li.appendChild(btn);
                     ul.appendChild(li);
                 });
             }
-            const divider = document.createElement('li');
-            divider.innerHTML = '<hr class="dropdown-divider">';
-            ul.appendChild(divider);
-            const liNuevo = document.createElement('li');
-            const aNuevo = document.createElement('a');
-            aNuevo.className = 'dropdown-item text-success fw-bold';
-            aNuevo.href = '#';
-            aNuevo.innerHTML = 'Agregar alumno';
-            aNuevo.onclick = (e) => {
-                e.preventDefault();
-                if (!puedeCambiarDeContexto()) return;
-                document.getElementById('inputBuscarAlumnoModal').value = '';
-                filtrarAlumnosModal();
-                modalInicioInstance.show();
-            };
-            liNuevo.appendChild(aNuevo);
-            ul.appendChild(liNuevo);
+            ul.insertAdjacentHTML('beforeend', '<li><hr class="dropdown-divider"></li><li><a class="dropdown-item text-success fw-bold" href="#" onclick="abrirModalNuevoAlumno(event)">Agregar alumno</a></li>');
         })
-        .catch(error => console.error('Error cargando alumnos:', error));
+        .catch(e => console.error('Error cargando lista de alumnos:', e));
 }
 
 function cargarListaAlumnosInicio() {
     fetch('/Home/ObtenerAlumnosRegistrados')
-        .then(response => response.json())
+        .then(res => res.json())
         .then(alumnos => {
-            const contenedor = document.getElementById('listaAlumnosModal');
-            contenedor.innerHTML = '';
-            if (alumnos.length === 0) {
-                contenedor.innerHTML = '<p class="text-warning fw-bold">No hay alumnos registrados aún.</p>';
-                return;
-            }
-            alumnos.forEach(alum => {
-                const btn = document.createElement('button');
-                btn.className = 'btn btn-outline-primary text-start fw-bold shadow-sm mb-2 w-100';
-                btn.innerHTML = `${alum.matricula} - ${alum.nombre}`;
+            const c = $('listaAlumnosModal');
+            if (!c) return;
+
+            c.innerHTML = '';
+            alumnos.forEach(a => {
+                let btn = document.createElement('button');
+                btn.className = 'btn btn-outline-primary text-start fw-bold mb-2 w-100 d-flex justify-content-between';
+
+                let ic = a.situacion === 'Activo' ? '🟢' : (a.situacion === 'Egresado' ? '🎓' : '🔴');
+                btn.innerHTML = `<span><i class="bi bi-person-fill"></i> ${escapeHTML(a.matricula)} - ${escapeHTML(a.nombre)}</span> <span>${ic}</span>`;
+
                 btn.onclick = () => {
                     if (!puedeCambiarDeContexto()) return;
-                    document.getElementById('inputMatricula').value = alum.matricula;
-                    document.getElementById('inputNombreAlumno').value = alum.nombre;
+                    if ($('inputMatricula')) {
+                        $('inputMatricula').value = a.matricula;
+                    }
                     buscarAlumno();
-                    modalInicioInstance.hide();
+                    if (modalInicioInstance) modalInicioInstance.hide();
                 };
-                contenedor.appendChild(btn);
+                c.appendChild(btn);
             });
         })
-        .catch(error => {
-            console.error('Error cargando alumnos:', error);
-            document.getElementById('listaAlumnosModal').innerHTML = '<p class="text-danger">Error al cargar la lista.</p>';
-        });
+        .catch(e => console.error('Error cargando alumnos de inicio:', e));
+}
+
+function abrirModalNuevoAlumno(e) {
+    e.preventDefault();
+    if (!puedeCambiarDeContexto()) return;
+    if ($('inputBuscarAlumnoModal')) {
+        $('inputBuscarAlumnoModal').value = '';
+    }
+    const b = $('btnCerrarModalInicio');
+    if (b) b.classList.remove('d-none');
+    if (modalInicioInstance) modalInicioInstance.show();
 }
 
 function crearNuevoAlumno() {
-    const mat = document.getElementById('inputNuevaMatricula').value.trim();
-    const nom = document.getElementById('inputNuevoNombre').value.trim();
+    let inputMat = $('inputNuevaMatricula');
+    let inputNom = $('inputNuevoNombre');
+    if (!inputMat || !inputNom) return;
+
+    const mat = inputMat.value.trim();
+    const nom = inputNom.value.trim();
     if (!mat || !nom) {
-        alert("Debes ingresar la matrícula y el nombre para registrar a un alumno nuevo.");
+        alert("Faltan datos.");
         return;
     }
     if (!puedeCambiarDeContexto()) return;
 
     fetch('/Home/ObtenerAlumnosRegistrados')
-        .then(response => response.json())
+        .then(res => res.json())
         .then(alumnos => {
-            const existe = alumnos.some(a => a.matricula.toLowerCase() === mat.toLowerCase());
-            if (existe) {
-                alert("Esta matrícula ya está registrada. Por favor, búscala en la lista superior.");
-            } else {
-                document.querySelectorAll('.materia-card').forEach(t => {
-                    t.classList.remove('estado-aprobada', 'estado-reprobada', 'estado-cursando', 'resaltado-alerta', 'estado-bloqueada');
-                    t.removeAttribute('data-estado');
-                    t.removeAttribute('data-inscripcion');
-                    t.removeAttribute('data-examen');
-                    t.removeAttribute('data-riesgo');
-                    t.removeAttribute('data-rezago');
-                    const baseName = t.getAttribute('data-nombre');
-                    const creds = t.getAttribute('data-creditos');
-                    const prereqSpan = t.querySelector('.prerequisito-text');
-
-                    if (t.classList.contains('bg-optativa')) {
-                        t.removeAttribute('data-nombre-personalizado');
-                        t.setAttribute('data-nombre', 'Optativa');
-                        t.innerHTML = `<strong>Optativa</strong><br/>(${creds} Cr.)`;
-                    } else {
-                        let htmlContenido = `<strong>${baseName}</strong><br/>(${creds} Cr.)`;
-                        if (prereqSpan) htmlContenido += `<span class="prerequisito-text">${prereqSpan.innerHTML}</span>`;
-                        t.innerHTML = htmlContenido;
-                    }
-                });
-
-                document.getElementById('inputMatricula').value = mat;
-                document.getElementById('inputNombreAlumno').value = nom;
-
-                document.getElementById('tutoria1').value = '';
-                document.getElementById('fechaTutoria1').value = '';
-                document.getElementById('asistenciaTutoria1').value = 'pendiente';
-
-                document.getElementById('tutoria2').value = '';
-                document.getElementById('fechaTutoria2').value = '';
-                document.getElementById('asistenciaTutoria2').value = 'pendiente';
-
-                document.getElementById('tutoria3').value = '';
-                document.getElementById('fechaTutoria3').value = '';
-                document.getElementById('asistenciaTutoria3').value = 'pendiente';
-
-                huboCambios = false;
-                actualizarProgreso();
-                exportarAvanceSilencioso(mat, nom);
-                modalInicioInstance.hide();
-                document.getElementById('inputNuevaMatricula').value = '';
-                document.getElementById('inputNuevoNombre').value = '';
+            if (alumnos.some(a => a.matricula.toLowerCase() === mat.toLowerCase())) {
+                alert("Matrícula ya registrada.");
+                return;
             }
+            if ($('inputMatricula')) $('inputMatricula').value = mat;
+            if ($('inputNombreAlumno')) $('inputNombreAlumno').value = nom;
+            if ($('selectSituacionAlumno')) $('selectSituacionAlumno').value = 'Activo';
+
+            tutoriasGlobal = [];
+            cargarTutoriasALaVista();
+
+            document.querySelectorAll('.materia-card').forEach(t => {
+                t.removeAttribute('data-historial');
+                if (t.classList.contains('bg-optativa')) {
+                    t.removeAttribute('data-nombre-personalizado');
+                }
+                actualizarTarjetaVisual(t, []);
+            });
+
+            huboCambios = false;
+            actualizarProgreso();
+            exportarAvanceSilencioso(mat, nom);
+            if (modalInicioInstance) modalInicioInstance.hide();
+            inputMat.value = '';
+            inputNom.value = '';
+        })
+        .catch(e => {
+            console.error(e);
+            alert("Error de comunicación.");
         });
 }
 
-function exportarAvanceSilencioso(matricula, nombre) {
-    var alumnoData = { Matricula: matricula, Nombre: nombre, Materias: [] };
-    fetch('/Home/ExportarExcel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(alumnoData)
-    })
-        .then(() => {
-            cargarListaAlumnos();
-            cargarListaAlumnosInicio();
-        })
-        .catch(e => console.error(e));
-}
-
 function cargarAlertas() {
-    const contenedor = document.getElementById('contenedorTarjetasAlerta');
+    const contenedor = $('contenedorTarjetasAlerta');
+    if (!contenedor) return;
+
     contenedor.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-warning" role="status"></div></div>';
 
     fetch('/Home/ObtenerReporteAlertas')
@@ -683,10 +984,10 @@ function cargarAlertas() {
             if (!res.success) return;
 
             const alertas = res.data;
-            const contadorBadge = document.getElementById('contadorAlertas');
+            const contadorBadge = $('contadorAlertas');
 
             if (alertas.length === 0) {
-                contadorBadge.style.display = 'none';
+                if (contadorBadge) contadorBadge.style.display = 'none';
                 contenedor.innerHTML = `
                     <div class="alert alert-success text-center mt-2 shadow-sm border-0">
                         Todo en orden. No hay alumnos en riesgo actualmente.
@@ -694,28 +995,38 @@ function cargarAlertas() {
                 return;
             }
 
-            contadorBadge.innerText = alertas.length;
-            contadorBadge.style.display = 'block';
+            if (contadorBadge) {
+                contadorBadge.innerText = alertas.length;
+                contadorBadge.style.display = 'block';
+            }
+
             contenedor.innerHTML = '';
 
             alertas.forEach(alerta => {
                 const tarjeta = document.createElement('div');
                 tarjeta.className = 'card border-0 shadow-sm mb-2';
+
                 tarjeta.innerHTML = `
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-start mb-2">
-                            <span class="badge ${alerta.badge} px-2 py-1">${alerta.mensaje}</span>
+                            <span class="badge ${escapeHTML(alerta.badge)} px-2 py-1">${escapeHTML(alerta.mensaje)}</span>
                         </div>
-                        <h6 class="card-title fw-bold text-dark mb-1">${alerta.nombre}</h6>
+                        <h6 class="card-title fw-bold text-dark mb-1">${escapeHTML(alerta.nombre)}</h6>
                         <p class="card-text text-muted small mb-2">
-                            <strong>Matrícula:</strong> ${alerta.matricula}<br/>
-                            <strong>Materia:</strong> ${alerta.materia}
+                            <strong>Matrícula:</strong> ${escapeHTML(alerta.matricula)}<br/>
+                            <strong>Materia:</strong> ${escapeHTML(alerta.materia)}
                         </p>
-                        <button class="btn btn-sm btn-outline-secondary w-100 fw-bold" onclick="cargarAlumnoDesdeAlerta('${alerta.matricula}', '${alerta.nombre}', '${alerta.materia}')">
+                        <button class="btn btn-sm btn-outline-secondary w-100 fw-bold btn-revisar-mapa">
                             Revisar Mapa
                         </button>
                     </div>
                 `;
+
+                // Listener en lugar de onclick inline: evita que nombres con comillas rompan el JS
+                tarjeta.querySelector('.btn-revisar-mapa').addEventListener('click', () => {
+                    cargarAlumnoDesdeAlerta(alerta.matricula, alerta.nombre, alerta.materia);
+                });
+
                 contenedor.appendChild(tarjeta);
             });
         })
@@ -725,24 +1036,30 @@ function cargarAlertas() {
 function cargarAlumnoDesdeAlerta(matricula, nombre, materia) {
     if (!puedeCambiarDeContexto()) return;
 
-    document.getElementById('inputMatricula').value = matricula;
-    document.getElementById('inputNombreAlumno').value = nombre;
+    if ($('inputMatricula')) $('inputMatricula').value = matricula;
+    if ($('inputNombreAlumno')) $('inputNombreAlumno').value = nombre;
     buscarAlumno(materia);
 
-    const offcanvasEl = document.getElementById('offcanvasAlertas');
-    const offcanvasInstance = bootstrap.Offcanvas.getInstance(offcanvasEl) || new bootstrap.Offcanvas(offcanvasEl);
-    offcanvasInstance.hide();
+    const offcanvasEl = $('offcanvasAlertas');
+    if (offcanvasEl) {
+        const offcanvasInstance = bootstrap.Offcanvas.getInstance(offcanvasEl) || new bootstrap.Offcanvas(offcanvasEl);
+        if (offcanvasInstance) offcanvasInstance.hide();
+    }
 }
 
 function abrirReporteGlobal() {
-    modalReporteGlobalInstance.show();
+    if (modalReporteGlobalInstance) modalReporteGlobalInstance.show();
     cargarDatosReporteGlobal();
 }
 
 function cargarDatosReporteGlobal() {
-    document.getElementById('contenedorReporteRiesgo').innerHTML = '<div class="text-center py-3"><div class="spinner-border text-warning" role="status"></div></div>';
-    document.getElementById('contenedorReporteRezago').innerHTML = '<div class="text-center py-3"><div class="spinner-border text-secondary" role="status"></div></div>';
-    document.getElementById('contenedorReporteSeriadas').innerHTML = '<div class="text-center py-3"><div class="spinner-border text-danger" role="status"></div></div>';
+    let rRiesgo = $('contenedorReporteRiesgo');
+    let rRezago = $('contenedorReporteRezago');
+    let rSeriada = $('contenedorReporteSeriadas');
+
+    if (rRiesgo) rRiesgo.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-warning" role="status"></div></div>';
+    if (rRezago) rRezago.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-secondary" role="status"></div></div>';
+    if (rSeriada) rSeriada.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-danger" role="status"></div></div>';
 
     fetch('/Home/ObtenerReporteGlobal')
         .then(response => response.json())
@@ -750,13 +1067,13 @@ function cargarDatosReporteGlobal() {
             if (!res.success) return;
 
             let htmlRiesgo = renderizarListaAgrupada(res.data.riesgos, "warning");
-            document.getElementById('contenedorReporteRiesgo').innerHTML = htmlRiesgo || '<p class="text-muted small">No hay alumnos en riesgo.</p>';
+            if (rRiesgo) rRiesgo.innerHTML = htmlRiesgo || '<p class="text-muted small">No hay alumnos en riesgo.</p>';
 
             let htmlRezago = renderizarListaAgrupada(res.data.rezagos, "secondary");
-            document.getElementById('contenedorReporteRezago').innerHTML = htmlRezago || '<p class="text-muted small">No hay alumnos en rezago.</p>';
+            if (rRezago) rRezago.innerHTML = htmlRezago || '<p class="text-muted small">No hay alumnos en rezago.</p>';
 
             let htmlSeriadas = renderizarListaAgrupada(res.data.seriadas, "danger");
-            document.getElementById('contenedorReporteSeriadas').innerHTML = htmlSeriadas || '<p class="text-muted small">No hay adeudos de materias seriadas.</p>';
+            if (rSeriada) rSeriada.innerHTML = htmlSeriadas || '<p class="text-muted small">No hay adeudos de materias seriadas.</p>';
         })
         .catch(error => console.error('Error cargando reporte global:', error));
 }
@@ -765,12 +1082,13 @@ function renderizarListaAgrupada(arreglo, colorClase) {
     if (!arreglo || arreglo.length === 0) return '';
     let html = '';
     arreglo.forEach(item => {
-        let listaAlumnosHtml = item.alumnos.map(a => `<li class="small">${a.nombre} (${a.matricula})</li>`).join('');
+        let alumnos = Array.from(item.alumnos);
+        let listaAlumnosHtml = alumnos.map(a => `<li class="small">${escapeHTML(a.nombre)} (${escapeHTML(a.matricula)})</li>`).join('');
         html += `
             <div class="border rounded mb-2 bg-white p-2 border-${colorClase}">
                 <div class="d-flex justify-content-between align-items-center mb-1">
-                    <strong class="text-dark" style="font-size: 0.85rem;">${item.materia}</strong>
-                    <span class="badge bg-${colorClase} rounded-pill">${item.alumnos.length}</span>
+                    <strong class="text-dark" style="font-size: 0.85rem;">${escapeHTML(item.materia)}</strong>
+                    <span class="badge bg-${colorClase} rounded-pill">${alumnos.length}</span>
                 </div>
                 <ul class="list-unstyled mb-0 ms-2 text-muted" style="font-size: 0.8rem;">
                     ${listaAlumnosHtml}
@@ -783,17 +1101,35 @@ function renderizarListaAgrupada(arreglo, colorClase) {
 function imprimirReporteGlobal() {
     window.print();
 }
+
 function descargarWordTutorias() {
-    var matricula = document.getElementById('inputMatricula').value.trim();
+    let inputMat = $('inputMatricula');
+    var matricula = inputMat ? inputMat.value.trim() : '';
+
     if (!matricula) {
         alert("Selecciona un alumno primero.");
         return;
     }
     if (huboCambios) {
-        alert("⚠️ Tienes cambios o comentarios sin guardar. Haz clic en 'Guardar' (Botón verde superior) antes de exportar el reporte para que aparezca la información más reciente.");
+        alert("⚠️ Tienes cambios o comentarios sin guardar. Haz clic en 'Guardar' antes de exportar el reporte.");
         return;
     }
 
-    // Si todo está guardado, solicitamos el archivo al backend
-    window.location.href = `/Home/DescargarWordTutorias?matricula=${matricula}`;
+    window.location.href = `/Home/DescargarWordTutorias?matricula=${encodeURIComponent(matricula)}`;
+}
+
+function filtrarAlumnosModal() {
+    let input = $('inputBuscarAlumnoModal');
+    if (!input) return;
+
+    const texto = input.value.toLowerCase();
+    const botones = document.querySelectorAll('#listaAlumnosModal button');
+
+    botones.forEach(btn => {
+        if (btn.innerText.toLowerCase().includes(texto)) {
+            btn.style.display = 'flex';
+        } else {
+            btn.style.display = 'none';
+        }
+    });
 }

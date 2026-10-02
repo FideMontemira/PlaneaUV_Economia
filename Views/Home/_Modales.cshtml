@@ -1,161 +1,221 @@
-﻿<!-- Modal para Gestión de Avance -->
-<div class="modal fade" id="modalAvance" tabindex="-1" aria-labelledby="modalAvanceLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalMateriaNombre">Nombre de la Materia</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+﻿<!-- Modal Inicio -->
+<div class="modal fade" id="modalInicio" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="modalInicioLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="modalInicioLabel"><i class="bi bi-person-lines-fill me-2"></i>Seleccionar Alumno</h5>
+                <button type="button" class="btn-close btn-close-white d-none" id="btnCerrarModalInicio" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <p><strong>Créditos:</strong> <span id="modalMateriaCreditos"></span></p>
-
-                <div class="mb-3 d-none" id="divOptativa">
-                    <label class="form-label fw-bold text-primary">Nombre de la Optativa:</label>
-                    <input type="text" class="form-control" id="inputOptativa" placeholder="Ej. Finanzas Internacionales">
+            <div class="modal-body bg-light">
+                <ul class="nav nav-pills nav-fill mb-3" id="pills-tab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold" id="pills-buscar-tab" data-bs-toggle="pill" data-bs-target="#pills-buscar" type="button" role="tab"><i class="bi bi-search me-1"></i> Buscar Existente</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold text-success" id="pills-nuevo-tab" data-bs-toggle="pill" data-bs-target="#pills-nuevo" type="button" role="tab"><i class="bi bi-plus-circle me-1"></i> Alumno Nuevo</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="pills-tabContent">
+                    <div class="tab-pane fade show active" id="pills-buscar" role="tabpanel">
+                        <input type="text" class="form-control mb-3 border-primary" id="inputBuscarAlumnoModal" placeholder="Escribe para filtrar alumnos..." onkeyup="filtrarAlumnosModal()">
+                        <div class="list-group shadow-sm" id="listaAlumnosModal" style="max-height: 200px; overflow-y: auto;">
+                            <!-- Cargado dinámicamente -->
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="pills-nuevo" role="tabpanel">
+                        <div class="alert alert-success small py-2 mb-3"><i class="bi bi-info-circle-fill me-1"></i> Registra la matrícula y nombre para crear el expediente.</div>
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small">Matrícula</label>
+                            <input type="text" class="form-control border-success fw-bold" id="inputNuevaMatricula" placeholder="Ej. zS22014022">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Nombre Completo</label>
+                            <input type="text" class="form-control border-success" id="inputNuevoNombre" placeholder="Empezando por apellidos">
+                        </div>
+                        <button class="btn btn-success w-100 fw-bold shadow-sm" onclick="crearNuevoAlumno()"><i class="bi bi-person-plus-fill me-1"></i> Crear y Empezar</button>
+                    </div>
                 </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Tipo de Inscripción:</label>
-                    <select class="form-select" id="selectInscripcion">
-                        <option value="primera">Primera inscripción</option>
-                        <option value="segunda">Segunda inscripción</option>
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Último Examen Presentado:</label>
-                    <select class="form-select" id="selectExamen">
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Estado de la Materia:</label>
-                    <select class="form-select" id="selectAprobacion">
-                        <option value="ninguno" selected disabled>Seleccione el estado...</option>
-                        <option value="cursando"> Cursando actualmente (Semestre en curso)</option>
-                        <option value="si"> Aprobada</option>
-                        <option value="no"> Reprobada</option>
-                    </select>
-                </div>
-
-                <div class="form-check mt-4 mb-2 border p-2 rounded bg-light border-warning">
-                    <input class="form-check-input ms-1" type="checkbox" id="checkRiesgo">
-                    <label class="form-check-label fw-bold text-danger ms-2" for="checkRiesgo">
-                        Materia en riesgo de ser reprobada
-                    </label>
-                </div>
-                <div class="form-check mb-2 border p-2 rounded bg-light border-secondary">
-                    <input class="form-check-input ms-1" type="checkbox" id="checkRezago">
-                    <label class="form-check-label fw-bold text-secondary ms-2" for="checkRezago">
-                         Materia en rezago (De periodos anteriores)
-                    </label>
-                </div>
-
-                <div id="alertaEstatus" class="alert d-none mt-3" role="alert"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-primary" onclick="guardarAvance()">Confirmar Materia</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal de Tutorías -->
+<!-- Modal Avance (Máquina del Tiempo) -->
+<div class="modal fade" id="modalAvance" tabindex="-1" aria-labelledby="modalAvanceLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <div>
+                    <h5 class="modal-title mb-0" id="modalMateriaNombre">Nombre de la Materia</h5>
+                    <small id="modalPeriodoVinculado" class="text-light opacity-75">Periodo: Agosto - Enero 2027</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge bg-dark fs-6" id="modalMateriaCreditos">X Cr.</span>
+                    <button class="btn btn-sm btn-outline-danger" onclick="limpiarEstadoMateria()" title="Borrar historial y reiniciar materia">
+                        <i class="bi bi-eraser-fill"></i> Limpiar Materia
+                    </button>
+                </div>
+
+                <div class="mb-3 d-none" id="divOptativa">
+                    <label class="form-label fw-bold text-primary small">Definir nombre de la Optativa/AFEL:</label>
+                    <input type="text" class="form-control form-control-sm border-primary" id="inputOptativa" placeholder="Ej. Finanzas Internacionales">
+                </div>
+
+                <!-- Historial de Intentos -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white fw-bold small py-2 text-muted">
+                        <i class="bi bi-clock-history"></i> Historial de Intentos
+                    </div>
+                    <ul class="list-group list-group-flush small" id="listaHistorialIntentos">
+                        <li class="list-group-item text-center text-muted">No hay intentos registrados.</li>
+                    </ul>
+                </div>
+
+                <!-- Registrar Nuevo Intento -->
+                <div class="card border-primary shadow-sm mb-2">
+                    <div class="card-header bg-primary text-white fw-bold small py-2">
+                        <i class="bi bi-plus-circle"></i> Registrar Estado / Intento
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label fw-bold small mb-1">Inscripción:</label>
+                                <select class="form-select form-select-sm" id="selectInscripcion">
+                                    <option value="primera">1ra Inscripción</option>
+                                    <option value="segunda">2da Inscripción</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-bold small mb-1">Examen / Vía:</label>
+                                <select class="form-select form-select-sm" id="selectExamen">
+                                    <option value="ordinario">Ordinario</option>
+                                    <option value="extraordinario">Extraordinario</option>
+                                    <option value="titulo">Título de Suficiencia</option>
+                                    <option value="ultima">Última Oportunidad</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-0">
+                            <label class="form-label fw-bold small mb-1">Resultado:</label>
+                            <select class="form-select form-select-sm border-dark" id="selectAprobacion">
+                                <option value="ninguno" selected>Seleccione...</option>
+                                <option value="cursando"> Cursando actualmente</option>
+                                <option value="si"> Aprobada</option>
+                                <option value="no"> Reprobada</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-3">
+                    <div class="form-check border p-2 rounded bg-white border-warning flex-fill shadow-sm">
+                        <input class="form-check-input ms-1" type="checkbox" id="checkRiesgo">
+                        <label class="form-check-label fw-bold text-danger ms-2 small" for="checkRiesgo">⚠ Riesgo Manual</label>
+                    </div>
+                    <div class="form-check border p-2 rounded bg-white border-secondary flex-fill shadow-sm">
+                        <input class="form-check-input ms-1" type="checkbox" id="checkRezago">
+                        <label class="form-check-label fw-bold text-secondary ms-2 small" for="checkRezago">⏳ En Rezago</label>
+                    </div>
+                </div>
+
+                <div id="alertaEstatus" class="alert d-none mt-3 py-2 small" role="alert"></div>
+
+                <button type="button" id="btnSiguienteOp" class="btn btn-warning btn-sm fw-bold w-100 mt-2 d-none shadow-sm" onclick="prepararSiguienteOportunidad()">
+                    <i class="bi bi-fast-forward-fill"></i> Siguiente Oportunidad
+                </button>
+            </div>
+            <div class="modal-footer bg-white">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm fw-bold" onclick="guardarAvance()">
+                    <i class="bi bi-save"></i> Guardar Materia
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tutorías -->
 <div class="modal fade" id="modalTutorias" tabindex="-1" aria-labelledby="modalTutoriasLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title fw-bold" id="modalTutoriasLabel">
-                    <i class="bi bi-journal-text me-2"></i> Registro de Tutorías del Semestre
-                </h5>
+            <div class="modal-header text-white" style="background-color: #17a2b8;">
+                <h5 class="modal-title" id="modalTutoriasLabel"><i class="bi bi-journal-text me-2"></i>Registro de Tutorías</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-
-            <div class="modal-body p-0 bg-light">
-                <ul class="nav nav-tabs nav-fill bg-white pt-2 border-bottom-0" id="tutoriasTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active fw-bold" id="sesion1-tab" data-bs-toggle="tab" data-bs-target="#sesion1" type="button" role="tab" aria-controls="sesion1" aria-selected="true">
-                            <i class="bi bi-1-circle-fill me-1"></i> Primera Sesión
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold" id="sesion2-tab" data-bs-toggle="tab" data-bs-target="#sesion2" type="button" role="tab" aria-controls="sesion2" aria-selected="false">
-                            <i class="bi bi-2-circle-fill me-1"></i> Segunda Sesión
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold" id="sesion3-tab" data-bs-toggle="tab" data-bs-target="#sesion3" type="button" role="tab" aria-controls="sesion3" aria-selected="false">
-                            <i class="bi bi-3-circle-fill me-1"></i> Tercera Sesión
-                        </button>
-                    </li>
-                </ul>
-
-                <div class="tab-content p-4 border-top" id="tutoriasTabsContent">
-                    <div class="tab-pane fade show active" id="sesion1" role="tabpanel" aria-labelledby="sesion1-tab">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Fecha de la sesión:</label>
-                                <input type="date" class="form-control" id="fechaTutoria1" onchange="marcarCambios()">
+            <div class="modal-body bg-light">
+                <!-- Sesion 1 -->
+                <div class="card mb-3 shadow-sm border-0">
+                    <div class="card-header bg-white fw-bold text-info"><i class="bi bi-1-circle-fill me-1"></i> Primera Sesión</div>
+                    <div class="card-body py-2">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold mb-1">Fecha</label>
+                                <input type="date" class="form-control form-control-sm" id="fechaTutoria1" onchange="marcarCambios()">
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Estado de Asistencia:</label>
-                                <select class="form-select" id="asistenciaTutoria1" onchange="marcarCambios()">
-                                    <option value="pendiente" selected>Pendiente de realizar</option>
-                                    <option value="asistio"> Asistió</option>
-                                    <option value="falto"> Faltó</option>
-                                    <option value="reprogramada"> Reprogramada</option>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold mb-1">Asistencia</label>
+                                <select class="form-select form-select-sm" id="asistenciaTutoria1" onchange="marcarCambios()">
+                                    <option value="pendiente">Pendiente</option>
+                                    <option value="asistio">✅ Asistió</option>
+                                    <option value="falto">❌ Faltó</option>
+                                    <option value="reprogramada">🔄 Reprogramada</option>
                                 </select>
                             </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label fw-bold">Comentarios y Acuerdos:</label>
-                            <textarea class="form-control" id="tutoria1" rows="4" placeholder="Redacta las observaciones de la primera sesión..." oninput="marcarCambios()"></textarea>
-                        </div>
+                        <label class="form-label small fw-bold mb-1">Comentarios y Acuerdos</label>
+                        <textarea class="form-control form-control-sm" id="tutoria1" rows="2" placeholder="Notas de la primera sesión..." onchange="marcarCambios()"></textarea>
                     </div>
+                </div>
 
-                    <div class="tab-pane fade" id="sesion2" role="tabpanel" aria-labelledby="sesion2-tab">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Fecha de la sesión:</label>
-                                <input type="date" class="form-control" id="fechaTutoria2" onchange="marcarCambios()">
+                <!-- Sesion 2 -->
+                <div class="card mb-3 shadow-sm border-0">
+                    <div class="card-header bg-white fw-bold text-info"><i class="bi bi-2-circle-fill me-1"></i> Segunda Sesión</div>
+                    <div class="card-body py-2">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold mb-1">Fecha</label>
+                                <input type="date" class="form-control form-control-sm" id="fechaTutoria2" onchange="marcarCambios()">
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Estado de Asistencia:</label>
-                                <select class="form-select" id="asistenciaTutoria2" onchange="marcarCambios()">
-                                    <option value="pendiente" selected>Pendiente de realizar</option>
-                                    <option value="asistio"> Asistió</option>
-                                    <option value="falto"> Faltó</option>
-                                    <option value="reprogramada"> Reprogramada</option>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold mb-1">Asistencia</label>
+                                <select class="form-select form-select-sm" id="asistenciaTutoria2" onchange="marcarCambios()">
+                                    <option value="pendiente">Pendiente</option>
+                                    <option value="asistio">✅ Asistió</option>
+                                    <option value="falto">❌ Faltó</option>
+                                    <option value="reprogramada">🔄 Reprogramada</option>
                                 </select>
                             </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label fw-bold">Comentarios y Acuerdos:</label>
-                            <textarea class="form-control" id="tutoria2" rows="4" placeholder="Redacta las observaciones de la segunda sesión..." oninput="marcarCambios()"></textarea>
-                        </div>
+                        <label class="form-label small fw-bold mb-1">Comentarios y Acuerdos</label>
+                        <textarea class="form-control form-control-sm" id="tutoria2" rows="2" placeholder="Notas de la segunda sesión..." onchange="marcarCambios()"></textarea>
                     </div>
+                </div>
 
-                    <div class="tab-pane fade" id="sesion3" role="tabpanel" aria-labelledby="sesion3-tab">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Fecha de la sesión:</label>
-                                <input type="date" class="form-control" id="fechaTutoria3" onchange="marcarCambios()">
+                <!-- Sesion 3 -->
+                <div class="card mb-2 shadow-sm border-0">
+                    <div class="card-header bg-white fw-bold text-info"><i class="bi bi-3-circle-fill me-1"></i> Tercera Sesión</div>
+                    <div class="card-body py-2">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold mb-1">Fecha</label>
+                                <input type="date" class="form-control form-control-sm" id="fechaTutoria3" onchange="marcarCambios()">
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Estado de Asistencia:</label>
-                                <select class="form-select" id="asistenciaTutoria3" onchange="marcarCambios()">
-                                    <option value="pendiente" selected>Pendiente de realizar</option>
-                                    <option value="asistio"> Asistió</option>
-                                    <option value="falto"> Faltó</option>
-                                    <option value="reprogramada"> Reprogramada</option>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold mb-1">Asistencia</label>
+                                <select class="form-select form-select-sm" id="asistenciaTutoria3" onchange="marcarCambios()">
+                                    <option value="pendiente">Pendiente</option>
+                                    <option value="asistio">✅ Asistió</option>
+                                    <option value="falto">❌ Faltó</option>
+                                    <option value="reprogramada">🔄 Reprogramada</option>
                                 </select>
                             </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label fw-bold">Comentarios y Acuerdos:</label>
-                            <textarea class="form-control" id="tutoria3" rows="4" placeholder="Redacta las observaciones de la tercera sesión..." oninput="marcarCambios()"></textarea>
-                        </div>
+                        <label class="form-label small fw-bold mb-1">Comentarios y Acuerdos</label>
+                        <textarea class="form-control form-control-sm" id="tutoria3" rows="2" placeholder="Notas de la tercera sesión..." onchange="marcarCambios()"></textarea>
                     </div>
                 </div>
             </div>
@@ -163,9 +223,7 @@
                 <button type="button" class="btn btn-primary me-auto" onclick="descargarWordTutorias()">
                     <i class="bi bi-file-earmark-word-fill me-1"></i> Exportar a Word
                 </button>
-
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-
                 <button type="button" class="btn btn-success" onclick="exportarAvance()">
                     <i class="bi bi-save me-1"></i> Guardar Cambios
                 </button>
@@ -174,122 +232,51 @@
     </div>
 </div>
 
-<!-- Modal de Inicio -->
-<div class="modal fade" id="modalInicio" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="modalInicioLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title" id="modalInicioLabel">
-                    <i class="bi bi-person-lines-fill me-2"></i>Seleccionar Alumno
-                </h5>
-            </div>
-            <div class="modal-body p-4">
-                <p class="mb-3 text-center text-muted">Por favor, selecciona un alumno de la lista o registra uno nuevo para comenzar.</p>
-
-                <div class="input-group mb-3">
-                    <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input type="text" id="inputBuscarAlumnoModal" class="form-control" placeholder="Buscar por matrícula o nombre..." oninput="filtrarAlumnosModal()">
-                </div>
-
-                <div class="d-grid gap-2" id="listaAlumnosModal">
-                    <div class="spinner-border text-primary mx-auto" role="status">
-                        <span class="visually-hidden">Cargando...</span>
-                    </div>
-                </div>
-
-                <hr class="my-4">
-
-                <h6 class="text-start fw-bold mb-3 text-center">Registrar Nuevo Alumno</h6>
-                <div class="row g-2 align-items-center">
-                    <div class="col-sm-5">
-                        <input type="text" id="inputNuevaMatricula" class="form-control form-control-sm" placeholder="Matrícula">
-                    </div>
-                    <div class="col-sm-7">
-                        <input type="text" id="inputNuevoNombre" class="form-control form-control-sm" placeholder="Nombre Completo">
-                    </div>
-                </div>
-                <div class="d-grid mt-3">
-                    <button class="btn btn-outline-success" onclick="crearNuevoAlumno()">
-                        <i class="bi bi-person-plus-fill me-1"></i> Iniciar Nuevo Mapa
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Offcanvas de Alertas -->
-<div class="offcanvas offcanvas-end shadow" tabindex="-1" id="offcanvasAlertas" aria-labelledby="offcanvasAlertasLabel" style="width: 400px;">
-    <div class="offcanvas-header bg-dark text-white">
-        <h5 class="offcanvas-title fw-bold" id="offcanvasAlertasLabel">
-            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i> Centro de Alertas
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body bg-light">
-        <p class="text-muted small mb-3">Estudiantes ordenados por nivel de riesgo crítico.</p>
-        <div id="contenedorTarjetasAlerta" class="d-flex flex-column gap-2">
-        </div>
-    </div>
-</div>
-<!-- Modal de Reporte Global (Riesgos, Rezagos y Seriadas) -->
+<!-- Modal Reporte Global -->
 <div class="modal fade" id="modalReporteGlobal" tabindex="-1" aria-labelledby="modalReporteGlobalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title fw-bold" id="modalReporteGlobalLabel">
-                    <i class="bi bi-bar-chart-line-fill me-2"></i> Reporte Global de Tutorías
-                </h5>
+            <div class="modal-header text-white" style="background-color: #6f42c1;">
+                <h5 class="modal-title" id="modalReporteGlobalLabel"><i class="bi bi-bar-chart-line-fill me-2"></i>Reporte Global de Trayectorias</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body bg-light">
-                <p class="text-muted mb-4">Resumen de todos los alumnos registrados para la toma de decisiones (Apertura de PAFIs, seguimiento de seriadas, etc).</p>
-
-                <div class="row">
-                    <!-- Columna 1: Materias en Riesgo -->
-                    <div class="col-md-4 mb-3">
-                        <div class="card border-warning shadow-sm h-100">
-                            <div class="card-header bg-warning text-dark fw-bold">
-                                <i class="bi bi-exclamation-triangle-fill me-1"></i> Materias en Riesgo
-                            </div>
-                            <div class="card-body p-2" id="contenedorReporteRiesgo">
-                                <div class="text-center py-3"><div class="spinner-border text-warning" role="status"></div></div>
-                            </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="card h-100 border-warning shadow-sm">
+                            <div class="card-header bg-warning text-dark fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Materias en Riesgo</div>
+                            <div class="card-body" id="contenedorReporteRiesgo"></div>
                         </div>
                     </div>
-
-                    <!-- Columna 2: Materias en Rezago -->
-                    <div class="col-md-4 mb-3">
-                        <div class="card border-secondary shadow-sm h-100">
-                            <div class="card-header bg-secondary text-white fw-bold">
-                                <i class="bi bi-clock-history me-1"></i> Materias en Rezago
-                            </div>
-                            <div class="card-body p-2" id="contenedorReporteRezago">
-                                <div class="text-center py-3"><div class="spinner-border text-secondary" role="status"></div></div>
-                            </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 border-secondary shadow-sm">
+                            <div class="card-header bg-secondary text-white fw-bold"><i class="bi bi-hourglass-split me-2"></i>Materias en Rezago</div>
+                            <div class="card-body" id="contenedorReporteRezago"></div>
                         </div>
                     </div>
-
-                    <!-- Columna 3: Prerrequisitos (Seriadas) Adeudados -->
-                    <div class="col-md-4 mb-3">
-                        <div class="card border-danger shadow-sm h-100">
-                            <div class="card-header bg-danger text-white fw-bold">
-                                <i class="bi bi-lock-fill me-1"></i> Seriadas Adeudadas
-                            </div>
-                            <div class="card-body p-2" id="contenedorReporteSeriadas">
-                                <div class="text-center py-3"><div class="spinner-border text-danger" role="status"></div></div>
-                            </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 border-danger shadow-sm">
+                            <div class="card-header bg-danger text-white fw-bold"><i class="bi bi-lock-fill me-2"></i>Seriadas Adeudadas (Candados)</div>
+                            <div class="card-body" id="contenedorReporteSeriadas"></div>
                         </div>
                     </div>
                 </div>
-
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar Reporte</button>
-                <button type="button" class="btn btn-primary" onclick="imprimirReporteGlobal()">
-                    <i class="bi bi-printer-fill me-1"></i> Imprimir / PDF
-                </button>
+            <div class="modal-footer bg-white">
+                <button type="button" class="btn btn-primary" onclick="imprimirReporteGlobal()"><i class="bi bi-printer-fill me-1"></i> Imprimir Reporte</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Offcanvas Alertas -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasAlertas" aria-labelledby="offcanvasAlertasLabel">
+    <div class="offcanvas-header bg-warning text-dark border-bottom">
+        <h5 class="offcanvas-title fw-bold" id="offcanvasAlertasLabel"><i class="bi bi-bell-fill me-2"></i>Alertas del Sistema</h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body bg-light" id="contenedorTarjetasAlerta">
+        <div class="text-center py-4"><div class="spinner-border text-warning" role="status"></div></div>
     </div>
 </div>
