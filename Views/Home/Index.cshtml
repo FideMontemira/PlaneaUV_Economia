@@ -2,12 +2,12 @@
     ViewData["Title"] = "Mapa Curricular - Economía";
 }
 
-<!-- 1. Enlazamos la hoja de estilos externa -->
+<!-- 1. Hoja de estilos externa -->
 <link rel="stylesheet" href="~/css/mapa-curricular.css" />
 
 <div class="container-fluid">
 
-    <!-- 2. Inyectamos el Panel de Control Superior -->
+    <!-- 2. Panel de Control Superior -->
     <partial name="_Dashboard" />
 
     <div class="text-center mb-4">
@@ -15,15 +15,14 @@
         <p>Haz clic en una materia para gestionar el avance del estudiante.</p>
     </div>
 
-    <!-- 3. Inyectamos el Grid de las Materias -->
+    <!-- 3.  Grid de las Materias -->
     <partial name="_MapaGrid" />
 
 </div>
 
-<!-- 4. Inyectamos los modales y el panel lateral ocultos -->
+<!-- 4.  modales y el panel lateral ocultos -->
 <partial name="_Modales" />
 
 @section Scripts {
-    <!-- 5. Enlazamos el archivo externo de JavaScript -->
     <script src="~/js/mapa-curricular.js" asp-append-version="true"></script>
 }

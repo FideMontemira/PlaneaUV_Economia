@@ -45,7 +45,6 @@ namespace PlaneaUV_Economia.Controllers
                 worksheet.Cell(3, 1).Style.Font.Bold = true;
                 worksheet.Cell(3, 2).Value = string.IsNullOrEmpty(avance.Situacion) ? "Activo" : avance.Situacion;
 
-                // TABLA 1: MATERIAS (Historial)
                 worksheet.Cell(5, 1).Value = "Materia";
                 worksheet.Cell(5, 2).Value = "Periodo";
                 worksheet.Cell(5, 3).Value = "Créditos";
@@ -73,7 +72,6 @@ namespace PlaneaUV_Economia.Controllers
                     rowM++;
                 }
 
-                // TABLA 2: TUTORIAS (Historial)
                 worksheet.Cell(5, 10).Value = "Periodo Tutoria";
                 worksheet.Cell(5, 11).Value = "Sesión";
                 worksheet.Cell(5, 12).Value = "Fecha";
@@ -128,7 +126,6 @@ namespace PlaneaUV_Economia.Controllers
                     bool.TryParse(ws.Cell(rowM, 7).GetString(), out bool riesgo);
                     bool.TryParse(ws.Cell(rowM, 8).GetString(), out bool rezago);
 
-                    // CORRECCIÓN: Parseo seguro para evitar que truene si la celda no es un número
                     int.TryParse(ws.Cell(rowM, 3).GetString(), out int creditosParsed);
 
                     avance.Materias.Add(new MateriaCursada
@@ -148,7 +145,6 @@ namespace PlaneaUV_Economia.Controllers
                 int rowT = 6;
                 while (!ws.Cell(rowT, 10).IsEmpty())
                 {
-                    // CORRECCIÓN: Parseo seguro para el número de sesión
                     int.TryParse(ws.Cell(rowT, 11).GetString(), out int sesionParsed);
 
                     avance.Tutorias.Add(new TutoriaRecord
@@ -212,7 +208,6 @@ namespace PlaneaUV_Economia.Controllers
                 int r = 6;
                 while (!ws.Cell(r, 10).IsEmpty())
                 {
-                    // CORRECCIÓN: Parseo seguro
                     int.TryParse(ws.Cell(r, 11).GetString(), out int sesionParsed);
 
                     tutorias.Add(new TutoriaRecord
@@ -266,7 +261,6 @@ namespace PlaneaUV_Economia.Controllers
                         bool.TryParse(worksheet.Cell(fila, 7).GetString(), out bool enRiesgo);
                         m.EnRiesgo = enRiesgo;
 
-                        // Guardamos siempre el último intento (reemplaza anteriores)
                         materiasHistorial[m.Nombre] = m;
                         fila++;
                     }
