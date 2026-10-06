@@ -19,7 +19,6 @@
                     <div class="tab-pane fade show active" id="pills-buscar" role="tabpanel">
                         <input type="text" class="form-control mb-3 border-primary" id="inputBuscarAlumnoModal" placeholder="Escribe para filtrar alumnos..." onkeyup="filtrarAlumnosModal()">
                         <div class="list-group shadow-sm" id="listaAlumnosModal" style="max-height: 200px; overflow-y: auto;">
-                            <!-- Cargado dinámicamente -->
                         </div>
                     </div>
                     <div class="tab-pane fade" id="pills-nuevo" role="tabpanel">
@@ -60,8 +59,41 @@
                 </div>
 
                 <div class="mb-3 d-none" id="divOptativa">
-                    <label class="form-label fw-bold text-primary small">Definir nombre de la Optativa/AFEL:</label>
-                    <input type="text" class="form-control form-control-sm border-primary" id="inputOptativa" placeholder="Ej. Finanzas Internacionales">
+                    <label class="form-label fw-bold text-primary small">Seleccionar Optativa/AFEL:</label>
+                    <select class="form-select form-select-sm border-primary fw-bold text-dark" id="inputOptativa">
+                        <option value="">-- Seleccione la experiencia educativa --</option>
+                        <optgroup label="Área 1">
+                            <option value="Economía Agrícola">Economía Agrícola</option>
+                            <option value="Economía Ambiental">Economía Ambiental</option>
+                            <option value="Economía de la Salud">Economía de la Salud</option>
+                            <option value="Economía Regional">Economía Regional</option>
+                        </optgroup>
+                        <optgroup label="Área 2">
+                            <option value="Diseño y Evaluación de Políticas">Diseño y Evaluación de Políticas</option>
+                            <option value="Gerencia Pública y Gobernanza">Gerencia Pública y Gobernanza</option>
+                            <option value="Hacienda Municipal">Hacienda Municipal</option>
+                            <option value="Demografía">Demografía</option>
+                        </optgroup>
+                        <optgroup label="Área 3">
+                            <option value="Desarrollo de Emprendedores">Desarrollo de Emprendedores</option>
+                            <option value="Economía Gerencial">Economía Gerencial</option>
+                            <option value="Economía de los Mercados Financieros">Economía de los Mercados Financieros</option>
+                            <option value="Matemáticas Financieras y Portafolios">Matemáticas Financieras y Portafolios</option>
+                        </optgroup>
+                        <optgroup label="Área 4">
+                            <option value="Análisis Estadístico con Software">Análisis Estadístico con Software</option>
+                            <option value="Análisis Multivariado">Análisis Multivariado</option>
+                            <option value="Matemáticas para Economistas">Matemáticas para Economistas</option>
+                            <option value="Teoría de Juegos">Teoría de Juegos</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="mb-3 d-none" id="divAfel">
+                    <label class="form-label fw-bold text-success small">Nombre del AFEL:</label>
+                    <input type="text" class="form-control form-control-sm border-success mb-2" id="inputNombreAfel" placeholder="Ej. Arte y Creatividad, Deporte, etc.">
+
+                    <label class="form-label fw-bold text-success small">Créditos que otorga:</label>
+                    <input type="number" class="form-control form-control-sm border-success" id="inputCreditosAfel" min="1" max="20" placeholder="Ej. 6">
                 </div>
 
                 <!-- Historial de Intentos -->
@@ -160,9 +192,9 @@
                                 <label class="form-label small fw-bold mb-1">Asistencia</label>
                                 <select class="form-select form-select-sm" id="asistenciaTutoria1" onchange="marcarCambios()">
                                     <option value="pendiente">Pendiente</option>
-                                    <option value="asistio">✅ Asistió</option>
-                                    <option value="falto">❌ Faltó</option>
-                                    <option value="reprogramada">🔄 Reprogramada</option>
+                                    <option value="asistio"> Asistió</option>
+                                    <option value="falto"> Faltó</option>
+                                    <option value="reprogramada"> Reprogramada</option>
                                 </select>
                             </div>
                         </div>
@@ -184,9 +216,9 @@
                                 <label class="form-label small fw-bold mb-1">Asistencia</label>
                                 <select class="form-select form-select-sm" id="asistenciaTutoria2" onchange="marcarCambios()">
                                     <option value="pendiente">Pendiente</option>
-                                    <option value="asistio">✅ Asistió</option>
-                                    <option value="falto">❌ Faltó</option>
-                                    <option value="reprogramada">🔄 Reprogramada</option>
+                                    <option value="asistio"> Asistió</option>
+                                    <option value="falto"> Faltó</option>
+                                    <option value="reprogramada"> Reprogramada</option>
                                 </select>
                             </div>
                         </div>
@@ -208,9 +240,9 @@
                                 <label class="form-label small fw-bold mb-1">Asistencia</label>
                                 <select class="form-select form-select-sm" id="asistenciaTutoria3" onchange="marcarCambios()">
                                     <option value="pendiente">Pendiente</option>
-                                    <option value="asistio">✅ Asistió</option>
-                                    <option value="falto">❌ Faltó</option>
-                                    <option value="reprogramada">🔄 Reprogramada</option>
+                                    <option value="asistio"> Asistió</option>
+                                    <option value="falto"> Faltó</option>
+                                    <option value="reprogramada"> Reprogramada</option>
                                 </select>
                             </div>
                         </div>
