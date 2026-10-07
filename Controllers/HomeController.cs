@@ -5,11 +5,20 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Text;
+using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
 
 namespace PlaneaUV_Economia.Controllers
 {
     public class HomeController : Controller
     {
+        private readonly IWebHostEnvironment _env;
+        private readonly string _excelFilePath;
+        public HomeController(IWebHostEnvironment env)
+        {
+            _env = env;
+            _excelFilePath = Path.Combine(_env.ContentRootPath, "AvanceAlumnos.xlsx");
+        }
         public IActionResult Index() { return View(); }
 
         [HttpPost]
@@ -44,6 +53,10 @@ namespace PlaneaUV_Economia.Controllers
                 worksheet.Cell(3, 1).Value = "Situación:";
                 worksheet.Cell(3, 1).Style.Font.Bold = true;
                 worksheet.Cell(3, 2).Value = string.IsNullOrEmpty(avance.Situacion) ? "Activo" : avance.Situacion;
+
+                worksheet.Cell(4, 1).Value = "Plan de Estudios:";
+                worksheet.Cell(4, 1).Style.Font.Bold = true;
+                worksheet.Cell(4, 2).Value = string.IsNullOrEmpty(avance.PlanEstudio) ? "Generico" : avance.PlanEstudio;
 
                 worksheet.Cell(5, 1).Value = "Materia";
                 worksheet.Cell(5, 2).Value = "Periodo";
@@ -117,7 +130,8 @@ namespace PlaneaUV_Economia.Controllers
                 {
                     Matricula = ws.Cell(1, 2).GetString(),
                     Nombre = ws.Cell(2, 2).GetString(),
-                    Situacion = ws.Cell(3, 2).GetString()
+                    Situacion = ws.Cell(3, 2).GetString(),
+                    PlanEstudio = ws.Cell(4, 2).GetString()
                 };
 
                 int rowM = 6;
@@ -329,7 +343,119 @@ namespace PlaneaUV_Economia.Controllers
                 }
             });
         }
+        // =========================================================================
+        // GESTOR DE PLANES DE ESTUDIO (PLANTILLAS EXCEL)
+        // =========================================================================
 
+        [HttpPost]
+        public async Task<IActionResult> SubirPlanEstudio(IFormFile archivoPlan)
+        {
+            if (archivoPlan == null || archivoPlan.Length == 0)
+                return Json(new { success = false, message = "No se seleccionó ningún archivo." });
+
+            if (!archivoPlan.FileName.EndsWith(".xlsx"))
+                return Json(new { success = false, message = "El archivo debe ser un formato Excel válido (.xlsx)." });
+
+            try
+            {
+                // Usamos ContentRootPath para que sea compatible con IIS y seguro
+                string carpetaPlanes = Path.Combine(_env.ContentRootPath, "PlanesEstudio");
+
+                // Si la carpeta no existe, la creamos mágicamente
+                if (!Directory.Exists(carpetaPlanes))
+                {
+                    Directory.CreateDirectory(carpetaPlanes);
+                }
+
+                // Armamos la ruta final donde se guardará el Excel
+                string rutaCompleta = Path.Combine(carpetaPlanes, archivoPlan.FileName);
+
+                // Guardamos el archivo en el servidor
+                using (var stream = new FileStream(rutaCompleta, FileMode.Create))
+                {
+                    await archivoPlan.CopyToAsync(stream);
+                }
+
+                return Json(new { success = true, message = "Plan de estudios subido correctamente." });
+            }
+            catch (System.Exception ex)
+            {
+                return Json(new { success = false, message = "Error interno al guardar: " + ex.Message });
+            }
+        }
+
+        [HttpGet]
+        public IActionResult ObtenerPlanesEstudio()
+        {
+            string carpetaPlanes = Path.Combine(_env.ContentRootPath, "PlanesEstudio");
+
+            if (!Directory.Exists(carpetaPlanes))
+            {
+                return Json(new List<string>());
+            }
+
+            var archivos = Directory.GetFiles(carpetaPlanes, "*.xlsx")
+                                    .Select(Path.GetFileNameWithoutExtension)
+                                    .ToList();
+
+            return Json(archivos);
+        }
+        [HttpGet]
+        [HttpGet]
+        public IActionResult ObtenerMapaCurricular(string planNombre)
+        {
+            if (string.IsNullOrEmpty(planNombre))
+                return Json(new { success = false, message = "Nombre del plan no proporcionado." });
+
+            string rutaArchivo = Path.Combine(_env.ContentRootPath, "PlanesEstudio", planNombre + ".xlsx");
+
+            if (!System.IO.File.Exists(rutaArchivo))
+                return Json(new { success = false, message = "El plan de estudios no existe en el servidor." });
+
+            var materiasPlan = new List<object>();
+
+            try
+            {
+                using (var workbook = new XLWorkbook(rutaArchivo))
+                {
+                    var ws = workbook.Worksheet(1);
+                    int fila = 2;
+
+                    while (!ws.Cell(fila, 2).IsEmpty())
+                    {
+                        // BLINDAJE: Extraemos los valores siempre como String primero
+                        string semStr = ws.Cell(fila, 1).GetString().Trim();
+                        string nomStr = ws.Cell(fila, 2).GetString().Trim();
+                        string credStr = ws.Cell(fila, 3).GetString().Trim();
+                        string tipoStr = ws.Cell(fila, 4).GetString().Trim();
+                        string reqStr = ws.Cell(fila, 5).GetString().Trim();
+
+                        // Parseo seguro
+                        int.TryParse(semStr, out int semestre);
+                        int.TryParse(credStr, out int creditos);
+
+                        materiasPlan.Add(new
+                        {
+                            Semestre = semestre,
+                            Nombre = nomStr,
+                            Creditos = creditos,
+                            Tipo = tipoStr,
+                            Prerrequisitos = reqStr
+                        });
+
+                        fila++;
+                    }
+                }
+
+                return Json(new { success = true, data = materiasPlan });
+            }
+            catch (System.Exception ex)
+            {
+                // Si vuelve a fallar, nos dirá EXACTAMENTE por qué falló.
+                return Json(new { success = false, message = "Error C#: " + ex.Message });
+            }
+        }
         private string SanitizarNombreHoja(string nombre) { if (string.IsNullOrWhiteSpace(nombre)) return "SinNombre"; foreach (char c in new[] { '\\', '/', '?', '*', '[', ']', ':' }) nombre = nombre.Replace(c.ToString(), ""); return nombre.Length > 31 ? nombre.Substring(0, 31) : nombre; }
     }
+
 }

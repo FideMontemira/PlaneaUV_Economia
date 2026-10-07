@@ -31,6 +31,12 @@
                             <label class="form-label fw-bold small">Nombre Completo</label>
                             <input type="text" class="form-control border-success" id="inputNuevoNombre" placeholder="Empezando por apellidos">
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Plan de Estudios</label>
+                            <select class="form-select border-success" id="selectPlanNuevoAlumno">
+                                <option value="">-- Selecciona el Plan --</option>
+                            </select>
+                        </div>
                         <button class="btn btn-success w-100 fw-bold shadow-sm" onclick="crearNuevoAlumno()"><i class="bi bi-person-plus-fill me-1"></i> Crear y Empezar</button>
                     </div>
                 </div>
@@ -146,11 +152,11 @@
                 <div class="d-flex gap-2 mt-3">
                     <div class="form-check border p-2 rounded bg-white border-warning flex-fill shadow-sm">
                         <input class="form-check-input ms-1" type="checkbox" id="checkRiesgo">
-                        <label class="form-check-label fw-bold text-danger ms-2 small" for="checkRiesgo">⚠ Riesgo Manual</label>
+                        <label class="form-check-label fw-bold text-danger ms-2 small" for="checkRiesgo"> Riesgo Manual</label>
                     </div>
                     <div class="form-check border p-2 rounded bg-white border-secondary flex-fill shadow-sm">
                         <input class="form-check-input ms-1" type="checkbox" id="checkRezago">
-                        <label class="form-check-label fw-bold text-secondary ms-2 small" for="checkRezago">⏳ En Rezago</label>
+                        <label class="form-check-label fw-bold text-secondary ms-2 small" for="checkRezago"> En Rezago</label>
                     </div>
                 </div>
 
@@ -310,5 +316,30 @@
     </div>
     <div class="offcanvas-body bg-light" id="contenedorTarjetasAlerta">
         <div class="text-center py-4"><div class="spinner-border text-warning" role="status"></div></div>
+    </div>
+</div>
+<!-- Modal Gestor de Planes de Estudio -->
+<div class="modal fade" id="modalGestorPlanes" tabindex="-1" aria-labelledby="modalGestorPlanesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="modalGestorPlanesLabel">
+                    <i class="bi bi-file-earmark-spreadsheet-fill me-2"></i>Gestor de Planes
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="alert alert-info small py-2 shadow-sm">
+                    <i class="bi bi-info-circle-fill me-1"></i> Sube la plantilla de Excel <b>(.xlsx)</b> con las 5 columnas base para que el sistema aprenda a dibujar el mapa curricular automáticamente.
+                </div>
+                <div class="mb-3 mt-3">
+                    <label class="form-label fw-bold small text-dark">Archivo de Plantilla Excel:</label>
+                    <input class="form-control border-primary shadow-sm" type="file" id="inputFilePlan" accept=".xlsx">
+                </div>
+                <button class="btn btn-primary w-100 fw-bold shadow-sm" onclick="subirPlanEstudio()">
+                    <i class="bi bi-cloud-arrow-up-fill me-1"></i> Subir y Guardar Plan
+                </button>
+            </div>
+        </div>
     </div>
 </div>

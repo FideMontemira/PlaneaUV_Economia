@@ -10,6 +10,10 @@ let modalBootstrapInstance = null;
 let modalInicioInstance = null;
 let modalTutoriasInstance = null;
 let modalReporteGlobalInstance = null;
+let modalGestorPlanesInstance = null;
+let planActualAlumno = "";
+let materiasPlanMaestro = [];
+let planDibujadoActual = "";
 let huboCambios = false;
 
 let tutoriasGlobal = [];
@@ -51,6 +55,10 @@ document.addEventListener('DOMContentLoaded', function () {
         cargarListaAlumnosInicio();
         cargarListaAlumnos();
         cargarAlertas();
+        cargarPlanesDropdown();
+
+        const modalPlanesEl = $('modalGestorPlanes');
+        if (modalPlanesEl) modalGestorPlanesInstance = new bootstrap.Modal(modalPlanesEl);
 
         const modalEl = $('modalAvance');
         if (modalEl) modalBootstrapInstance = new bootstrap.Modal(modalEl);
@@ -655,89 +663,94 @@ function buscarAlumno(materiaAResaltar = null) {
 
             if ($('inputNombreAlumno')) $('inputNombreAlumno').value = res.data.nombre;
             if ($('selectSituacionAlumno')) $('selectSituacionAlumno').value = res.data.situacion || 'Activo';
+            planActualAlumno = res.data.planEstudio || "";
 
-            tutoriasGlobal = (res.data.tutorias || []).map(t => ({ Periodo: t.periodo, Sesion: t.sesion, Fecha: t.fecha, Asistencia: t.asistencia, Comentarios: t.comentarios }));
-            cargarTutoriasALaVista();
+            // ====== LA MAGIA: CARGAMOS EL MAPA PRIMERO ======
+            cargarMapaCurricular(planActualAlumno, function () {
 
-            let materiasAgrupadas = {};
-            res.data.materias.forEach(m => {
-                let matParseada = { Nombre: m.nombre, Periodo: m.periodo, Creditos: m.creditos, TipoInscripcion: m.tipoInscripcion, UltimoExamen: m.ultimoExamen, Estado: selectAEstado(m.estado), EnRiesgo: m.enRiesgo, EnRezago: m.enRezago };
-                if (!materiasAgrupadas[matParseada.Nombre]) materiasAgrupadas[matParseada.Nombre] = [];
-                materiasAgrupadas[matParseada.Nombre].push(matParseada);
-            });
+                // --- ESTO SE EJECUTA HASTA QUE EL MAPA ESTÉ COMPLETAMENTE DIBUJADO ---
+                tutoriasGlobal = (res.data.tutorias || []).map(t => ({ Periodo: t.periodo, Sesion: t.sesion, Fecha: t.fecha, Asistencia: t.asistencia, Comentarios: t.comentarios }));
+                cargarTutoriasALaVista();
 
-            // Borramos AFELs extra antes de cargar el nuevo alumno
-            document.querySelectorAll(".afel-extra").forEach(t => t.remove());
+                let materiasAgrupadas = {};
+                res.data.materias.forEach(m => {
+                    let matParseada = { Nombre: m.nombre, Periodo: m.periodo, Creditos: m.creditos, TipoInscripcion: m.tipoInscripcion, UltimoExamen: m.ultimoExamen, Estado: selectAEstado(m.estado), EnRiesgo: m.enRiesgo, EnRezago: m.enRezago };
+                    if (!materiasAgrupadas[matParseada.Nombre]) materiasAgrupadas[matParseada.Nombre] = [];
+                    materiasAgrupadas[matParseada.Nombre].push(matParseada);
+                });
 
-            document.querySelectorAll('.materia-card').forEach(t => {
-                let baseName = t.getAttribute('data-nombre');
-                let historialArray = materiasAgrupadas[baseName] || [];
+                document.querySelectorAll(".afel-extra").forEach(t => t.remove());
 
-                if (t.classList.contains('bg-optativa') && historialArray.length === 0) {
-                    for (let k in materiasAgrupadas) {
-                        if (!document.querySelector(`.materia-card[data-nombre="${CSS.escape(k)}"]`)) {
-                            if (listaOptativas.includes(k) && !t.hasAttribute('data-historial')) {
-                                historialArray = materiasAgrupadas[k];
-                                t.setAttribute('data-nombre-personalizado', k);
-                                delete materiasAgrupadas[k];
-                                break;
+                document.querySelectorAll('.materia-card').forEach(t => {
+                    let baseName = t.getAttribute('data-nombre');
+                    let historialArray = materiasAgrupadas[baseName] || [];
+
+                    if (t.classList.contains('bg-optativa') && historialArray.length === 0) {
+                        for (let k in materiasAgrupadas) {
+                            if (!document.querySelector(`.materia-card[data-nombre="${CSS.escape(k)}"]`)) {
+                                if (listaOptativas.includes(k) && !t.hasAttribute('data-historial')) {
+                                    historialArray = materiasAgrupadas[k];
+                                    t.setAttribute('data-nombre-personalizado', k);
+                                    delete materiasAgrupadas[k];
+                                    break;
+                                }
                             }
+                        }
+                    }
+
+                    if (t.classList.contains('bg-afel') && historialArray.length === 0) {
+                        for (let k in materiasAgrupadas) {
+                            if (!document.querySelector(`.materia-card[data-nombre="${CSS.escape(k)}"]`)) {
+                                if (!listaOptativas.includes(k) && !t.hasAttribute('data-historial')) {
+                                    historialArray = materiasAgrupadas[k];
+                                    t.setAttribute('data-nombre-personalizado', k);
+                                    if (historialArray[0] && historialArray[0].Creditos) t.setAttribute('data-creditos', historialArray[0].Creditos);
+                                    delete materiasAgrupadas[k];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (historialArray.length > 0) {
+                        t.setAttribute('data-historial', JSON.stringify(historialArray));
+                    } else {
+                        t.removeAttribute('data-historial');
+                        if (t.classList.contains('bg-optativa') || t.classList.contains('bg-afel')) t.removeAttribute('data-nombre-personalizado');
+                    }
+
+                    actualizarTarjetaVisual(t, historialArray);
+                });
+
+                for (let k in materiasAgrupadas) {
+                    if (!document.querySelector(`.materia-card[data-nombre="${CSS.escape(k)}"]`) && !document.querySelector(`.materia-card[data-nombre-personalizado="${CSS.escape(k)}"]`) && !listaOptativas.includes(k)) {
+                        let historialExtra = materiasAgrupadas[k];
+                        let creditosExtra = historialExtra[0] ? historialExtra[0].Creditos : 6;
+                        let nuevaTarjeta = agregarAfelExtra(k, creditosExtra);
+                        if (nuevaTarjeta) {
+                            nuevaTarjeta.setAttribute('data-historial', JSON.stringify(historialExtra));
+                            actualizarTarjetaVisual(nuevaTarjeta, historialExtra);
                         }
                     }
                 }
 
-                if (t.classList.contains('bg-afel') && historialArray.length === 0) {
-                    for (let k in materiasAgrupadas) {
-                        if (!document.querySelector(`.materia-card[data-nombre="${CSS.escape(k)}"]`)) {
-                            if (!listaOptativas.includes(k) && !t.hasAttribute('data-historial')) {
-                                historialArray = materiasAgrupadas[k];
-                                t.setAttribute('data-nombre-personalizado', k);
-                                if (historialArray[0] && historialArray[0].Creditos) t.setAttribute('data-creditos', historialArray[0].Creditos);
-                                delete materiasAgrupadas[k];
-                                break;
-                            }
+                huboCambios = false;
+                actualizarProgreso();
+
+                if (materiaAResaltar) {
+                    setTimeout(() => {
+                        const anim = Array.from(document.querySelectorAll('.materia-card')).find(t => t.getAttribute('data-nombre') === materiaAResaltar || t.getAttribute('data-nombre-personalizado') === materiaAResaltar);
+                        if (anim) {
+                            anim.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            anim.classList.add('resaltado-alerta');
+                            setTimeout(() => anim.classList.remove('resaltado-alerta'), 3000);
                         }
-                    }
+                    }, 300);
                 }
-
-                if (historialArray.length > 0) {
-                    t.setAttribute('data-historial', JSON.stringify(historialArray));
-                } else {
-                    t.removeAttribute('data-historial');
-                    if (t.classList.contains('bg-optativa') || t.classList.contains('bg-afel')) t.removeAttribute('data-nombre-personalizado');
-                }
-
-                actualizarTarjetaVisual(t, historialArray);
             });
 
-            for (let k in materiasAgrupadas) {
-                if (!document.querySelector(`.materia-card[data-nombre="${CSS.escape(k)}"]`) && !document.querySelector(`.materia-card[data-nombre-personalizado="${CSS.escape(k)}"]`) && !listaOptativas.includes(k)) {
-                    let historialExtra = materiasAgrupadas[k];
-                    let creditosExtra = historialExtra[0] ? historialExtra[0].Creditos : 6;
-                    let nuevaTarjeta = agregarAfelExtra(k, creditosExtra);
-                    if (nuevaTarjeta) {
-                        nuevaTarjeta.setAttribute('data-historial', JSON.stringify(historialExtra));
-                        actualizarTarjetaVisual(nuevaTarjeta, historialExtra);
-                    }
-                }
-            }
-
-            huboCambios = false;
-            actualizarProgreso();
-
-            if (materiaAResaltar) {
-                setTimeout(() => {
-                    const anim = Array.from(document.querySelectorAll('.materia-card')).find(t => t.getAttribute('data-nombre') === materiaAResaltar || t.getAttribute('data-nombre-personalizado') === materiaAResaltar);
-                    if (anim) {
-                        anim.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        anim.classList.add('resaltado-alerta');
-                        setTimeout(() => anim.classList.remove('resaltado-alerta'), 3000);
-                    }
-                }, 300);
-            }
         }).catch(e => { console.error(e); alert("Error de comunicación."); });
 }
-
 function exportarAvance() {
     let inputMat = $('inputMatricula');
     if (!inputMat) return;
@@ -756,6 +769,7 @@ function exportarAvance() {
         Matricula: matricula,
         Nombre: $('inputNombreAlumno') ? $('inputNombreAlumno').value.trim() : '',
         Situacion: $('selectSituacionAlumno') ? $('selectSituacionAlumno').value : 'Activo',
+        PlanEstudio: planActualAlumno,
         Tutorias: tutoriasGlobal,
         Materias: materiasAExportar
     };
@@ -773,20 +787,40 @@ function exportarAvance() {
         }).catch(e => { console.error(e); alert("Error de servidor."); });
 }
 
-function exportarAvanceSilencioso(matricula, nombre) {
+function exportarAvanceSilencioso(matricula, nombre, planDeEstudioParam) {
     let selSit = $('selectSituacionAlumno');
     let situacion = selSit ? selSit.value : 'Activo';
-    let reqBody = { Matricula: matricula, Nombre: nombre, Situacion: situacion, Tutorias: [], Materias: [] };
 
-    fetch('/Home/ExportarExcel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqBody) })
+    // Usamos un operador lógico seguro (||) para capturar el plan desde cualquier variable disponible
+    let planFinal = planDeEstudioParam || window.planActualAlumno || (typeof planActualAlumno !== 'undefined' ? planActualAlumno : "Generico");
+
+    let reqBody = {
+        Matricula: matricula,
+        Nombre: nombre,
+        Situacion: situacion,
+        PlanEstudio: planFinal,
+        Tutorias: [],
+        Materias: []
+    };
+
+    fetch('/Home/ExportarExcel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reqBody)
+    })
         .then(res => res.json())
         .then(data => {
-            if (data.success) { cargarListaAlumnos(); cargarListaAlumnosInicio(); }
-            else { alert("Error al registrar el alumno."); }
+            if (data.success) {
+                if (typeof cargarListaAlumnos === 'function') cargarListaAlumnos();
+                if (typeof cargarListaAlumnosInicio === 'function') cargarListaAlumnosInicio();
+            } else {
+                console.warn("Aviso al exportar de forma silenciosa.");
+            }
         })
-        .catch(e => { console.error(e); alert("Error de servidor."); });
+        .catch(e => {
+            console.error("Error en exportarAvanceSilencioso:", e);
+        });
 }
-
 function cargarListaAlumnos() {
     fetch('/Home/ObtenerAlumnosRegistrados').then(res => res.json()).then(alumnos => {
         const ul = $('listaAlumnosRegistrados');
@@ -831,32 +865,63 @@ function abrirModalNuevoAlumno(e) {
 }
 
 function crearNuevoAlumno() {
-    let inputMat = $('inputNuevaMatricula'); let inputNom = $('inputNuevoNombre');
-    if (!inputMat || !inputNom) return;
-    const mat = inputMat.value.trim(), nom = inputNom.value.trim();
-    if (!mat || !nom) { alert("Faltan datos."); return; }
+    let inputMat = $('inputNuevaMatricula');
+    let inputNom = $('inputNuevoNombre');
+    let selPlan = $('selectPlanNuevoAlumno');
+
+    if (!inputMat || !inputNom || !selPlan) return;
+
+    const mat = inputMat.value.trim();
+    const nom = inputNom.value.trim();
+    const plan = selPlan.value;
+
+    if (!mat || !nom || !plan) {
+        alert("Faltan datos o no has seleccionado el Plan de Estudios.");
+        return;
+    }
+
     if (!puedeCambiarDeContexto()) return;
 
-    fetch('/Home/ObtenerAlumnosRegistrados').then(res => res.json()).then(alumnos => {
-        if (alumnos.some(a => a.matricula.toLowerCase() === mat.toLowerCase())) { alert("Matrícula ya registrada."); return; }
-        if ($('inputMatricula')) $('inputMatricula').value = mat;
-        if ($('inputNombreAlumno')) $('inputNombreAlumno').value = nom;
-        if ($('selectSituacionAlumno')) $('selectSituacionAlumno').value = 'Activo';
+    fetch('/Home/ObtenerAlumnosRegistrados')
+        .then(res => {
+            if (!res.ok) throw new Error("Error del servidor: " + res.status);
+            return res.json();
+        })
+        .then(alumnos => {
+            // BLINDAJE 1: (a.matricula || "") evita que crashee si hay una fila vacía en Excel
+            if (alumnos.some(a => (a.matricula || "").toLowerCase() === mat.toLowerCase())) {
+                alert("Matrícula ya registrada.");
+                return;
+            }
 
-        tutoriasGlobal = [];
-        cargarTutoriasALaVista();
-        document.querySelectorAll(".afel-extra").forEach(t => t.remove());
+            if ($('inputMatricula')) $('inputMatricula').value = mat;
+            if ($('inputNombreAlumno')) $('inputNombreAlumno').value = nom;
+            if ($('selectSituacionAlumno')) $('selectSituacionAlumno').value = 'Activo';
 
-        document.querySelectorAll('.materia-card').forEach(t => {
-            t.removeAttribute('data-historial');
-            if (t.classList.contains('bg-optativa') || t.classList.contains('bg-afel')) t.removeAttribute('data-nombre-personalizado');
-            actualizarTarjetaVisual(t, []);
+            // BLINDAJE 2: window.planActualAlumno asegura que la variable global se asigne sin errores
+            window.planActualAlumno = plan;
+
+            tutoriasGlobal = [];
+            cargarTutoriasALaVista();
+
+            // EL CAMBIO PRINCIPAL: Ahora le exigimos al sistema que descargue y dibuje la 
+            // plantilla de Excel que elijas, y HASTA QUE TERMINE, guarda al alumno.
+            cargarMapaCurricular(plan, function () {
+                huboCambios = false;
+                actualizarProgreso();
+
+                exportarAvanceSilencioso(mat, nom, plan);
+
+                if (modalInicioInstance) modalInicioInstance.hide();
+                inputMat.value = '';
+                inputNom.value = '';
+                selPlan.value = '';
+            });
+
+        }).catch(e => {
+            console.error("Error exacto capturado:", e);
+            alert("Error de comunicación. Revisa la consola (Presiona F12) para ver la línea exacta del error.");
         });
-
-        huboCambios = false; actualizarProgreso(); exportarAvanceSilencioso(mat, nom);
-        if (modalInicioInstance) modalInicioInstance.hide();
-        inputMat.value = ''; inputNom.value = '';
-    }).catch(e => { console.error(e); alert("Error de comunicación."); });
 }
 
 function cargarAlertas() {
@@ -950,5 +1015,191 @@ function filtrarAlumnosModal() {
     const botones = document.querySelectorAll('#listaAlumnosModal button');
     botones.forEach(btn => {
         if (btn.innerText.toLowerCase().includes(texto)) { btn.style.display = 'flex'; } else { btn.style.display = 'none'; }
+    });
+}
+function abrirGestorPlanes() {
+    if (modalGestorPlanesInstance) modalGestorPlanesInstance.show();
+}
+
+function subirPlanEstudio() {
+    const input = document.getElementById("inputFilePlan");
+    if (!input || input.files.length === 0) {
+        alert("Por favor selecciona un archivo Excel (.xlsx) primero.");
+        return;
+    }
+
+    const archivo = input.files[0];
+    if (!archivo.name.endsWith('.xlsx')) {
+        alert("El archivo debe tener formato .xlsx obligatoriamente.");
+        return;
+    }
+
+    // Usamos FormData porque estamos enviando un archivo binario, no JSON
+    const formData = new FormData();
+    formData.append("archivoPlan", archivo);
+
+    // Ponemos a cargar el botón para que el usuario sepa que está trabajando
+    const btn = event.currentTarget;
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Subiendo...';
+    btn.disabled = true;
+
+    fetch('/Home/SubirPlanEstudio', {
+        method: 'POST',
+        body: formData
+    })
+        .then(res => res.json())
+        .then(data => {
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+
+            if (data.success) {
+                alert(data.message);
+                input.value = ""; // Limpiamos el input
+                if (modalGestorPlanesInstance) modalGestorPlanesInstance.hide();
+            } else {
+                alert("Error: " + data.message);
+            }
+        })
+        .catch(e => {
+            console.error(e);
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            alert("Error de comunicación al subir el plan de estudios.");
+        });
+}
+function cargarPlanesDropdown() {
+    fetch('/Home/ObtenerPlanesEstudio')
+        .then(res => res.json())
+        .then(planes => {
+            const sel = $('selectPlanNuevoAlumno');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">-- Selecciona el Plan --</option>';
+            planes.forEach(p => {
+                sel.add(new Option(p, p));
+            });
+        })
+        .catch(e => console.error("Error cargando planes:", e));
+}
+function cargarMapaCurricular(planNombre, callback) {
+    if (!planNombre || planNombre === "Generico") {
+        $('contenedor-mapa-dinamico').innerHTML = '<div class="alert alert-warning text-center mt-4">Este alumno no tiene un plan asignado.</div>';
+        if (callback) setTimeout(callback, 50);
+        return;
+    }
+
+    if (planDibujadoActual === planNombre) {
+        if (callback) setTimeout(callback, 50);
+        return;
+    }
+
+    $('contenedor-mapa-dinamico').innerHTML = '<div class="text-center w-100 py-5"><div class="spinner-border text-primary" role="status"></div><h5 class="mt-3 text-primary">Cargando Plan de Estudios...</h5></div>';
+
+    fetch(`/Home/ObtenerMapaCurricular?planNombre=${encodeURIComponent(planNombre)}`)
+        .then(res => res.json())
+        .then(res => {
+            if (!res.success) {
+                alert("Atención: " + res.message);
+                $('contenedor-mapa-dinamico').innerHTML = `<div class="alert alert-danger text-center w-100 mt-4">${res.message}</div>`;
+                if (callback) setTimeout(callback, 50);
+                return;
+            }
+
+            materiasPlanMaestro = res.data;
+
+            try {
+                renderizarMapaVisual();
+            } catch (errRender) {
+                console.error("Error al dibujar las tarjetas:", errRender);
+                alert("Error al dibujar el mapa. Verifica los datos.");
+            }
+
+            planDibujadoActual = planNombre;
+
+            // ✨ LA MAGIA OCURRE AQUÍ ✨
+            // Sacamos el 'callback' (el proceso de guardar alumno) fuera de la cadena 
+            // de promesas usando setTimeout. Esto obliga al navegador a pintar los colores
+            // en pantalla PRIMERO, y luego intentar guardar al alumno de forma independiente.
+            if (callback) {
+                setTimeout(callback, 150);
+            }
+        })
+        .catch(e => {
+            // Este catch AHORA SÍ es exclusivo para errores reales de internet/servidor.
+            console.error("Error de conexión real:", e);
+            alert("Ocurrió un error de red al intentar comunicarse con el servidor.");
+            $('contenedor-mapa-dinamico').innerHTML = '<div class="alert alert-danger w-100 text-center mt-4">Error de conexión.</div>';
+            if (callback) setTimeout(callback, 50);
+        });
+}
+
+function renderizarMapaVisual() {
+    const contenedor = $('contenedor-mapa-dinamico');
+    if (!contenedor) return;
+    contenedor.innerHTML = '';
+
+    let semestresAgrupados = {};
+    materiasPlanMaestro.forEach(m => {
+        // Aceptamos tanto 'semestre' (ASP.NET) como 'Semestre'
+        let sem = m.semestre || m.Semestre;
+        if (!semestresAgrupados[sem]) semestresAgrupados[sem] = [];
+        semestresAgrupados[sem].push(m);
+    });
+
+    let numerosSemestre = Object.keys(semestresAgrupados).map(Number).sort((a, b) => a - b);
+
+    numerosSemestre.forEach(numSemestre => {
+        let col = document.createElement('div');
+        col.style.minWidth = '220px';
+        col.style.maxWidth = '220px';
+
+        let header = document.createElement('h5');
+        header.className = 'text-center fw-bold text-secondary border-bottom pb-2 mb-3';
+        header.innerText = 'Semestre ' + numSemestre;
+        col.appendChild(header);
+
+        // Aceptamos minúsculas y mayúsculas
+        let tieneAfel = semestresAgrupados[numSemestre].some(m => ((m.tipo || m.Tipo) || "").toLowerCase() === 'afel');
+        if (tieneAfel) col.id = 'contenedor-afeles';
+
+        semestresAgrupados[numSemestre].forEach(mat => {
+            let card = document.createElement('div');
+            card.className = 'materia-card shadow-sm mb-2';
+
+            // Extraemos los datos blindando las minúsculas de C#
+            let nombreMat = mat.nombre || mat.Nombre || "Sin Nombre";
+            let creditosMat = mat.creditos || mat.Creditos || 0;
+            let tipoMat = (mat.tipo || mat.Tipo || "").toLowerCase();
+            let prerreqMat = mat.prerrequisitos || mat.Prerrequisitos || "";
+
+            card.setAttribute('data-nombre', nombreMat);
+            card.setAttribute('data-creditos', creditosMat);
+
+            if (tipoMat === 'optativa') {
+                card.classList.add('bg-optativa');
+            } else if (tipoMat === 'afel') {
+                card.classList.add('bg-afel');
+            }
+
+            let prerreqHtml = '';
+            if (prerreqMat) {
+                card.setAttribute('data-prerequisito', prerreqMat);
+                prerreqHtml = `<span class="prerequisito-text">Req: ${escapeHTML(prerreqMat)}</span>`;
+                card.classList.add('estado-bloqueada');
+            }
+
+            card.innerHTML = `<strong>${escapeHTML(nombreMat)}</strong><br/>(${creditosMat} Cr.)${prerreqHtml}`;
+            card.addEventListener('click', manejadorClickTarjeta);
+            col.appendChild(card);
+        });
+
+        if (tieneAfel) {
+            let btnContainer = document.createElement('div');
+            btnContainer.className = 'text-center mt-3';
+            btnContainer.innerHTML = '<button type="button" class="btn btn-sm btn-outline-success fw-bold w-100 shadow-sm" onclick="agregarAfelExtra()">+ Agregar AFEL</button>';
+            col.appendChild(btnContainer);
+        }
+
+        contenedor.appendChild(col);
     });
 }
