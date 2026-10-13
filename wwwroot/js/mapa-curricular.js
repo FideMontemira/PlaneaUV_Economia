@@ -18,13 +18,36 @@ let huboCambios = false;
 
 let tutoriasGlobal = [];
 
-// Lista maestra de optativas para saber diferenciar entre Optativa y AFEL al recrear historial
-const listaOptativas = [
-    "Economía Agrícola", "Economía Ambiental", "Economía de la Salud", "Economía Regional",
-    "Diseño y Evaluación de Políticas", "Gerencia Pública y Gobernanza", "Hacienda Municipal", "Demografía",
-    "Desarrollo de Emprendedores", "Economía Gerencial", "Economía de los Mercados Financieros", "Matemáticas Financieras y Portafolios",
-    "Análisis Estadístico con Software", "Análisis Multivariado", "Matemáticas para Economistas", "Teoría de Juegos"
-];
+// Datos del plan de estudios que está dibujado. Todo sale de la plantilla Excel del plan (nada fijo en el código):
+// - listaOptativas: catálogo de optativas (hoja "Optativas"); sirve para diferenciar Optativa de AFEL al recrear historial
+// - creditosTotalesPlan: total para el porcentaje de avance (hoja "Datos" o, si no viene, la suma de las materias)
+// - programaPlan: nombre del programa para el título
+let listaOptativas = [];
+let creditosTotalesPlan = 0;
+let programaPlan = "";
+
+// Aplica a la pantalla los datos del plan recién cargado (título, total de créditos y catálogo de optativas)
+function aplicarDatosDelPlan(res, planNombre) {
+    const optativas = res.optativas || [];
+    listaOptativas = optativas.map(o => o.nombre || o.Nombre).filter(n => n);
+    programaPlan = res.programa || planNombre || "";
+    creditosTotalesPlan = parseInt(res.creditosTotales) || 0;
+
+    const titulo = $('tituloMapa');
+    if (titulo) titulo.innerText = programaPlan ? 'Mapa Curricular - ' + programaPlan : 'Mapa Curricular';
+
+    const sel = $('inputOptativa');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Seleccione la experiencia educativa --</option>';
+    const grupos = {};
+    optativas.forEach(o => {
+        const nombre = o.nombre || o.Nombre, grupo = o.grupo || o.Grupo || '';
+        if (!nombre) return;
+        if (!grupo) { sel.add(new Option(nombre, nombre)); return; }
+        if (!grupos[grupo]) { grupos[grupo] = document.createElement('optgroup'); grupos[grupo].label = grupo; sel.appendChild(grupos[grupo]); }
+        grupos[grupo].appendChild(new Option(nombre, nombre));
+    });
+}
 
 
 function selectAEstado(v) {
@@ -38,8 +61,37 @@ function $(id) {
     return document.getElementById(id);
 }
 
+// ===================== PERIODOS ESCOLARES =====================
+// Formato único en todo el sistema: "Agosto - Enero AAAA" y "Febrero - Julio AAAA", donde AAAA es el año
+// en que TERMINA el periodo ("Agosto - Enero 2027" va de agosto 2026 a enero 2027).
+
+// Periodo que corresponde a una fecha (por defecto, hoy)
+function periodoDeFecha(fecha = new Date()) {
+    const mes = fecha.getMonth(), anio = fecha.getFullYear();   // enero = 0
+    if (mes >= 7) return `Agosto - Enero ${anio + 1}`;          // agosto a diciembre
+    if (mes === 0) return `Agosto - Enero ${anio}`;             // enero
+    return `Febrero - Julio ${anio}`;                           // febrero a julio
+}
+
+// Llena el selector de Periodo de Trabajo: 8 años hacia atrás, el actual seleccionado y 2 años hacia adelante.
+// Antes eran 4 opciones fijas en el HTML que se acababan en 2027.
+function llenarSelectorDePeriodos() {
+    const sel = $('selectPeriodoGlobal');
+    if (!sel) return;
+    const anioActual = new Date().getFullYear();
+    sel.innerHTML = '';
+    for (let anio = anioActual - 8; anio <= anioActual + 2; anio++) {
+        sel.add(new Option(`Agosto - Enero ${anio}`, `Agosto - Enero ${anio}`));
+        sel.add(new Option(`Febrero - Julio ${anio}`, `Febrero - Julio ${anio}`));
+    }
+    sel.value = periodoDeFecha();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     try {
+        // Debe ir primero: alertas, tutorías y periodo del alumno leen el Periodo de Trabajo
+        llenarSelectorDePeriodos();
+
         const modalInicioEl = $('modalInicio');
         if (modalInicioEl) {
             modalInicioInstance = new bootstrap.Modal(modalInicioEl);
@@ -101,6 +153,8 @@ document.addEventListener('DOMContentLoaded', function () {
             // Cambiar de periodo solo cambia lo que se ve; no modifica datos, así que no se guarda
             selPeriodo.addEventListener('change', () => {
                 cargarTutoriasALaVista();
+                actualizarPeriodoAlumno();
+                cargarAlertas();   // las alertas dependen del periodo que cursa cada alumno
             });
         }
 
@@ -150,7 +204,8 @@ function manejadorClickTarjeta(e) {
     const inputCreditosAfel = $('inputCreditosAfel');
 
     if (this.classList.contains('bg-optativa')) {
-        if (divOptativa) divOptativa.classList.remove('d-none');
+        // Si el plan no trae catálogo de optativas no hay nada que elegir: la tarjeta conserva su nombre
+        if (divOptativa) divOptativa.classList.toggle('d-none', listaOptativas.length === 0);
         if (divAfel) divAfel.classList.add('d-none');
         if (inputOptativa) inputOptativa.value = this.getAttribute('data-nombre-personalizado') || '';
     } else if (this.classList.contains('bg-afel')) {
@@ -436,6 +491,7 @@ function construirDatosAlumno() {
         Situacion: $('selectSituacionAlumno') ? $('selectSituacionAlumno').value : 'Activo',
         // Respaldo: si por alguna razón no hay plan, usar el que está dibujado en pantalla
         PlanEstudio: planActualAlumno || planDibujadoActual,
+        PeriodosSinInscripcion: periodosSinInscripcion.slice(),
         Tutorias: JSON.parse(JSON.stringify(tutoriasGlobal)),
         Materias: materias
     };
@@ -514,9 +570,10 @@ window.addEventListener('beforeunload', e => {
 function mostrarEstadoGuardado(estado) {
     const el = $('estadoGuardado');
     if (!el) return;
-    if (estado === 'guardando') { el.className = 'align-self-center small fw-bold text-muted ms-1'; el.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...'; }
-    else if (estado === 'ok') { el.className = 'align-self-center small fw-bold text-success ms-1'; el.innerHTML = '<i class="bi bi-cloud-check-fill me-1"></i> Guardado'; }
-    else { el.className = 'align-self-center small fw-bold text-danger ms-1'; el.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Error al guardar'; }
+    // El indicador vive en la barra superior (fondo azul): los colores los pone el CSS con .ok / .error
+    if (estado === 'guardando') { el.className = 'estado-guardado guardando'; el.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...'; }
+    else if (estado === 'ok') { el.className = 'estado-guardado ok'; el.innerHTML = '<i class="bi bi-cloud-check-fill me-1"></i> Guardado'; }
+    else { el.className = 'estado-guardado error'; el.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Error al guardar'; }
 }
 
 function guardarTutoriasEnMemoria() {
@@ -738,7 +795,189 @@ function actualizarTarjetaVisual(tarjeta, historialArray) {
     tarjeta.innerHTML = htmlContenido;
 }
 
+// ===================== PERIODO QUE CURSA EL ALUMNO =====================
+// La matrícula lleva el año de ingreso: S21... (o zS21...) = entró en agosto de 2021.
+// Su 1er periodo es "Agosto - Enero" de ese ingreso, el 2do "Febrero - Julio" siguiente, y así sucesivamente.
+
+// Año de ingreso según la matrícula, o null si la matrícula no tiene el formato S + 2 dígitos
+function anioIngresoDeMatricula(matricula) {
+    const m = /^z?s(\d{2})/i.exec((matricula || '').trim());
+    return m ? 2000 + parseInt(m[1]) : null;
+}
+
+// Número de periodo que le toca al alumno en un Periodo de Trabajo dado.
+// En el selector el año es el de TÉRMINO: "Agosto - Enero 2027" va de agosto 2026 a enero 2027.
+function numeroDePeriodo(anioIngreso, periodoTexto) {
+    const m = /(\d{4})/.exec(periodoTexto || '');
+    if (!anioIngreso || !m) return null;
+    const anio = parseInt(m[1]);
+    return /^\s*ago/i.test(periodoTexto)
+        ? (anio - 1 - anioIngreso) * 2 + 1   // Agosto - Enero: periodos impares
+        : (anio - anioIngreso) * 2;          // Febrero - Julio: periodos pares
+}
+
+// Nombre del periodo número i (1, 2, 3...) de un alumno que ingresó en 'anioIngreso'
+function nombreDePeriodo(anioIngreso, i) {
+    return i % 2 === 1 ? `Agosto - Enero ${anioIngreso + (i + 1) / 2}` : `Febrero - Julio ${anioIngreso + i / 2}`;
+}
+
+// Periodos en que el alumno cargado NO estuvo inscrito (bajas temporales). Se guardan con el alumno.
+let periodosSinInscripcion = [];
+
+// Periodo que REALMENTE cursa: los periodos corridos desde el ingreso menos los periodos anteriores sin inscripción
+function periodoQueCursaAlumno(matricula, periodoTexto) {
+    const ingreso = anioIngresoDeMatricula(matricula);
+    const corridos = numeroDePeriodo(ingreso, periodoTexto);
+    if (corridos === null) return null;
+    const pausas = periodosSinInscripcion.map(p => numeroDePeriodo(ingreso, p)).filter(n => n >= 1 && n < corridos).length;
+    return corridos - pausas;
+}
+
+function abrirModalPausas() {
+    const inputMat = $('inputMatricula');
+    const matricula = inputMat ? inputMat.value.trim() : '';
+    if (!matricula || alumnoCargado !== matricula) { alert("Selecciona un alumno primero."); return; }
+    const ingreso = anioIngresoDeMatricula(matricula);
+    if (!ingreso) { alert("La matrícula no trae el año de ingreso (ej. S21...), así que no se puede calcular su periodo."); return; }
+
+    // Se listan los periodos desde su ingreso hasta el Periodo de Trabajo
+    const selP = $('selectPeriodoGlobal');
+    const hasta = Math.max(1, numeroDePeriodo(ingreso, selP ? selP.value : '') || 1);
+    const lista = $('listaPausas');
+    lista.innerHTML = '';
+    for (let i = 1; i <= hasta; i++) {
+        const nombre = nombreDePeriodo(ingreso, i);
+        const item = document.createElement('label');
+        item.className = 'list-group-item d-flex align-items-center gap-2';
+        item.innerHTML = `<input class="form-check-input m-0" type="checkbox" ${periodosSinInscripcion.includes(nombre) ? 'checked' : ''}> <span>${escapeHTML(nombre)}</span>`;
+        item.querySelector('input').addEventListener('change', function () {
+            periodosSinInscripcion = periodosSinInscripcion.filter(p => p !== nombre);
+            if (this.checked) periodosSinInscripcion.push(nombre);
+            actualizarResumenPausas();
+            actualizarProgreso();   // recalcula periodo que cursa y rezago
+            marcarCambios();        // se guarda al momento
+        });
+        lista.appendChild(item);
+    }
+    actualizarResumenPausas();
+    bootstrap.Modal.getOrCreateInstance($('modalPausas')).show();
+}
+
+function actualizarResumenPausas() {
+    const r = $('resumenPausas');
+    if (r) r.innerText = periodosSinInscripcion.length === 0 ? 'Sin periodos marcados.' : `${periodosSinInscripcion.length} periodo(s) sin inscripción.`;
+}
+
+function actualizarPeriodoAlumno() {
+    const info = $('infoPeriodoAlumno');
+    const inputMat = $('inputMatricula');
+    const selP = $('selectPeriodoGlobal');
+    const matricula = inputMat ? inputMat.value.trim() : '';
+
+    // Se quita el resaltado anterior del mapa y las marcas de rezago automático (se recalculan abajo)
+    document.querySelectorAll('.periodo-header.periodo-actual').forEach(h => h.classList.remove('periodo-actual'));
+    document.querySelectorAll('.badge-rezago-auto').forEach(b => b.remove());
+    document.querySelectorAll('.materia-card[data-rezago-auto]').forEach(t => t.removeAttribute('data-rezago-auto'));
+
+    if (!info) return;
+    info.className = 'form-control form-control-sm fw-bold bg-light text-muted';
+    info.title = '';
+    if (!matricula) { info.innerText = '—'; return; }
+
+    const ingreso = anioIngresoDeMatricula(matricula);
+    if (!ingreso) { info.innerText = 'Matrícula sin año'; info.title = 'La matrícula no empieza con S + año de ingreso (ej. S21...)'; return; }
+
+    const periodoTrabajo = selP ? selP.value : '';
+    const corridos = numeroDePeriodo(ingreso, periodoTrabajo);
+    if (corridos === null) { info.innerText = '—'; return; }
+    if (corridos < 1) { info.innerText = `Ingresa en ago. ${ingreso}`; info.title = 'En el Periodo de Trabajo elegido el alumno todavía no había ingresado.'; return; }
+
+    // Se descuentan los periodos sin inscripción (bajas temporales)
+    const n = periodoQueCursaAlumno(matricula, periodoTrabajo);
+    const pausas = corridos - n;
+    const enPausaAhora = periodosSinInscripcion.includes(periodoTrabajo);
+
+    // Columnas de semestre del plan (la de solo AFEL no cuenta)
+    const columnas = [...document.querySelectorAll('.periodo-columna[data-semestre]')];
+    const ultimoDelPlan = columnas.length ? Math.max(...columnas.map(c => parseInt(c.getAttribute('data-semestre')))) : 0;
+
+    info.title = `Ingresó en agosto de ${ingreso}.` + (pausas > 0 ? ` Se descuentan ${pausas} periodo(s) sin inscripción.` : '');
+    if (enPausaAhora) {
+        info.innerText = `Sin inscripción (retoma ${n}°)`;
+        info.className = 'form-control form-control-sm fw-bold bg-light text-secondary border-secondary';
+        info.title += ' En este Periodo de Trabajo está marcado como no inscrito.';
+    } else if (ultimoDelPlan && n > ultimoDelPlan) {
+        // Ya rebasó la duración del plan: se marca en rojo
+        info.innerText = `${n}° periodo (plan: ${ultimoDelPlan})`;
+        info.className = 'form-control form-control-sm fw-bold bg-light text-danger border-danger';
+        info.title += ` El plan dura ${ultimoDelPlan} periodos: lleva ${n - ultimoDelPlan} de más.`;
+    } else {
+        info.innerText = `${n}° periodo`;
+        info.className = 'form-control form-control-sm fw-bold bg-light text-primary border-primary';
+    }
+
+    const columnaActual = enPausaAhora ? null : columnas.find(c => parseInt(c.getAttribute('data-semestre')) === n);
+    if (columnaActual) columnaActual.querySelector('.periodo-header').classList.add('periodo-actual');
+
+    // REZAGO AUTOMÁTICO: toda materia de un periodo anterior al que cursa y que no esté aprobada.
+    // Solo es visual (no se guarda en el Excel): se recalcula con la matrícula, el plan y el Periodo de Trabajo.
+    columnas.filter(c => parseInt(c.getAttribute('data-semestre')) < n).forEach(col => {
+        col.querySelectorAll('.materia-card').forEach(t => {
+            if (t.classList.contains('bg-afel') || t.getAttribute('data-estado') === 'aprobada') return;
+            t.setAttribute('data-rezago-auto', 'true');
+            if (t.getAttribute('data-rezago') === 'true') return;   // ya trae la etiqueta de rezago manual
+            t.insertAdjacentHTML('beforeend', '<div class="badge bg-secondary text-white mt-1 shadow-sm badge-rezago-auto" style="font-size:0.65rem; width:100%" title="Materia de un periodo anterior al que cursa">EN REZAGO</div>');
+        });
+    });
+}
+
+// ===================== GRÁFICAS POR ÁREA =====================
+// Una gráfica circular por cada tipo de materia del plan, igual a la de créditos pero por área.
+// El área de cada tarjeta es su clase de color (sale de las columnas Tipo y Area de la plantilla).
+const AREAS_DEL_PLAN = [
+    { clase: 'bg-general', nombre: 'General', color: '#6c757d' },
+    { clase: 'bg-basica', nombre: 'Básica', color: '#f0ad00' },
+    { clase: 'bg-disciplinar', nombre: 'Disciplinar', color: '#28a745' },
+    { clase: 'bg-terminal', nombre: 'Terminal', color: '#dc3545' },
+    { clase: 'bg-optativa', nombre: 'Optativas', color: '#0d6efd' },
+    { clase: 'bg-afel', nombre: 'AFEL', color: '#20c997' }
+];
+
+function dibujarGraficasPorArea() {
+    const contenedor = $('graficasAreas');
+    if (!contenedor) return;
+
+    const tarjetas = [...document.querySelectorAll('#contenedor-mapa-dinamico .materia-card')];
+    if (tarjetas.length === 0) {
+        contenedor.innerHTML = '<span class="text-muted small">Selecciona un alumno para ver su avance por área.</span>';
+        return;
+    }
+
+    let html = '';
+    AREAS_DEL_PLAN.forEach(area => {
+        const delArea = tarjetas.filter(t => t.classList.contains(area.clase));
+        if (delArea.length === 0) return;   // el plan no tiene materias de esta área
+
+        const creditos = t => parseInt(t.getAttribute('data-creditos')) || 0;
+        const aprobadas = delArea.filter(t => t.getAttribute('data-estado') === 'aprobada');
+        const total = delArea.reduce((s, t) => s + creditos(t), 0);
+        const logrado = aprobadas.reduce((s, t) => s + creditos(t), 0);
+        const pct = total > 0 ? Math.round((logrado / total) * 100) : 0;
+
+        html += `<div class="area-grafica" title="${area.nombre}: ${aprobadas.length} de ${delArea.length} materias aprobadas">
+                <div class="area-circulo" style="background: conic-gradient(${area.color} ${pct}%, #e9ecef ${pct}%);">
+                    <div class="area-circulo-interior">${pct}%</div>
+                </div>
+                <div class="area-nombre" style="color: ${area.color};">${area.nombre}</div>
+                <div class="area-detalle">${logrado} / ${total} Cr.</div>
+            </div>`;
+    });
+    contenedor.innerHTML = html;
+}
+
 function actualizarProgreso() {
+    actualizarPeriodoAlumno();
+
     let creditosAprobados = 0, materiasEnRiesgo = 0, materiasEnCurso = 0;
 
     document.querySelectorAll('.materia-card').forEach(t => {
@@ -749,13 +988,22 @@ function actualizarProgreso() {
         if (t.getAttribute('data-riesgo') === 'true') materiasEnRiesgo++;
     });
 
-    let porcentaje = Math.round((creditosAprobados / 441) * 100);
+    // El total sale del plan del alumno; sin plan cargado no hay total contra el cual calcular
+    let hayMapa = !!document.querySelector('#contenedor-mapa-dinamico .materia-card');
+    let total = hayMapa ? creditosTotalesPlan : 0;
+    let porcentaje = total > 0 ? Math.min(100, Math.round((creditosAprobados / total) * 100)) : 0;
 
     let txtPorc = $('textoPorcentaje'); if (txtPorc) txtPorc.innerText = porcentaje + '%';
-    let txtCred = $('textoCreditos'); if (txtCred) txtCred.innerText = creditosAprobados + ' / 441 Cr.';
+    let txtCred = $('textoCreditos'); if (txtCred) txtCred.innerText = total > 0 ? `${creditosAprobados} / ${total} Cr.` : `${creditosAprobados} Cr.`;
     let grAv = $('graficaAvance'); if (grAv) grAv.style.background = `conic-gradient(#28a745 ${porcentaje}%, #e9ecef ${porcentaje}%)`;
     let txRiesgo = $('textoRiesgo'); if (txRiesgo) txRiesgo.innerText = materiasEnRiesgo;
     let txCurso = $('textoCurso'); if (txCurso) txCurso.innerText = materiasEnCurso;
+
+    // Rezago: automático (periodos anteriores al que cursa) o marcado a mano, sin contar lo ya aprobado
+    let enRezago = [...document.querySelectorAll('.materia-card')].filter(t => t.getAttribute('data-estado') !== 'aprobada' && (t.hasAttribute('data-rezago-auto') || t.getAttribute('data-rezago') === 'true')).length;
+    let txRezago = $('textoRezago'); if (txRezago) txRezago.innerText = enRezago;
+
+    dibujarGraficasPorArea();
 
     document.querySelectorAll('.materia-card[data-prerequisito]').forEach(tarjeta => {
         let todasAprobadas = true;
@@ -807,6 +1055,7 @@ function buscarAlumno(materiaAResaltar = null) {
                 // --- ESTO SE EJECUTA HASTA QUE EL MAPA ESTÉ COMPLETAMENTE DIBUJADO ---
                 tutoriasGlobal = (res.data.tutorias || []).map(t => ({ Periodo: t.periodo, Sesion: t.sesion, Fecha: t.fecha, Asistencia: t.asistencia, Comentarios: t.comentarios }));
                 cargarTutoriasALaVista();
+                periodosSinInscripcion = (res.data.periodosSinInscripcion || []).slice();
 
                 let materiasAgrupadas = {};
                 res.data.materias.forEach(m => {
@@ -983,11 +1232,13 @@ function limpiarVistaAlumno() {
     cargarTutoriasALaVista();
     huboCambios = false;
     alumnoCargado = '';
+    periodosSinInscripcion = [];
 
     const contenedor = $('contenedor-mapa-dinamico');
     if (contenedor) contenedor.innerHTML = '<div class="w-100 text-center text-muted mt-5"><i class="bi bi-map text-secondary" style="font-size: 3rem;"></i><br />Selecciona un alumno para cargar su plan de estudios.</div>';
 
     const estado = $('estadoGuardado'); if (estado) estado.innerHTML = '';
+    const titulo = $('tituloMapa'); if (titulo) titulo.innerText = 'Mapa Curricular';
     actualizarProgreso();
 }
 
@@ -1028,6 +1279,7 @@ function crearNuevoAlumno() {
 
             tutoriasGlobal = [];
             cargarTutoriasALaVista();
+            periodosSinInscripcion = [];
             alumnosEliminados.delete(mat);
 
             // Se fuerza a redibujar el mapa: si el plan es el mismo que el del alumno anterior, sin esto
@@ -1064,7 +1316,11 @@ function cargarAlertas() {
     if (!contenedor) return;
     contenedor.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-warning" role="status"></div></div>';
 
-    fetch('/Home/ObtenerReporteAlertas').then(leerRespuesta).then(res => {
+    // Si se piden las alertas varias veces seguidas (p. ej. al cambiar de periodo), solo cuenta la última petición
+    const numeroPeticion = cargarAlertas.ultimaPeticion = (cargarAlertas.ultimaPeticion || 0) + 1;
+    const selPeriodoAlertas = $('selectPeriodoGlobal');
+    fetch(`/Home/ObtenerReporteAlertas?periodo=${encodeURIComponent(selPeriodoAlertas ? selPeriodoAlertas.value : '')}`).then(leerRespuesta).then(res => {
+        if (numeroPeticion !== cargarAlertas.ultimaPeticion) return;
         const alertas = res.data; const contadorBadge = $('contadorAlertas');
 
         if (alertas.length === 0) {
@@ -1081,10 +1337,10 @@ function cargarAlertas() {
             tarjeta.innerHTML = `<div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-start mb-2"><span class="badge ${escapeHTML(alerta.badge)} px-2 py-1">${escapeHTML(alerta.mensaje)}</span></div>
                     <h6 class="card-title fw-bold text-dark mb-1">${escapeHTML(alerta.nombre)}</h6>
-                    <p class="card-text text-muted small mb-2"><strong>Matrícula:</strong> ${escapeHTML(alerta.matricula)}<br/><strong>Materia:</strong> ${escapeHTML(alerta.materia)}</p>
+                    <p class="card-text text-muted small mb-2"><strong>Matrícula:</strong> ${escapeHTML(alerta.matricula)}<br/><strong>${escapeHTML(alerta.etiqueta || 'Materia')}:</strong> ${escapeHTML(alerta.materia)}</p>
                     <button class="btn btn-sm btn-outline-secondary w-100 fw-bold btn-revisar-mapa">Revisar Mapa</button>
                 </div>`;
-            tarjeta.querySelector('.btn-revisar-mapa').addEventListener('click', () => { cargarAlumnoDesdeAlerta(alerta.matricula, alerta.nombre, alerta.materia); });
+            tarjeta.querySelector('.btn-revisar-mapa').addEventListener('click', () => { cargarAlumnoDesdeAlerta(alerta.matricula, alerta.nombre, alerta.resaltar !== undefined ? alerta.resaltar : alerta.materia); });
             contenedor.appendChild(tarjeta);
         });
     }).catch(error => {
@@ -1113,7 +1369,8 @@ function cargarDatosReporteGlobal() {
     if (rRezago) rRezago.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-secondary" role="status"></div></div>';
     if (rSeriada) rSeriada.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-danger" role="status"></div></div>';
 
-    fetch('/Home/ObtenerReporteGlobal').then(leerRespuesta).then(res => {
+    const selPeriodoReporte = $('selectPeriodoGlobal');
+    fetch(`/Home/ObtenerReporteGlobal?periodo=${encodeURIComponent(selPeriodoReporte ? selPeriodoReporte.value : '')}`).then(leerRespuesta).then(res => {
         let htmlRiesgo = renderizarListaAgrupada(res.data.riesgos, "warning"); if (rRiesgo) rRiesgo.innerHTML = htmlRiesgo || '<p class="text-muted small">No hay alumnos en riesgo.</p>';
         let htmlRezago = renderizarListaAgrupada(res.data.rezagos, "secondary"); if (rRezago) rRezago.innerHTML = htmlRezago || '<p class="text-muted small">No hay alumnos en rezago.</p>';
         let htmlSeriadas = renderizarListaAgrupada(res.data.seriadas, "danger"); if (rSeriada) rSeriada.innerHTML = htmlSeriadas || '<p class="text-muted small">No hay adeudos de materias seriadas.</p>';
@@ -1175,7 +1432,7 @@ function imprimirReporteGlobal() {
             li { font-size: 9.5pt; list-style: disc; }
             p { font-size: 10pt; color: #666; font-style: italic; margin: 0; }
         </style></head><body>
-        <header><h1>Reporte Global de Trayectorias</h1><p>Licenciatura en Economía · Periodo de trabajo: ${escapeHTML(periodo)} · Impreso el ${fecha}</p></header>
+        <header><h1>Reporte Global de Trayectorias</h1><p>Periodo de trabajo: ${escapeHTML(periodo)} · Impreso el ${fecha}</p></header>
         ${cuerpo}</body></html>`;
 
     let frame = $('frameImpresionReporte');
@@ -1275,6 +1532,7 @@ function cargarPlanesDropdown() {
 // Como el mapa ya no muestra lo que había, se olvida el plan dibujado para que el siguiente se dibuje de nuevo.
 function mostrarSelectorPlan(mensaje) {
     planDibujadoActual = '';
+    const titulo = $('tituloMapa'); if (titulo) titulo.innerText = 'Mapa Curricular';
     $('contenedor-mapa-dinamico').innerHTML = `
         <div class="alert alert-warning text-center w-100 mt-4">
             <p class="fw-bold mb-2">${escapeHTML(mensaje)}</p>
@@ -1337,6 +1595,7 @@ function cargarMapaCurricular(planNombre, callback) {
             }
 
             materiasPlanMaestro = res.data;
+            aplicarDatosDelPlan(res, planNombre);
 
             try {
                 renderizarMapaVisual();
@@ -1393,6 +1652,8 @@ function renderizarMapaVisual() {
         const col = document.createElement('div');
         col.className = 'periodo-columna';
         if (tieneAfel) col.id = 'contenedor-afeles';
+        // Sirve para resaltar la columna del periodo que cursa el alumno (la de solo AFEL no es un periodo)
+        if (!soloAfel) col.setAttribute('data-semestre', numSemestre);
 
         const header = document.createElement('div');
         header.className = soloAfel ? 'periodo-header bg-success' : 'periodo-header';
@@ -1436,5 +1697,212 @@ function renderizarMapaVisual() {
         grid.appendChild(col);
     });
 
+    // Una columna por semestre del plan (antes eran 8 fijas). La columna de solo AFEL no cuenta,
+    // así baja a una segunda fila igual que en el diseño original.
+    const columnasSemestre = Math.max(1, grid.querySelectorAll('.periodo-columna').length - grid.querySelectorAll('.periodo-header.bg-success').length);
+    grid.style.gridTemplateColumns = `repeat(${columnasSemestre}, 1fr)`;
+    grid.style.minWidth = (columnasSemestre * 150) + 'px';
+
     contenedor.appendChild(grid);
+}
+
+// ===================== SUGERENCIA DE CARGA =====================
+// Propone qué materias le conviene inscribir al alumno, con lo que ya está en pantalla (plan + avance):
+//  1) atrasadas que son prerrequisito de otras (candados)   2) el resto del rezago
+//  3) las de su periodo                                     4) adelantar, si aún caben créditos
+// Nunca sugiere materias aprobadas, en curso o bloqueadas por prerrequisito.
+function abrirSugerenciaCarga() {
+    const inputMat = $('inputMatricula');
+    const matricula = inputMat ? inputMat.value.trim() : '';
+    if (!matricula || alumnoCargado !== matricula || !document.querySelector('#contenedor-mapa-dinamico .materia-card')) {
+        alert("Selecciona un alumno con plan de estudios primero.");
+        return;
+    }
+
+    // Tope por defecto: el promedio de créditos por periodo de su plan
+    const columnas = document.querySelectorAll('.periodo-columna[data-semestre]').length || 1;
+    const inputMax = $('inputMaxCreditos');
+    if (inputMax) inputMax.value = Math.max(1, Math.round((creditosTotalesPlan || 0) / columnas)) || 40;
+
+    const selP = $('selectPeriodoGlobal');
+    const sub = $('subtituloSugerencia');
+    if (sub) sub.innerText = `${$('inputNombreAlumno') ? $('inputNombreAlumno').value : ''} · ${selP ? selP.value : ''}`;
+
+    calcularSugerenciaCarga();
+    bootstrap.Modal.getOrCreateInstance($('modalSugerencia')).show();
+}
+
+function calcularSugerenciaCarga() {
+    const contenedor = $('contenedorSugerencia');
+    if (!contenedor) return;
+
+    const inputMat = $('inputMatricula');
+    const selP = $('selectPeriodoGlobal');
+    const n = periodoQueCursaAlumno(inputMat ? inputMat.value.trim() : '', selP ? selP.value : '');   // null si la matrícula no trae año
+    const maximo = parseInt($('inputMaxCreditos') ? $('inputMaxCreditos').value : '0') || 0;
+
+    // Cuántas materias desbloquea cada una (aparece como prerrequisito de otras)
+    const desbloquea = {};
+    document.querySelectorAll('.materia-card[data-prerequisito]').forEach(t => {
+        t.getAttribute('data-prerequisito').split(',').map(p => p.trim()).filter(p => p).forEach(p => { desbloquea[p] = (desbloquea[p] || 0) + 1; });
+    });
+
+    let creditosEnCurso = 0, enCurso = 0, bloqueadas = 0;
+    const candidatas = [];
+    document.querySelectorAll('.periodo-columna[data-semestre] .materia-card').forEach(t => {
+        if (t.classList.contains('bg-afel')) return;
+        const estado = t.getAttribute('data-estado');
+        const creditos = parseInt(t.getAttribute('data-creditos')) || 0;
+        if (estado === 'aprobada') return;
+        if (estado === 'cursando') { enCurso++; creditosEnCurso += creditos; return; }
+        if (t.classList.contains('estado-bloqueada')) { bloqueadas++; return; }
+
+        const semestre = parseInt(t.closest('.periodo-columna').getAttribute('data-semestre'));
+        const nombreBase = t.getAttribute('data-nombre');
+        const abre = desbloquea[nombreBase] || 0;
+        let prioridad, motivo, color;
+        if (n !== null && semestre < n && abre > 0) { prioridad = 1; motivo = `Atrasada · desbloquea ${abre}`; color = 'bg-danger'; }
+        else if (n !== null && semestre < n) { prioridad = 2; motivo = 'Atrasada'; color = 'bg-secondary'; }
+        else if (n === null || semestre === n) { prioridad = 3; motivo = n === null ? 'Disponible' : 'De su periodo'; color = 'bg-primary'; }
+        else { prioridad = 4; motivo = 'Adelantar'; color = 'bg-info text-dark'; }
+
+        candidatas.push({ nombre: t.getAttribute('data-nombre-personalizado') || nombreBase, semestre, creditos, prioridad, motivo, color, abre, reprobada: estado === 'reprobada' });
+    });
+
+    candidatas.sort((a, b) => a.prioridad - b.prioridad || a.semestre - b.semestre || b.abre - a.abre);
+
+    // Se llenan los créditos disponibles en orden de prioridad; lo que no cabe queda como "también puede cursar"
+    const disponible = Math.max(0, maximo - creditosEnCurso);
+    let usados = 0;
+    const sugeridas = [], fuera = [];
+    candidatas.forEach(c => {
+        if (usados + c.creditos <= disponible) { sugeridas.push(c); usados += c.creditos; } else fuera.push(c);
+    });
+
+    const fila = c => `<tr>
+            <td class="fw-bold">${escapeHTML(c.nombre)}${c.reprobada ? ' <span class="badge bg-warning text-dark">Recursa</span>' : ''}</td>
+            <td class="text-center">${c.semestre}°</td>
+            <td class="text-center">${c.creditos}</td>
+            <td><span class="badge ${c.color}">${escapeHTML(c.motivo)}</span></td>
+        </tr>`;
+    const tabla = (lista) => `<div class="table-responsive bg-white rounded shadow-sm mb-3"><table class="table table-sm align-middle mb-0">
+            <thead class="table-light"><tr><th>Materia</th><th class="text-center">Periodo del plan</th><th class="text-center">Créditos</th><th>Motivo</th></tr></thead>
+            <tbody>${lista.map(fila).join('')}</tbody></table></div>`;
+
+    let html = '';
+    if (enCurso > 0) html += `<div class="alert alert-info small py-2">Ya tiene <strong>${enCurso} materia(s) en curso</strong> (${creditosEnCurso} créditos); se descuentan del máximo.</div>`;
+    if (sugeridas.length > 0) html += `<h6 class="fw-bold text-success"><i class="bi bi-check2-circle me-1"></i>Sugeridas (${sugeridas.length})</h6>` + tabla(sugeridas);
+    else html += `<div class="alert alert-warning">No hay materias que sugerir con ese máximo de créditos${candidatas.length === 0 ? ': no le quedan materias disponibles para inscribir.' : '.'}</div>`;
+    if (fuera.length > 0) html += `<h6 class="fw-bold text-muted"><i class="bi bi-plus-circle me-1"></i>También puede cursar (no caben en el máximo)</h6>` + tabla(fuera);
+    if (bloqueadas > 0) html += `<p class="small text-muted mb-0"><i class="bi bi-lock-fill me-1"></i>${bloqueadas} materia(s) no se sugieren porque les falta aprobar un prerrequisito.</p>`;
+    contenedor.innerHTML = html;
+
+    const total = $('totalSugerencia');
+    if (total) total.innerText = `Carga sugerida: ${usados} créditos` + (creditosEnCurso > 0 ? ` + ${creditosEnCurso} en curso = ${usados + creditosEnCurso}` : '') + ` (máximo ${maximo})`;
+}
+
+
+// ===================== PANEL DEL GRUPO =====================
+// Todos los alumnos en una tabla: periodo que cursa, avance, materias en curso, rezago y alertas.
+let datosPanelGrupo = [];
+let ordenPanelGrupo = { columna: 'alertas', ascendente: false };
+
+function abrirPanelGrupo() {
+    const selP = $('selectPeriodoGlobal');
+    const periodo = selP ? selP.value : '';
+    const sub = $('subtituloPanelGrupo'); if (sub) sub.innerText = 'Periodo de trabajo: ' + periodo;
+    const tbody = document.querySelector('#tablaPanelGrupo tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+
+    // Encabezados clicables para ordenar (se enlazan una sola vez)
+    document.querySelectorAll('#tablaPanelGrupo th[data-columna]').forEach(th => {
+        if (th.dataset.enlazado) return;
+        th.dataset.enlazado = '1';
+        th.addEventListener('click', () => {
+            const col = th.getAttribute('data-columna');
+            ordenPanelGrupo = { columna: col, ascendente: ordenPanelGrupo.columna === col ? !ordenPanelGrupo.ascendente : true };
+            dibujarPanelGrupo();
+        });
+    });
+
+    bootstrap.Modal.getOrCreateInstance($('modalPanelGrupo')).show();
+
+    // Se espera el guardado en curso para que el panel no muestre datos de antes del último cambio
+    esperarGuardadoEnCurso()
+        .then(() => fetch(`/Home/ObtenerPanelGrupo?periodo=${encodeURIComponent(periodo)}`))
+        .then(leerRespuesta)
+        .then(res => { datosPanelGrupo = res.data || []; dibujarPanelGrupo(); })
+        .catch(e => {
+            console.error(e);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger py-3">${escapeHTML(e.message)}</td></tr>`;
+        });
+}
+
+function dibujarPanelGrupo() {
+    const tbody = document.querySelector('#tablaPanelGrupo tbody');
+    if (!tbody) return;
+
+    const texto = ($('filtroPanelGrupo') ? $('filtroPanelGrupo').value : '').toLowerCase().trim();
+    const soloActivos = $('soloActivosPanelGrupo') ? $('soloActivosPanelGrupo').checked : false;
+
+    let filas = datosPanelGrupo.filter(a =>
+        (!soloActivos || (a.situacion || 'Activo') === 'Activo') &&
+        (!texto || `${a.matricula} ${a.nombre} ${a.programa}`.toLowerCase().includes(texto)));
+
+    const { columna, ascendente } = ordenPanelGrupo;
+    filas.sort((a, b) => {
+        let x = a[columna], y = b[columna];
+        if (x === null || x === undefined) x = typeof y === 'number' ? -1 : '';
+        if (y === null || y === undefined) y = typeof x === 'number' ? -1 : '';
+        const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'es', { sensitivity: 'base' });
+        return ascendente ? r : -r;
+    });
+
+    // Flecha en la columna por la que está ordenado
+    document.querySelectorAll('#tablaPanelGrupo th[data-columna]').forEach(th => {
+        th.querySelectorAll('.flecha-orden').forEach(f => f.remove());
+        if (th.getAttribute('data-columna') === columna) th.insertAdjacentHTML('beforeend', `<span class="flecha-orden"> ${ascendente ? '▲' : '▼'}</span>`);
+    });
+
+    tbody.innerHTML = '';
+    if (filas.length === 0) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No hay alumnos que mostrar.</td></tr>';
+
+    filas.forEach(a => {
+        const tr = document.createElement('tr');
+        tr.setAttribute('role', 'button');
+        const excede = a.periodoQueCursa !== null && a.duracionPlan > 0 && a.periodoQueCursa > a.duracionPlan;
+        const periodoTxt = a.periodoQueCursa === null ? '<span class="text-muted">—</span>'
+            : a.periodoQueCursa < 1 ? '<span class="text-muted">Aún no ingresa</span>'
+            : `<span class="${excede ? 'text-danger fw-bold' : ''}">${a.periodoQueCursa}°${a.duracionPlan ? ' / ' + a.duracionPlan : ''}</span>`;
+        const sit = a.situacion || 'Activo';
+        tr.innerHTML = `
+            <td class="fw-bold">${escapeHTML(a.matricula)}</td>
+            <td>${escapeHTML(a.nombre)}</td>
+            <td class="small">${escapeHTML(a.programa)}</td>
+            <td><span class="badge ${sit === 'Activo' ? 'bg-success' : sit === 'Baja Temporal' ? 'bg-warning text-dark' : 'bg-danger'}">${escapeHTML(sit)}</span></td>
+            <td class="text-center">${periodoTxt}</td>
+            <td>
+                <div class="d-flex align-items-center gap-2" title="${a.creditosAprobados} de ${a.creditosTotales} créditos">
+                    <div class="progress flex-grow-1" style="height: 12px;"><div class="progress-bar bg-success" style="width: ${a.avance}%"></div></div>
+                    <span class="small fw-bold" style="min-width: 38px;">${a.avance}%</span>
+                </div>
+            </td>
+            <td class="text-center">${a.enCurso}</td>
+            <td class="text-center">${a.rezago > 0 ? `<span class="badge bg-secondary">${a.rezago}</span>` : '<span class="text-muted">0</span>'}</td>
+            <td class="text-center">${a.alertas > 0 ? `<span class="badge bg-danger">${a.alertas}</span>` : '<span class="text-muted">0</span>'}</td>`;
+        tr.addEventListener('click', () => {
+            if ($('inputMatricula')) $('inputMatricula').value = a.matricula;
+            buscarAlumno();
+            bootstrap.Modal.getOrCreateInstance($('modalPanelGrupo')).hide();
+            if (modalInicioInstance) modalInicioInstance.hide();
+        });
+        tbody.appendChild(tr);
+    });
+
+    const resumen = $('resumenPanelGrupo');
+    if (resumen) {
+        const conRezago = filas.filter(a => a.rezago > 0).length, conAlertas = filas.filter(a => a.alertas > 0).length;
+        const promedio = filas.length ? Math.round(filas.reduce((s, a) => s + a.avance, 0) / filas.length) : 0;
+        resumen.innerText = `${filas.length} alumno(s) · avance promedio ${promedio}% · ${conRezago} con rezago · ${conAlertas} con alertas`;
+    }
 }

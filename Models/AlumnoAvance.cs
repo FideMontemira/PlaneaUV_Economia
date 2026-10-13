@@ -8,6 +8,9 @@ namespace PlaneaUV_Economia.Models
         public string? Nombre { get; set; }
         public string? Situacion { get; set; }
         public string PlanEstudio { get; set; }
+        // Periodos en que el alumno NO estuvo inscrito (baja temporal, pausa). No cuentan para saber
+        // en qué periodo va. Ej.: "Agosto - Enero 2024"
+        public List<string> PeriodosSinInscripcion { get; set; } = new List<string>();
         public List<TutoriaRecord> Tutorias { get; set; } = new List<TutoriaRecord>();
         public List<MateriaCursada> Materias { get; set; } = new List<MateriaCursada>();
     }

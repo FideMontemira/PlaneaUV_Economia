@@ -65,33 +65,10 @@
                 </div>
 
                 <div class="mb-3 d-none" id="divOptativa">
-                    <label class="form-label fw-bold text-primary small">Seleccionar Optativa/AFEL:</label>
+                    <label class="form-label fw-bold text-primary small">Seleccionar Optativa:</label>
+                    <!-- Las opciones salen de la hoja "Optativas" del plan de estudios (ver llenarSelectOptativas en el JS) -->
                     <select class="form-select form-select-sm border-primary fw-bold text-dark" id="inputOptativa">
                         <option value="">-- Seleccione la experiencia educativa --</option>
-                        <optgroup label="Área 1">
-                            <option value="Economía Agrícola">Economía Agrícola</option>
-                            <option value="Economía Ambiental">Economía Ambiental</option>
-                            <option value="Economía de la Salud">Economía de la Salud</option>
-                            <option value="Economía Regional">Economía Regional</option>
-                        </optgroup>
-                        <optgroup label="Área 2">
-                            <option value="Diseño y Evaluación de Políticas">Diseño y Evaluación de Políticas</option>
-                            <option value="Gerencia Pública y Gobernanza">Gerencia Pública y Gobernanza</option>
-                            <option value="Hacienda Municipal">Hacienda Municipal</option>
-                            <option value="Demografía">Demografía</option>
-                        </optgroup>
-                        <optgroup label="Área 3">
-                            <option value="Desarrollo de Emprendedores">Desarrollo de Emprendedores</option>
-                            <option value="Economía Gerencial">Economía Gerencial</option>
-                            <option value="Economía de los Mercados Financieros">Economía de los Mercados Financieros</option>
-                            <option value="Matemáticas Financieras y Portafolios">Matemáticas Financieras y Portafolios</option>
-                        </optgroup>
-                        <optgroup label="Área 4">
-                            <option value="Análisis Estadístico con Software">Análisis Estadístico con Software</option>
-                            <option value="Análisis Multivariado">Análisis Multivariado</option>
-                            <option value="Matemáticas para Economistas">Matemáticas para Economistas</option>
-                            <option value="Teoría de Juegos">Teoría de Juegos</option>
-                        </optgroup>
                     </select>
                 </div>
                 <div class="mb-3 d-none" id="divAfel">
@@ -336,6 +313,105 @@
                 <button class="btn btn-primary w-100 fw-bold shadow-sm" onclick="subirPlanEstudio()">
                     <i class="bi bi-cloud-arrow-up-fill me-1"></i> Subir y Guardar Plan
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Periodos sin inscripción (bajas temporales) -->
+<div class="modal fade" id="modalPausas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title"><i class="bi bi-pause-circle me-2"></i>Periodos sin inscripción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="alert alert-info small py-2">
+                    Marca los periodos en que el alumno <strong>no estuvo inscrito</strong> (baja temporal, pausa).
+                    Esos periodos no cuentan para saber en qué periodo va, así no aparece con rezago que no le corresponde.
+                </div>
+                <div id="listaPausas" class="list-group shadow-sm"></div>
+            </div>
+            <div class="modal-footer bg-white">
+                <span class="small text-muted me-auto" id="resumenPausas"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sugerencia de carga -->
+<div class="modal fade" id="modalSugerencia" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <div>
+                    <h5 class="modal-title mb-0"><i class="bi bi-lightbulb-fill me-2"></i>Sugerencia de carga</h5>
+                    <small id="subtituloSugerencia" class="opacity-75"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="d-flex align-items-end gap-3 mb-3">
+                    <div>
+                        <label class="form-label fw-bold small mb-1">Máximo de créditos a inscribir:</label>
+                        <input type="number" class="form-control form-control-sm fw-bold" id="inputMaxCreditos" min="1" max="200" style="max-width: 140px;" onchange="calcularSugerenciaCarga()">
+                    </div>
+                    <div class="small text-muted">
+                        Solo se sugieren materias que el alumno <strong>ya puede cursar</strong> (prerrequisitos aprobados).
+                        Primero las atrasadas que bloquean a otras, luego el resto del rezago y al final las de su periodo.
+                    </div>
+                </div>
+                <div id="contenedorSugerencia"></div>
+            </div>
+            <div class="modal-footer bg-white">
+                <span class="fw-bold me-auto" id="totalSugerencia"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Panel del Grupo -->
+<div class="modal fade" id="modalPanelGrupo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <div>
+                    <h5 class="modal-title mb-0"><i class="bi bi-people-fill me-2"></i>Panel del grupo</h5>
+                    <small id="subtituloPanelGrupo" class="opacity-75"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+                    <input type="text" class="form-control form-control-sm" id="filtroPanelGrupo" placeholder="Filtrar por matrícula, nombre o programa..." style="max-width: 320px;" oninput="dibujarPanelGrupo()">
+                    <div class="form-check form-switch ms-2">
+                        <input class="form-check-input" type="checkbox" id="soloActivosPanelGrupo" checked onchange="dibujarPanelGrupo()">
+                        <label class="form-check-label small" for="soloActivosPanelGrupo">Solo activos</label>
+                    </div>
+                    <span class="small text-muted ms-auto" id="resumenPanelGrupo"></span>
+                </div>
+                <div class="table-responsive bg-white rounded shadow-sm">
+                    <table class="table table-sm table-hover align-middle mb-0" id="tablaPanelGrupo">
+                        <thead class="table-dark">
+                            <tr>
+                                <th role="button" data-columna="matricula">Matrícula</th>
+                                <th role="button" data-columna="nombre">Nombre</th>
+                                <th role="button" data-columna="programa">Programa</th>
+                                <th role="button" data-columna="situacion">Situación</th>
+                                <th role="button" data-columna="periodoQueCursa" class="text-center">Periodo</th>
+                                <th role="button" data-columna="avance" style="min-width: 150px;">Avance</th>
+                                <th role="button" data-columna="enCurso" class="text-center">En curso</th>
+                                <th role="button" data-columna="rezago" class="text-center">Rezago</th>
+                                <th role="button" data-columna="alertas" class="text-center">Alertas</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <p class="small text-muted mt-2 mb-0">Clic en un encabezado para ordenar. Clic en un alumno para abrir su mapa.</p>
             </div>
         </div>
     </div>

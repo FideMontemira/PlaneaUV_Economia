@@ -1,26 +1,58 @@
-﻿@{
-    ViewData["Title"] = "Mapa Curricular - Economía";
+@{
+    ViewData["Title"] = "Mapa Curricular";
 }
 
 <!-- 1. Hoja de estilos externa -->
-<link rel="stylesheet" href="~/css/mapa-curricular.css" />
+<link rel="stylesheet" href="~/css/mapa-curricular.css" asp-append-version="true" />
 
-<div class="container-fluid">
+@* Elementos de la barra superior: acciones generales (no dependen del alumno abierto), Periodo de Trabajo,
+   estado del guardado automático y alertas. En pantallas chicas quedan dentro del menú hamburguesa. *@
+@section NavItems {
+    <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+        <li class="nav-item">
+            <a class="nav-link" href="#" onclick="abrirPanelGrupo(); return false;" title="Ver a todos los alumnos en una tabla"><i class="bi bi-people-fill me-1"></i>Grupo</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#" onclick="abrirReporteGlobal(); return false;" title="Riesgo, rezago y seriadas de todos los alumnos"><i class="bi bi-bar-chart-line-fill me-1"></i>Reportes</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#" onclick="abrirGestorPlanes(); return false;" title="Subir plantillas de planes de estudio"><i class="bi bi-file-earmark-spreadsheet-fill me-1"></i>Planes</a>
+        </li>
+    </ul>
 
-    <!-- 2. Panel de Control Superior -->
-    <partial name="_Dashboard" />
+    <div class="d-flex flex-wrap align-items-center gap-2 gap-lg-3">
+        <!-- Los cambios se guardan automáticamente; aquí solo se muestra el estado -->
+        <span id="estadoGuardado" class="estado-guardado"></span>
 
-    <div class="text-center mb-4">
-        <h2 class="display-6">Mapa Curricular - Licenciatura en Economía (Plan 2024)</h2>
-        <p>Haz clic en una materia para gestionar el avance del estudiante.</p>
+        <div class="d-flex align-items-center gap-2" title="Periodo escolar sobre el que se registra y se calculan rezago y alertas">
+            <label for="selectPeriodoGlobal" class="app-nav-etiqueta mb-0"><i class="bi bi-calendar3 me-1"></i>Periodo de trabajo</label>
+            <!-- Las opciones las genera el JS según la fecha (llenarSelectorDePeriodos) -->
+            <select class="form-select form-select-sm fw-bold app-nav-select" id="selectPeriodoGlobal"></select>
+        </div>
+
+        <button class="btn btn-warning btn-sm fw-bold position-relative px-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasAlertas" onclick="cargarAlertas()">
+            <i class="bi bi-bell-fill me-1"></i>Alertas
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="contadorAlertas" style="display: none;">0</span>
+        </button>
     </div>
+}
 
-    <!-- 3.  Grid de las Materias -->
-    <partial name="_MapaGrid" />
+<!-- 2. Alumno e indicadores -->
+<partial name="_Dashboard" />
 
+<!-- 3. Mapa curricular -->
+<div class="card app-card mb-4">
+    <div class="card-header app-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <!-- El nombre del programa lo pone el JS según el plan del alumno cargado -->
+        <h2 class="h5 mb-0 fw-bold" id="tituloMapa">Mapa Curricular</h2>
+        <span class="small text-muted"><i class="bi bi-hand-index-thumb me-1"></i>Haz clic en una materia para registrar el avance del estudiante.</span>
+    </div>
+    <div class="card-body pt-2">
+        <partial name="_MapaGrid" />
+    </div>
 </div>
 
-<!-- 4.  modales y el panel lateral ocultos -->
+<!-- 4. Modales y panel lateral ocultos -->
 <partial name="_Modales" />
 
 @section Scripts {

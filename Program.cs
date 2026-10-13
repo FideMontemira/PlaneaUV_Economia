@@ -41,7 +41,7 @@ if (!app.Environment.IsDevelopment())
     app.Urls.Add(url);
     app.Lifetime.ApplicationStarted.Register(() =>
     {
-        Console.WriteLine($"PlaneaUV Economia corriendo en {url}");
+        Console.WriteLine($"PlaneaUV corriendo en {url}");
         Console.WriteLine("Cierra esta ventana para detener la aplicacion.");
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
     });
