@@ -98,9 +98,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const selPeriodo = $('selectPeriodoGlobal');
         if (selPeriodo) {
+            // Cambiar de periodo solo cambia lo que se ve; no modifica datos, así que no se guarda
             selPeriodo.addEventListener('change', () => {
                 cargarTutoriasALaVista();
-                marcarCambios();
             });
         }
 
@@ -282,14 +282,15 @@ function limpiarEstadoMateria() {
         tarjetaActual.remove();
         if (modalBootstrapInstance) modalBootstrapInstance.hide();
         actualizarProgreso();
+        marcarCambios();
         return;
     }
 
     evaluarLogicaInscripcion();
     renderizarHistorialUI([], false);
     actualizarTarjetaVisual(tarjetaActual, []);
-    huboCambios = true;
     actualizarProgreso();
+    marcarCambios();
 }
 
 function renderizarHistorialUI(historialArray, isLocked) {
@@ -386,7 +387,137 @@ function abrirModalTutorias() {
     if (modalTutoriasInstance) modalTutoriasInstance.show();
 }
 
-function marcarCambios() { huboCambios = true; }
+// ===================== GUARDADO AUTOMÁTICO =====================
+// Cada cambio toma una "foto" de los datos del alumno en ese momento y la deja en una cola por matrícula.
+// Así, aunque se cambie de alumno mientras se guarda, cada alumno se guarda con SUS datos y no se pierde
+// el último cambio. Si un guardado falla (p. ej. el Excel está abierto) se reintenta cada 5 segundos.
+let guardadoEnCurso = null;               // promesa del guardado que se está enviando
+const guardadosPendientes = new Map();    // matrícula -> datos más recientes aún sin guardar
+const alumnosEliminados = new Set();      // matrículas borradas: sus guardados pendientes se descartan
+let reintentoGuardado = null;
+let alumnoCargado = '';                   // matrícula cuyos datos están dibujados en el mapa
+
+function marcarCambios() {
+    const datos = construirDatosAlumno();
+    if (!datos) return;
+    huboCambios = true;
+    guardadosPendientes.set(datos.Matricula, datos);
+    procesarColaGuardado();
+}
+
+function hayGuardadosPendientes() {
+    return guardadosPendientes.size > 0 || guardadoEnCurso !== null;
+}
+
+// Promesa que se resuelve cuando termina el guardado que esté en curso (si hay uno)
+function esperarGuardadoEnCurso() {
+    return guardadoEnCurso || Promise.resolve();
+}
+
+function construirDatosAlumno() {
+    let inputMat = $('inputMatricula');
+    const matricula = inputMat ? inputMat.value.trim() : '';
+
+    // Solo se guarda si el mapa en pantalla es realmente de este alumno. Si el mapa no cargó (plan
+    // inexistente) o todavía se está cargando, guardar mandaría otras materias o ninguna y borraría su avance.
+    if (!matricula || alumnoCargado !== matricula || !document.querySelector('#contenedor-mapa-dinamico .materia-card')) return null;
+
+    guardarTutoriasEnMemoria();
+
+    const materias = [];
+    document.querySelectorAll('.materia-card').forEach(t => {
+        let hist = t.getAttribute('data-historial');
+        if (hist) materias.push(...JSON.parse(hist));
+    });
+
+    return {
+        Matricula: matricula,
+        Nombre: $('inputNombreAlumno') ? $('inputNombreAlumno').value.trim() : '',
+        Situacion: $('selectSituacionAlumno') ? $('selectSituacionAlumno').value : 'Activo',
+        // Respaldo: si por alguna razón no hay plan, usar el que está dibujado en pantalla
+        PlanEstudio: planActualAlumno || planDibujadoActual,
+        Tutorias: JSON.parse(JSON.stringify(tutoriasGlobal)),
+        Materias: materias
+    };
+}
+
+function procesarColaGuardado() {
+    if (guardadoEnCurso || guardadosPendientes.size === 0) return;
+    clearTimeout(reintentoGuardado);
+    reintentoGuardado = null;
+
+    const [matricula, datos] = guardadosPendientes.entries().next().value;
+    guardadosPendientes.delete(matricula);
+    if (alumnosEliminados.has(matricula)) { procesarColaGuardado(); return; }
+
+    mostrarEstadoGuardado('guardando');
+
+    guardadoEnCurso = fetch('/Home/ExportarExcel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) })
+        .then(leerRespuesta)
+        .then(() => {
+            if (guardadosPendientes.size === 0) {
+                huboCambios = false;
+                mostrarEstadoGuardado('ok');
+                ocultarAviso();
+                cargarListaAlumnos();
+                cargarListaAlumnosInicio();
+                cargarAlertas();
+            }
+        })
+        .catch(e => {
+            console.error(e);
+            // Se vuelve a encolar (salvo que ya haya datos más nuevos de ese alumno) y se reintenta más tarde
+            if (!guardadosPendientes.has(matricula) && !alumnosEliminados.has(matricula)) guardadosPendientes.set(matricula, datos);
+            mostrarEstadoGuardado('error');
+            mostrarAviso(e.message + ' (Se reintentará automáticamente.)');
+            reintentoGuardado = setTimeout(procesarColaGuardado, 5000);
+        })
+        .finally(() => {
+            guardadoEnCurso = null;
+            if (!reintentoGuardado) procesarColaGuardado();
+        });
+}
+
+// Lee la respuesta JSON del servidor; si es un error (p. ej. 409: Excel abierto) lanza el mensaje del servidor
+function leerRespuesta(res) {
+    return res.json().catch(() => ({})).then(data => {
+        if (!res.ok) throw new Error(data.message || `Error del servidor (${res.status}).`);
+        return data;
+    });
+}
+
+// Aviso visible en la parte superior de la pantalla (no bloquea como alert)
+function mostrarAviso(mensaje) {
+    let el = $('avisoSistema');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'avisoSistema';
+        el.className = 'alert alert-danger shadow position-fixed top-0 start-50 translate-middle-x mt-2 fw-bold';
+        el.style.zIndex = '2000';
+        el.style.maxWidth = '90%';
+        document.body.appendChild(el);
+    }
+    el.textContent = mensaje;
+    el.classList.remove('d-none');
+}
+
+function ocultarAviso() {
+    const el = $('avisoSistema');
+    if (el) el.classList.add('d-none');
+}
+
+// Si se intenta cerrar la pestaña con cambios sin guardar, el navegador pide confirmación
+window.addEventListener('beforeunload', e => {
+    if (hayGuardadosPendientes()) { e.preventDefault(); e.returnValue = ''; }
+});
+
+function mostrarEstadoGuardado(estado) {
+    const el = $('estadoGuardado');
+    if (!el) return;
+    if (estado === 'guardando') { el.className = 'align-self-center small fw-bold text-muted ms-1'; el.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando...'; }
+    else if (estado === 'ok') { el.className = 'align-self-center small fw-bold text-success ms-1'; el.innerHTML = '<i class="bi bi-cloud-check-fill me-1"></i> Guardado'; }
+    else { el.className = 'align-self-center small fw-bold text-danger ms-1'; el.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Error al guardar'; }
+}
 
 function guardarTutoriasEnMemoria() {
     let selP = $('selectPeriodoGlobal');
@@ -553,8 +684,8 @@ function guardarAvance() {
     actualizarTarjetaVisual(tarjetaActual, historialArray);
 
     if (modalBootstrapInstance) modalBootstrapInstance.hide();
-    huboCambios = true;
     actualizarProgreso();
+    marcarCambios();
 }
 
 function actualizarTarjetaVisual(tarjeta, historialArray) {
@@ -645,7 +776,7 @@ function actualizarProgreso() {
 }
 
 function puedeCambiarDeContexto() {
-    if (huboCambios) return confirm("Tienes cambios sin guardar. Si cambias de alumno perderás ese avance. ¿Continuar?");
+    // Con la cola de guardado por alumno, cambiar de alumno ya no pierde cambios: los pendientes se guardan solos
     return true;
 }
 
@@ -656,8 +787,13 @@ function buscarAlumno(materiaAResaltar = null) {
     var matricula = inputMat.value.trim();
     if (!matricula) return;
 
-    fetch(`/Home/BuscarAlumnoExcel?matricula=${encodeURIComponent(matricula)}`)
-        .then(response => response.json())
+    // Mientras llega el alumno nuevo, el mapa todavía muestra al anterior: no se permite guardar
+    alumnoCargado = '';
+
+    // Se espera a que termine el guardado en curso para no leer datos de antes de ese guardado
+    esperarGuardadoEnCurso()
+        .then(() => fetch(`/Home/BuscarAlumnoExcel?matricula=${encodeURIComponent(matricula)}`))
+        .then(leerRespuesta)
         .then(res => {
             if (!res.success) { alert(res.message); return; }
 
@@ -734,7 +870,9 @@ function buscarAlumno(materiaAResaltar = null) {
                     }
                 }
 
-                huboCambios = false;
+                // Desde aquí el mapa en pantalla es de este alumno y ya se pueden guardar sus cambios
+                alumnoCargado = matricula;
+                if (!hayGuardadosPendientes()) { const estadoG = $('estadoGuardado'); if (estadoG) estadoG.innerHTML = ''; }
                 actualizarProgreso();
 
                 if (materiaAResaltar) {
@@ -749,80 +887,11 @@ function buscarAlumno(materiaAResaltar = null) {
                 }
             });
 
-        }).catch(e => { console.error(e); alert("Error de comunicación."); });
-}
-function exportarAvance() {
-    let inputMat = $('inputMatricula');
-    if (!inputMat) return;
-    var matricula = inputMat.value.trim();
-    if (!matricula) { alert("Selecciona un alumno antes de guardar."); return; }
-
-    guardarTutoriasEnMemoria();
-
-    var materiasAExportar = [];
-    document.querySelectorAll('.materia-card').forEach(t => {
-        let hist = t.getAttribute('data-historial');
-        if (hist) materiasAExportar.push(...JSON.parse(hist));
-    });
-
-    var alumnoData = {
-        Matricula: matricula,
-        Nombre: $('inputNombreAlumno') ? $('inputNombreAlumno').value.trim() : '',
-        Situacion: $('selectSituacionAlumno') ? $('selectSituacionAlumno').value : 'Activo',
-        PlanEstudio: planActualAlumno,
-        Tutorias: tutoriasGlobal,
-        Materias: materiasAExportar
-    };
-
-    fetch('/Home/ExportarExcel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(alumnoData) })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert("¡Cambios guardados exitosamente!");
-                huboCambios = false;
-                cargarListaAlumnos();
-                cargarListaAlumnosInicio();
-                cargarAlertas();
-            } else { alert("Error al procesar datos."); }
-        }).catch(e => { console.error(e); alert("Error de servidor."); });
+        }).catch(e => { console.error(e); mostrarAviso(e.message || "Error de comunicación con el sistema."); });
 }
 
-function exportarAvanceSilencioso(matricula, nombre, planDeEstudioParam) {
-    let selSit = $('selectSituacionAlumno');
-    let situacion = selSit ? selSit.value : 'Activo';
-
-    // Usamos un operador lógico seguro (||) para capturar el plan desde cualquier variable disponible
-    let planFinal = planDeEstudioParam || window.planActualAlumno || (typeof planActualAlumno !== 'undefined' ? planActualAlumno : "Generico");
-
-    let reqBody = {
-        Matricula: matricula,
-        Nombre: nombre,
-        Situacion: situacion,
-        PlanEstudio: planFinal,
-        Tutorias: [],
-        Materias: []
-    };
-
-    fetch('/Home/ExportarExcel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reqBody)
-    })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                if (typeof cargarListaAlumnos === 'function') cargarListaAlumnos();
-                if (typeof cargarListaAlumnosInicio === 'function') cargarListaAlumnosInicio();
-            } else {
-                console.warn("Aviso al exportar de forma silenciosa.");
-            }
-        })
-        .catch(e => {
-            console.error("Error en exportarAvanceSilencioso:", e);
-        });
-}
 function cargarListaAlumnos() {
-    fetch('/Home/ObtenerAlumnosRegistrados').then(res => res.json()).then(alumnos => {
+    fetch('/Home/ObtenerAlumnosRegistrados').then(leerRespuesta).then(alumnos => {
         const ul = $('listaAlumnosRegistrados');
         if (!ul) return;
         ul.innerHTML = '';
@@ -832,28 +901,37 @@ function cargarListaAlumnos() {
             alumnos.forEach(a => {
                 let li = document.createElement('li'); let btn = document.createElement('a'); btn.className = 'dropdown-item d-flex justify-content-between'; btn.href = '#';
                 let ic = a.situacion === 'Activo' ? '🟢' : (a.situacion === 'Egresado' ? '🎓' : '🔴');
-                btn.innerHTML = `<span><strong>${escapeHTML(a.matricula)}</strong> - ${escapeHTML(a.nombre)}</span> <span>${ic}</span>`;
+                btn.className += ' align-items-center gap-2';
+                btn.innerHTML = `<span><strong>${escapeHTML(a.matricula)}</strong> - ${escapeHTML(a.nombre)}</span> <span class="d-flex align-items-center gap-2">${ic} <span class="btn btn-sm btn-outline-danger py-0 px-1 lh-1 btn-eliminar-alumno" title="Eliminar alumno">${ICONO_ELIMINAR}</span></span>`;
                 btn.onclick = (e) => { e.preventDefault(); if (!puedeCambiarDeContexto()) return; if ($('inputMatricula')) $('inputMatricula').value = a.matricula; buscarAlumno(); };
+                btn.querySelector('.btn-eliminar-alumno').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); eliminarAlumno(a.matricula, a.nombre); });
                 li.appendChild(btn); ul.appendChild(li);
             });
         }
         ul.insertAdjacentHTML('beforeend', '<li><hr class="dropdown-divider"></li><li><a class="dropdown-item text-success fw-bold" href="#" onclick="abrirModalNuevoAlumno(event)">Agregar alumno</a></li>');
-    }).catch(e => console.error('Error cargando lista de alumnos:', e));
+        if (!hayGuardadosPendientes()) ocultarAviso();
+    }).catch(e => { console.error('Error cargando lista de alumnos:', e); mostrarAviso(e.message); });
 }
 
 function cargarListaAlumnosInicio() {
-    fetch('/Home/ObtenerAlumnosRegistrados').then(res => res.json()).then(alumnos => {
+    fetch('/Home/ObtenerAlumnosRegistrados').then(leerRespuesta).then(alumnos => {
         const c = $('listaAlumnosModal');
         if (!c) return;
         c.innerHTML = '';
         alumnos.forEach(a => {
-            let btn = document.createElement('button'); btn.className = 'btn btn-outline-primary text-start fw-bold mb-2 w-100 d-flex justify-content-between';
+            // Fila: botón para abrir al alumno + botón para eliminarlo (filtrarAlumnosModal oculta la fila completa)
+            let fila = document.createElement('div'); fila.className = 'd-flex gap-2 mb-2 fila-alumno-modal';
+            let btn = document.createElement('button'); btn.className = 'btn btn-outline-primary text-start fw-bold flex-grow-1 d-flex justify-content-between';
             let ic = a.situacion === 'Activo' ? '🟢' : (a.situacion === 'Egresado' ? '🎓' : '🔴');
             btn.innerHTML = `<span><i class="bi bi-person-fill"></i> ${escapeHTML(a.matricula)} - ${escapeHTML(a.nombre)}</span> <span>${ic}</span>`;
             btn.onclick = () => { if (!puedeCambiarDeContexto()) return; if ($('inputMatricula')) $('inputMatricula').value = a.matricula; buscarAlumno(); if (modalInicioInstance) modalInicioInstance.hide(); };
-            c.appendChild(btn);
+            let btnEliminar = document.createElement('button'); btnEliminar.className = 'btn btn-outline-danger'; btnEliminar.title = 'Eliminar alumno';
+            btnEliminar.innerHTML = ICONO_ELIMINAR;
+            btnEliminar.onclick = () => eliminarAlumno(a.matricula, a.nombre);
+            fila.appendChild(btn); fila.appendChild(btnEliminar);
+            c.appendChild(fila);
         });
-    }).catch(e => console.error('Error cargando alumnos de inicio:', e));
+    }).catch(e => { console.error('Error cargando alumnos de inicio:', e); mostrarAviso(e.message); });
 }
 
 function abrirModalNuevoAlumno(e) {
@@ -862,6 +940,55 @@ function abrirModalNuevoAlumno(e) {
     if ($('inputBuscarAlumnoModal')) $('inputBuscarAlumnoModal').value = '';
     const b = $('btnCerrarModalInicio'); if (b) b.classList.remove('d-none');
     if (modalInicioInstance) modalInicioInstance.show();
+}
+
+// Ícono de bote de basura en SVG (el proyecto no carga Bootstrap Icons, así que los <i class="bi ..."> no se ven)
+const ICONO_ELIMINAR = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5M8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5m3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0"/></svg>';
+
+function eliminarAlumno(matricula, nombre) {
+    if (!confirm(`¿Seguro que deseas eliminar al alumno ${matricula} - ${nombre}?\n\nSe borrará todo su avance y tutorías. Esta acción no se puede deshacer.`)) return;
+
+    // Se descartan sus guardados pendientes y se espera el que esté en curso, para que no lo vuelva a crear
+    alumnosEliminados.add(matricula);
+    guardadosPendientes.delete(matricula);
+
+    esperarGuardadoEnCurso()
+        .then(() => fetch(`/Home/EliminarAlumno?matricula=${encodeURIComponent(matricula)}`, { method: 'POST' }))
+        .then(leerRespuesta)
+        .then(data => {
+            if (!data.success) { alumnosEliminados.delete(matricula); alert("No se pudo eliminar: " + (data.message || "error desconocido.")); return; }
+
+            let inputMat = $('inputMatricula');
+            if (inputMat && inputMat.value.trim().toLowerCase() === matricula.toLowerCase()) {
+                limpiarVistaAlumno();
+                const b = $('btnCerrarModalInicio'); if (b) b.classList.add('d-none');
+                if (modalInicioInstance) modalInicioInstance.show();
+            }
+
+            cargarListaAlumnos();
+            cargarListaAlumnosInicio();
+            cargarAlertas();
+        })
+        .catch(e => { console.error(e); alumnosEliminados.delete(matricula); alert("No se pudo eliminar el alumno. " + (e.message || "")); });
+}
+
+// Deja la pantalla sin alumno seleccionado (se usa al eliminar al alumno que estaba abierto)
+function limpiarVistaAlumno() {
+    if ($('inputMatricula')) $('inputMatricula').value = '';
+    if ($('inputNombreAlumno')) $('inputNombreAlumno').value = '';
+    if ($('selectSituacionAlumno')) $('selectSituacionAlumno').value = 'Activo';
+    planActualAlumno = '';
+    planDibujadoActual = '';
+    tutoriasGlobal = [];
+    cargarTutoriasALaVista();
+    huboCambios = false;
+    alumnoCargado = '';
+
+    const contenedor = $('contenedor-mapa-dinamico');
+    if (contenedor) contenedor.innerHTML = '<div class="w-100 text-center text-muted mt-5"><i class="bi bi-map text-secondary" style="font-size: 3rem;"></i><br />Selecciona un alumno para cargar su plan de estudios.</div>';
+
+    const estado = $('estadoGuardado'); if (estado) estado.innerHTML = '';
+    actualizarProgreso();
 }
 
 function crearNuevoAlumno() {
@@ -883,10 +1010,7 @@ function crearNuevoAlumno() {
     if (!puedeCambiarDeContexto()) return;
 
     fetch('/Home/ObtenerAlumnosRegistrados')
-        .then(res => {
-            if (!res.ok) throw new Error("Error del servidor: " + res.status);
-            return res.json();
-        })
+        .then(leerRespuesta)
         .then(alumnos => {
             // BLINDAJE 1: (a.matricula || "") evita que crashee si hay una fila vacía en Excel
             if (alumnos.some(a => (a.matricula || "").toLowerCase() === mat.toLowerCase())) {
@@ -898,19 +1022,30 @@ function crearNuevoAlumno() {
             if ($('inputNombreAlumno')) $('inputNombreAlumno').value = nom;
             if ($('selectSituacionAlumno')) $('selectSituacionAlumno').value = 'Activo';
 
-            // BLINDAJE 2: window.planActualAlumno asegura que la variable global se asigne sin errores
-            window.planActualAlumno = plan;
+            // planActualAlumno está declarada con 'let', así que window.planActualAlumno sería otra variable distinta:
+            // hay que asignar la variable real o los guardados posteriores mandan el plan vacío ("Generico")
+            planActualAlumno = plan;
 
             tutoriasGlobal = [];
             cargarTutoriasALaVista();
+            alumnosEliminados.delete(mat);
 
-            // EL CAMBIO PRINCIPAL: Ahora le exigimos al sistema que descargue y dibuje la 
-            // plantilla de Excel que elijas, y HASTA QUE TERMINE, guarda al alumno.
+            // Se fuerza a redibujar el mapa: si el plan es el mismo que el del alumno anterior, sin esto
+            // las tarjetas conservaban las materias del alumno anterior y se guardaban en el nuevo
+            planDibujadoActual = '';
+            alumnoCargado = '';
+
+            // Se dibuja la plantilla del plan elegido y, HASTA QUE TERMINE, se registra al alumno
             cargarMapaCurricular(plan, function () {
-                huboCambios = false;
                 actualizarProgreso();
+                alumnoCargado = mat;
 
-                exportarAvanceSilencioso(mat, nom, plan);
+                // El registro pasa por la cola de guardado: si el Excel está ocupado se reintenta solo
+                marcarCambios();
+                if (!document.querySelector('#contenedor-mapa-dinamico .materia-card')) {
+                    mostrarAviso("No se pudo cargar el plan de estudios; el alumno no se registró.");
+                    return;
+                }
 
                 if (modalInicioInstance) modalInicioInstance.hide();
                 inputMat.value = '';
@@ -919,8 +1054,8 @@ function crearNuevoAlumno() {
             });
 
         }).catch(e => {
-            console.error("Error exacto capturado:", e);
-            alert("Error de comunicación. Revisa la consola (Presiona F12) para ver la línea exacta del error.");
+            console.error("Error al crear alumno:", e);
+            mostrarAviso(e.message || "Error de comunicación con el sistema.");
         });
 }
 
@@ -929,8 +1064,7 @@ function cargarAlertas() {
     if (!contenedor) return;
     contenedor.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-warning" role="status"></div></div>';
 
-    fetch('/Home/ObtenerReporteAlertas').then(response => response.json()).then(res => {
-        if (!res.success) return;
+    fetch('/Home/ObtenerReporteAlertas').then(leerRespuesta).then(res => {
         const alertas = res.data; const contadorBadge = $('contadorAlertas');
 
         if (alertas.length === 0) {
@@ -953,7 +1087,10 @@ function cargarAlertas() {
             tarjeta.querySelector('.btn-revisar-mapa').addEventListener('click', () => { cargarAlumnoDesdeAlerta(alerta.matricula, alerta.nombre, alerta.materia); });
             contenedor.appendChild(tarjeta);
         });
-    }).catch(error => console.error('Error cargando alertas:', error));
+    }).catch(error => {
+        console.error('Error cargando alertas:', error);
+        contenedor.innerHTML = `<div class="alert alert-danger text-center mt-2 small">${escapeHTML(error.message)}</div>`;
+    });
 }
 
 function cargarAlumnoDesdeAlerta(matricula, nombre, materia) {
@@ -976,12 +1113,16 @@ function cargarDatosReporteGlobal() {
     if (rRezago) rRezago.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-secondary" role="status"></div></div>';
     if (rSeriada) rSeriada.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-danger" role="status"></div></div>';
 
-    fetch('/Home/ObtenerReporteGlobal').then(response => response.json()).then(res => {
-        if (!res.success) return;
+    fetch('/Home/ObtenerReporteGlobal').then(leerRespuesta).then(res => {
         let htmlRiesgo = renderizarListaAgrupada(res.data.riesgos, "warning"); if (rRiesgo) rRiesgo.innerHTML = htmlRiesgo || '<p class="text-muted small">No hay alumnos en riesgo.</p>';
         let htmlRezago = renderizarListaAgrupada(res.data.rezagos, "secondary"); if (rRezago) rRezago.innerHTML = htmlRezago || '<p class="text-muted small">No hay alumnos en rezago.</p>';
         let htmlSeriadas = renderizarListaAgrupada(res.data.seriadas, "danger"); if (rSeriada) rSeriada.innerHTML = htmlSeriadas || '<p class="text-muted small">No hay adeudos de materias seriadas.</p>';
-    }).catch(error => console.error('Error cargando reporte global:', error));
+    }).catch(error => {
+        // Sin esto los contenedores se quedaban con el indicador de carga para siempre
+        console.error('Error cargando reporte global:', error);
+        const msg = `<p class="text-danger small">${escapeHTML(error.message)}</p>`;
+        [rRiesgo, rRezago, rSeriada].forEach(c => { if (c) c.innerHTML = msg; });
+    });
 }
 
 function renderizarListaAgrupada(arreglo, colorClase) {
@@ -998,13 +1139,62 @@ function renderizarListaAgrupada(arreglo, colorClase) {
     return html;
 }
 
-function imprimirReporteGlobal() { window.print(); }
+// Imprime solo el reporte (no la página completa) en un iframe oculto con un formato limpio para papel
+function imprimirReporteGlobal() {
+    const secciones = [
+        { titulo: 'Materias en Riesgo', color: '#ffc107', id: 'contenedorReporteRiesgo' },
+        { titulo: 'Materias en Rezago', color: '#6c757d', id: 'contenedorReporteRezago' },
+        { titulo: 'Seriadas Adeudadas (Candados)', color: '#dc3545', id: 'contenedorReporteSeriadas' }
+    ];
+
+    if (document.querySelector('#modalReporteGlobal .spinner-border')) { alert("El reporte aún se está cargando. Intenta de nuevo en un momento."); return; }
+
+    const fecha = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+    const selP = $('selectPeriodoGlobal');
+    const periodo = selP ? selP.value : '';
+
+    let cuerpo = '';
+    secciones.forEach(s => {
+        const el = $(s.id);
+        cuerpo += `<section><h2 style="border-left-color:${s.color}">${s.titulo}</h2>${el ? el.innerHTML : ''}</section>`;
+    });
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Reporte Global de Trayectorias</title>
+        <style>
+            @page { size: letter; margin: 1.5cm; }
+            body { font-family: "Segoe UI", Arial, sans-serif; color: #212529; font-size: 11pt; margin: 0; }
+            header { border-bottom: 2px solid #6f42c1; padding-bottom: 6px; margin-bottom: 14px; }
+            header h1 { font-size: 16pt; margin: 0; color: #6f42c1; }
+            header p { margin: 2px 0 0; font-size: 9pt; color: #555; }
+            section { margin-bottom: 16px; }
+            h2 { font-size: 12pt; margin: 0 0 8px; padding: 3px 8px; border-left: 6px solid; background: #f3f3f3; }
+            section > div { border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; margin-bottom: 6px; page-break-inside: avoid; break-inside: avoid; }
+            section > div > div { display: flex; justify-content: space-between; align-items: center; }
+            .badge { border: 1px solid #555; border-radius: 10px; padding: 0 8px; font-size: 9pt; font-weight: bold; }
+            ul { margin: 4px 0 0 16px; padding: 0; columns: 2; column-gap: 24px; }
+            li { font-size: 9.5pt; list-style: disc; }
+            p { font-size: 10pt; color: #666; font-style: italic; margin: 0; }
+        </style></head><body>
+        <header><h1>Reporte Global de Trayectorias</h1><p>Licenciatura en Economía · Periodo de trabajo: ${escapeHTML(periodo)} · Impreso el ${fecha}</p></header>
+        ${cuerpo}</body></html>`;
+
+    let frame = $('frameImpresionReporte');
+    if (frame) frame.remove();
+    frame = document.createElement('iframe');
+    frame.id = 'frameImpresionReporte';
+    frame.style.cssText = 'position:fixed; width:0; height:0; border:0; visibility:hidden;';
+    document.body.appendChild(frame);
+
+    const doc = frame.contentWindow.document;
+    doc.open(); doc.write(html); doc.close();
+    setTimeout(() => { frame.contentWindow.focus(); frame.contentWindow.print(); }, 200);
+}
 
 function descargarWordTutorias() {
     let inputMat = $('inputMatricula');
     var matricula = inputMat ? inputMat.value.trim() : '';
     if (!matricula) { alert("Selecciona un alumno primero."); return; }
-    if (huboCambios) { alert("⚠️ Tienes cambios o comentarios sin guardar. Haz clic en 'Guardar' antes de exportar el reporte."); return; }
+    if (hayGuardadosPendientes()) { alert("Se están guardando los últimos cambios. Intenta de nuevo en un momento."); return; }
     window.location.href = `/Home/DescargarWordTutorias?matricula=${encodeURIComponent(matricula)}`;
 }
 
@@ -1012,9 +1202,9 @@ function filtrarAlumnosModal() {
     let input = $('inputBuscarAlumnoModal');
     if (!input) return;
     const texto = input.value.toLowerCase();
-    const botones = document.querySelectorAll('#listaAlumnosModal button');
-    botones.forEach(btn => {
-        if (btn.innerText.toLowerCase().includes(texto)) { btn.style.display = 'flex'; } else { btn.style.display = 'none'; }
+    const filas = document.querySelectorAll('#listaAlumnosModal .fila-alumno-modal');
+    filas.forEach(fila => {
+        if (fila.innerText.toLowerCase().includes(texto)) { fila.style.setProperty('display', 'flex', 'important'); } else { fila.style.setProperty('display', 'none', 'important'); }
     });
 }
 function abrirGestorPlanes() {
@@ -1081,9 +1271,50 @@ function cargarPlanesDropdown() {
         })
         .catch(e => console.error("Error cargando planes:", e));
 }
+// Cuando el alumno no tiene plan (o su plan ya no existe) se muestra un selector para asignarle uno.
+// Como el mapa ya no muestra lo que había, se olvida el plan dibujado para que el siguiente se dibuje de nuevo.
+function mostrarSelectorPlan(mensaje) {
+    planDibujadoActual = '';
+    $('contenedor-mapa-dinamico').innerHTML = `
+        <div class="alert alert-warning text-center w-100 mt-4">
+            <p class="fw-bold mb-2">${escapeHTML(mensaje)}</p>
+            <p class="small mb-2">Asígnale un plan de estudios; su avance y tutorías se conservan.</p>
+            <div class="d-flex justify-content-center gap-2">
+                <select id="selectAsignarPlan" class="form-select form-select-sm" style="max-width: 260px;"><option value="">-- Selecciona el Plan --</option></select>
+                <button type="button" class="btn btn-sm btn-success fw-bold" onclick="asignarPlanAlumno()">Asignar plan</button>
+            </div>
+        </div>`;
+    fetch('/Home/ObtenerPlanesEstudio').then(leerRespuesta).then(planes => {
+        const sel = $('selectAsignarPlan');
+        if (sel) planes.forEach(p => sel.add(new Option(p, p)));
+    }).catch(e => console.error("Error cargando planes:", e));
+}
+
+function asignarPlanAlumno() {
+    const sel = $('selectAsignarPlan');
+    const plan = sel ? sel.value : '';
+    const inputMat = $('inputMatricula');
+    const matricula = inputMat ? inputMat.value.trim() : '';
+    if (!plan || !matricula) { alert("Selecciona un plan de estudios."); return; }
+
+    // El registro se reescribe a partir de lo guardado en el Excel (no de la pantalla, que no tiene mapa),
+    // así no se pierden materias ni tutorías
+    esperarGuardadoEnCurso()
+        .then(() => fetch(`/Home/BuscarAlumnoExcel?matricula=${encodeURIComponent(matricula)}`))
+        .then(leerRespuesta)
+        .then(res => {
+            if (!res.success) throw new Error(res.message);
+            const datos = Object.assign({}, res.data, { planEstudio: plan });
+            return fetch('/Home/ExportarExcel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) });
+        })
+        .then(leerRespuesta)
+        .then(() => buscarAlumno())
+        .catch(e => { console.error(e); mostrarAviso("No se pudo asignar el plan. " + (e.message || "")); });
+}
+
 function cargarMapaCurricular(planNombre, callback) {
     if (!planNombre || planNombre === "Generico") {
-        $('contenedor-mapa-dinamico').innerHTML = '<div class="alert alert-warning text-center mt-4">Este alumno no tiene un plan asignado.</div>';
+        mostrarSelectorPlan("Este alumno no tiene un plan de estudios asignado.");
         if (callback) setTimeout(callback, 50);
         return;
     }
@@ -1099,8 +1330,8 @@ function cargarMapaCurricular(planNombre, callback) {
         .then(res => res.json())
         .then(res => {
             if (!res.success) {
-                alert("Atención: " + res.message);
-                $('contenedor-mapa-dinamico').innerHTML = `<div class="alert alert-danger text-center w-100 mt-4">${res.message}</div>`;
+                // Plan renombrado/borrado de la carpeta PlanesEstudio: se permite asignar otro
+                mostrarSelectorPlan(`No se encontró el plan "${planNombre}". ${res.message || ''}`);
                 if (callback) setTimeout(callback, 50);
                 return;
             }
@@ -1127,8 +1358,8 @@ function cargarMapaCurricular(planNombre, callback) {
         .catch(e => {
             // Este catch AHORA SÍ es exclusivo para errores reales de internet/servidor.
             console.error("Error de conexión real:", e);
-            alert("Ocurrió un error de red al intentar comunicarse con el servidor.");
-            $('contenedor-mapa-dinamico').innerHTML = '<div class="alert alert-danger w-100 text-center mt-4">Error de conexión.</div>';
+            planDibujadoActual = '';
+            $('contenedor-mapa-dinamico').innerHTML = '<div class="alert alert-danger w-100 text-center mt-4">Error de conexión con el sistema. ¿Está abierta la ventana negra del programa?</div>';
             if (callback) setTimeout(callback, 50);
         });
 }
@@ -1138,6 +1369,10 @@ function renderizarMapaVisual() {
     if (!contenedor) return;
     contenedor.innerHTML = '';
 
+    const ordinal = n => n + (n === 1 || n === 3 ? 'er' : n === 2 ? 'do' : n === 7 || n === 10 ? 'mo' : n === 8 ? 'vo' : n === 9 ? 'no' : 'to');
+    const clasesArea = { general: 'bg-general', 'básica': 'bg-basica', basica: 'bg-basica', disciplinar: 'bg-disciplinar', terminal: 'bg-terminal' };
+    const tipoDe = m => ((m.tipo || m.Tipo) || '').toLowerCase();
+
     let semestresAgrupados = {};
     materiasPlanMaestro.forEach(m => {
         // Aceptamos tanto 'semestre' (ASP.NET) como 'Semestre'
@@ -1146,40 +1381,38 @@ function renderizarMapaVisual() {
         semestresAgrupados[sem].push(m);
     });
 
-    let numerosSemestre = Object.keys(semestresAgrupados).map(Number).sort((a, b) => a - b);
+    // Misma estructura visual que el mapa anterior (mapa-grid / periodo-columna / periodo-header)
+    const grid = document.createElement('div');
+    grid.className = 'mapa-grid w-100';
 
-    numerosSemestre.forEach(numSemestre => {
-        let col = document.createElement('div');
-        col.style.minWidth = '220px';
-        col.style.maxWidth = '220px';
+    Object.keys(semestresAgrupados).map(Number).sort((a, b) => a - b).forEach(numSemestre => {
+        const materias = semestresAgrupados[numSemestre];
+        const soloAfel = materias.every(m => tipoDe(m) === 'afel');
+        const tieneAfel = materias.some(m => tipoDe(m) === 'afel');
 
-        let header = document.createElement('h5');
-        header.className = 'text-center fw-bold text-secondary border-bottom pb-2 mb-3';
-        header.innerText = 'Semestre ' + numSemestre;
-        col.appendChild(header);
-
-        // Aceptamos minúsculas y mayúsculas
-        let tieneAfel = semestresAgrupados[numSemestre].some(m => ((m.tipo || m.Tipo) || "").toLowerCase() === 'afel');
+        const col = document.createElement('div');
+        col.className = 'periodo-columna';
         if (tieneAfel) col.id = 'contenedor-afeles';
 
-        semestresAgrupados[numSemestre].forEach(mat => {
-            let card = document.createElement('div');
-            card.className = 'materia-card shadow-sm mb-2';
+        const header = document.createElement('div');
+        header.className = soloAfel ? 'periodo-header bg-success' : 'periodo-header';
+        header.innerText = soloAfel ? 'Área Libre (AFEL)' : ordinal(numSemestre) + ' Periodo';
+        col.appendChild(header);
 
-            // Extraemos los datos blindando las minúsculas de C#
-            let nombreMat = mat.nombre || mat.Nombre || "Sin Nombre";
-            let creditosMat = mat.creditos || mat.Creditos || 0;
-            let tipoMat = (mat.tipo || mat.Tipo || "").toLowerCase();
-            let prerreqMat = mat.prerrequisitos || mat.Prerrequisitos || "";
+        materias.forEach(mat => {
+            const nombreMat = mat.nombre || mat.Nombre || "Sin Nombre";
+            const creditosMat = mat.creditos || mat.Creditos || 0;
+            const tipoMat = tipoDe(mat);
+            const areaMat = (mat.area || mat.Area || "").toLowerCase();
+            const prerreqMat = mat.prerrequisitos || mat.Prerrequisitos || "";
 
+            // El color sale de la columna Área del Excel (Optativa y AFEL tienen su propio color)
+            const card = document.createElement('div');
+            card.className = 'materia-card ' + (tipoMat === 'optativa' ? 'bg-optativa'
+                : tipoMat === 'afel' ? 'bg-afel shadow-sm'
+                : (clasesArea[areaMat] || 'bg-general'));
             card.setAttribute('data-nombre', nombreMat);
             card.setAttribute('data-creditos', creditosMat);
-
-            if (tipoMat === 'optativa') {
-                card.classList.add('bg-optativa');
-            } else if (tipoMat === 'afel') {
-                card.classList.add('bg-afel');
-            }
 
             let prerreqHtml = '';
             if (prerreqMat) {
@@ -1194,12 +1427,14 @@ function renderizarMapaVisual() {
         });
 
         if (tieneAfel) {
-            let btnContainer = document.createElement('div');
+            const btnContainer = document.createElement('div');
             btnContainer.className = 'text-center mt-3';
             btnContainer.innerHTML = '<button type="button" class="btn btn-sm btn-outline-success fw-bold w-100 shadow-sm" onclick="agregarAfelExtra()">+ Agregar AFEL</button>';
             col.appendChild(btnContainer);
         }
 
-        contenedor.appendChild(col);
+        grid.appendChild(col);
     });
+
+    contenedor.appendChild(grid);
 }

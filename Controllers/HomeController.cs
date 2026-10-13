@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+Ôªøusing Microsoft.AspNetCore.Mvc;
 using PlaneaUV_Economia.Models;
 using ClosedXML.Excel;
 using System.IO;
@@ -14,6 +14,11 @@ namespace PlaneaUV_Economia.Controllers
     {
         private readonly IWebHostEnvironment _env;
         private readonly string _excelFilePath;
+        // Todas las lecturas y escrituras de AvanceAlumnos.xlsx pasan por este candado, para que
+        // un guardado autom√°tico nunca coincida con otra lectura o escritura del mismo archivo
+        private static readonly object _excelLock = new object();
+        private const string MensajeArchivoOcupado = "No se pudo acceder a AvanceAlumnos.xlsx. Si lo tienes abierto en Excel, ci√©rralo; los cambios pendientes se guardar√°n solos.";
+
         public HomeController(IWebHostEnvironment env)
         {
             _env = env;
@@ -21,8 +26,44 @@ namespace PlaneaUV_Economia.Controllers
         }
         public IActionResult Index() { return View(); }
 
+        // Ejecuta una acci√≥n sobre AvanceAlumnos.xlsx con el candado tomado y convierte los errores de
+        // archivo (p. ej. abierto en Excel) en una respuesta 409 con un mensaje claro para el usuario
+        private IActionResult ConArchivoAlumnos(Func<IActionResult> accion)
+        {
+            try
+            {
+                lock (_excelLock) return accion();
+            }
+            catch (IOException)
+            {
+                return StatusCode(409, new { success = false, message = MensajeArchivoOcupado });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Error al procesar AvanceAlumnos.xlsx: " + ex.Message });
+            }
+        }
+
+        // Guarda primero en un archivo temporal y luego lo intercambia por el original, dejando la versi√≥n
+        // anterior como AvanceAlumnos.respaldo.xlsx. As√≠, si el programa se cierra a mitad del guardado,
+        // el archivo original no queda da√±ado.
+        private static void GuardarLibroSeguro(XLWorkbook workbook, string filePath)
+        {
+            string carpeta = Path.GetDirectoryName(filePath)!;
+            string temporal = Path.Combine(carpeta, "AvanceAlumnos.guardando.xlsx");
+            string respaldo = Path.Combine(carpeta, "AvanceAlumnos.respaldo.xlsx");
+
+            workbook.SaveAs(temporal);
+            if (System.IO.File.Exists(filePath))
+                System.IO.File.Replace(temporal, filePath, respaldo);
+            else
+                System.IO.File.Move(temporal, filePath);
+        }
+
         [HttpPost]
-        public IActionResult ExportarExcel([FromBody] AlumnoAvance avance)
+        public IActionResult ExportarExcel([FromBody] AlumnoAvance avance) => ConArchivoAlumnos(() => ExportarExcelInterno(avance));
+
+        private IActionResult ExportarExcelInterno(AlumnoAvance avance)
         {
             if (avance == null || string.IsNullOrEmpty(avance.Matricula)) return BadRequest("Datos incompletos.");
 
@@ -42,7 +83,7 @@ namespace PlaneaUV_Economia.Controllers
                     worksheet = workbook.Worksheets.Add(hojaSegura);
                 }
 
-                worksheet.Cell(1, 1).Value = "MatrÌcula:";
+                worksheet.Cell(1, 1).Value = "Matr√≠cula:";
                 worksheet.Cell(1, 1).Style.Font.Bold = true;
                 worksheet.Cell(1, 2).Value = avance.Matricula;
 
@@ -50,7 +91,7 @@ namespace PlaneaUV_Economia.Controllers
                 worksheet.Cell(2, 1).Style.Font.Bold = true;
                 worksheet.Cell(2, 2).Value = avance.Nombre;
 
-                worksheet.Cell(3, 1).Value = "SituaciÛn:";
+                worksheet.Cell(3, 1).Value = "Situaci√≥n:";
                 worksheet.Cell(3, 1).Style.Font.Bold = true;
                 worksheet.Cell(3, 2).Value = string.IsNullOrEmpty(avance.Situacion) ? "Activo" : avance.Situacion;
 
@@ -60,8 +101,8 @@ namespace PlaneaUV_Economia.Controllers
 
                 worksheet.Cell(5, 1).Value = "Materia";
                 worksheet.Cell(5, 2).Value = "Periodo";
-                worksheet.Cell(5, 3).Value = "CrÈditos";
-                worksheet.Cell(5, 4).Value = "InscripciÛn";
+                worksheet.Cell(5, 3).Value = "Cr√©ditos";
+                worksheet.Cell(5, 4).Value = "Inscripci√≥n";
                 worksheet.Cell(5, 5).Value = "Examen";
                 worksheet.Cell(5, 6).Value = "Estado";
                 worksheet.Cell(5, 7).Value = "Riesgo";
@@ -86,7 +127,7 @@ namespace PlaneaUV_Economia.Controllers
                 }
 
                 worksheet.Cell(5, 10).Value = "Periodo Tutoria";
-                worksheet.Cell(5, 11).Value = "SesiÛn";
+                worksheet.Cell(5, 11).Value = "Sesi√≥n";
                 worksheet.Cell(5, 12).Value = "Fecha";
                 worksheet.Cell(5, 13).Value = "Asistencia";
                 worksheet.Cell(5, 14).Value = "Comentarios";
@@ -107,15 +148,17 @@ namespace PlaneaUV_Economia.Controllers
                 }
 
                 worksheet.Columns().AdjustToContents();
-                workbook.SaveAs(filePath);
+                GuardarLibroSeguro(workbook, filePath);
             }
             return Json(new { success = true });
         }
 
         [HttpGet]
-        public IActionResult BuscarAlumnoExcel(string matricula)
+        public IActionResult BuscarAlumnoExcel(string matricula) => ConArchivoAlumnos(() => BuscarAlumnoExcelInterno(matricula));
+
+        private IActionResult BuscarAlumnoExcelInterno(string matricula)
         {
-            if (string.IsNullOrEmpty(matricula)) return BadRequest("MatrÌcula requerida.");
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("Matr√≠cula requerida.");
             string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
             if (!System.IO.File.Exists(filePath)) return Json(new { success = false, message = "No hay registros." });
 
@@ -176,8 +219,43 @@ namespace PlaneaUV_Economia.Controllers
             }
         }
 
+        [HttpPost]
+        public IActionResult EliminarAlumno(string matricula) => ConArchivoAlumnos(() => EliminarAlumnoInterno(matricula));
+
+        private IActionResult EliminarAlumnoInterno(string matricula)
+        {
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("Matr√≠cula requerida.");
+            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
+            if (!System.IO.File.Exists(filePath)) return Json(new { success = false, message = "No hay registros." });
+
+            string hojaSegura = SanitizarNombreHoja(matricula);
+
+            bool eraUltimaHoja;
+            using (var workbook = new XLWorkbook(filePath))
+            {
+                if (!workbook.Worksheets.Contains(hojaSegura)) return Json(new { success = false, message = "Alumno no encontrado." });
+
+                // Excel no permite un libro sin hojas: si es el √∫ltimo alumno se borra el archivo completo
+                eraUltimaHoja = workbook.Worksheets.Count == 1;
+                if (!eraUltimaHoja)
+                {
+                    workbook.Worksheet(hojaSegura).Delete();
+                    GuardarLibroSeguro(workbook, filePath);
+                }
+            }
+            if (eraUltimaHoja)
+            {
+                // Se conserva como respaldo antes de borrarlo
+                System.IO.File.Copy(filePath, Path.Combine(Path.GetDirectoryName(filePath)!, "AvanceAlumnos.respaldo.xlsx"), true);
+                System.IO.File.Delete(filePath);
+            }
+            return Json(new { success = true });
+        }
+
         [HttpGet]
-        public IActionResult ObtenerAlumnosRegistrados()
+        public IActionResult ObtenerAlumnosRegistrados() => ConArchivoAlumnos(ObtenerAlumnosRegistradosInterno);
+
+        private IActionResult ObtenerAlumnosRegistradosInterno()
         {
             string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
             var lista = new List<object>();
@@ -200,9 +278,11 @@ namespace PlaneaUV_Economia.Controllers
         }
 
         [HttpGet]
-        public IActionResult DescargarWordTutorias(string matricula)
+        public IActionResult DescargarWordTutorias(string matricula) => ConArchivoAlumnos(() => DescargarWordTutoriasInterno(matricula));
+
+        private IActionResult DescargarWordTutoriasInterno(string matricula)
         {
-            if (string.IsNullOrEmpty(matricula)) return BadRequest("MatrÌcula inv·lida");
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("Matr√≠cula inv√°lida");
             string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
             if (!System.IO.File.Exists(filePath)) return NotFound("No hay datos.");
 
@@ -213,10 +293,10 @@ namespace PlaneaUV_Economia.Controllers
                 var ws = workbook.Worksheet(hojaSegura);
 
                 string html = $@"<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                <head><meta charset='utf-8'><title>TutorÌas</title>
+                <head><meta charset='utf-8'><title>Tutor√≠as</title>
                 <style>body {{ font-family: 'Calibri'; }} table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }} th, td {{ border: 1px solid #000; padding: 5px; }} th {{ background-color: #f2f2f2; }} .periodo {{ background-color: #0dcaf0; color: #000; padding: 5px; font-weight: bold; font-size: 14pt; margin-top: 20px; }}</style>
-                </head><body><h2>Evidencia de TutorÌa AcadÈmica - EconomÌa 2024</h2>
-                <p><strong>Alumno:</strong> {ws.Cell(2, 2).GetString()}</p><p><strong>MatrÌcula:</strong> {ws.Cell(1, 2).GetString()}</p><hr/>";
+                </head><body><h2>Evidencia de Tutor√≠a Acad√©mica - Econom√≠a 2024</h2>
+                <p><strong>Alumno:</strong> {ws.Cell(2, 2).GetString()}</p><p><strong>Matr√≠cula:</strong> {ws.Cell(1, 2).GetString()}</p><hr/>";
 
                 var tutorias = new List<TutoriaRecord>();
                 int r = 6;
@@ -236,14 +316,14 @@ namespace PlaneaUV_Economia.Controllers
                 }
 
                 var agrupadoporPeriodo = tutorias.GroupBy(t => t.Periodo);
-                string Asist(string val) => val == "asistio" ? "AsistiÛ" : val == "falto" ? "FaltÛ" : val == "reprogramada" ? "Reprog." : "Pendiente";
+                string Asist(string val) => val == "asistio" ? "Asisti√≥" : val == "falto" ? "Falt√≥" : val == "reprogramada" ? "Reprog." : "Pendiente";
 
                 foreach (var grupo in agrupadoporPeriodo)
                 {
                     html += $"<div class='periodo'>Periodo: {grupo.Key}</div>";
                     foreach (var sesion in grupo.OrderBy(s => s.Sesion))
                     {
-                        html += $@"<table><tr><th style='width:15%'>SesiÛn {sesion.Sesion}</th><td style='width:20%'>{sesion.Fecha}</td><th style='width:15%'>Asistencia:</th><td>{Asist(sesion.Asistencia)}</td></tr>
+                        html += $@"<table><tr><th style='width:15%'>Sesi√≥n {sesion.Sesion}</th><td style='width:20%'>{sesion.Fecha}</td><th style='width:15%'>Asistencia:</th><td>{Asist(sesion.Asistencia)}</td></tr>
                                    <tr><th colspan='4'>Comentarios:</th></tr><tr><td colspan='4' style='height: 60px;'>{sesion.Comentarios}</td></tr></table>";
                     }
                 }
@@ -254,7 +334,9 @@ namespace PlaneaUV_Economia.Controllers
         }
 
         [HttpGet]
-        public IActionResult ObtenerReporteAlertas()
+        public IActionResult ObtenerReporteAlertas() => ConArchivoAlumnos(ObtenerReporteAlertasInterno);
+
+        private IActionResult ObtenerReporteAlertasInterno()
         {
             string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
             var alertas = new List<object>();
@@ -284,9 +366,9 @@ namespace PlaneaUV_Economia.Controllers
                         int nivelRiesgo = 0;
                         string msg = "", badge = "";
                         if (mat.TipoInscripcion == "segunda" && mat.UltimoExamen == "ultima" && mat.Estado == "reprobada") { nivelRiesgo = 100; msg = "Candidato a Baja"; badge = "bg-danger"; }
-                        else if (mat.TipoInscripcion == "segunda" && mat.Estado != "aprobada") { nivelRiesgo = 80; msg = "En 2da InscripciÛn"; badge = "bg-danger"; }
+                        else if (mat.TipoInscripcion == "segunda" && mat.Estado != "aprobada") { nivelRiesgo = 80; msg = "En 2da Inscripci√≥n"; badge = "bg-danger"; }
                         else if (mat.EnRiesgo) { nivelRiesgo = 60; msg = "Riesgo Manual"; badge = "bg-warning text-dark"; }
-                        else if (mat.Estado == "reprobada" && mat.TipoInscripcion == "primera") { nivelRiesgo = 40; msg = "Reprobada 1™ Insc."; badge = "bg-warning text-dark"; }
+                        else if (mat.Estado == "reprobada" && mat.TipoInscripcion == "primera") { nivelRiesgo = 40; msg = "Reprobada 1¬™ Insc."; badge = "bg-warning text-dark"; }
 
                         if (nivelRiesgo > 0) alertas.Add(new { matricula = worksheet.Cell(1, 2).GetString(), nombre = worksheet.Cell(2, 2).GetString(), materia = mat.Nombre, mensaje = msg, badge = badge, score = nivelRiesgo });
                     }
@@ -296,15 +378,19 @@ namespace PlaneaUV_Economia.Controllers
         }
 
         [HttpGet]
-        public IActionResult ObtenerReporteGlobal()
+        public IActionResult ObtenerReporteGlobal() => ConArchivoAlumnos(ObtenerReporteGlobalInterno);
+
+        private IActionResult ObtenerReporteGlobalInterno()
         {
             string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
-            if (!System.IO.File.Exists(filePath)) return Json(new { success = false });
+            // Sin alumnos registrados el reporte est√° vac√≠o (antes regresaba error y la pantalla se quedaba cargando)
+            if (!System.IO.File.Exists(filePath))
+                return Json(new { success = true, data = new { riesgos = Array.Empty<object>(), rezagos = Array.Empty<object>(), seriadas = Array.Empty<object>() } });
 
             var listaRiesgos = new List<ReporteItem>();
             var listaRezagos = new List<ReporteItem>();
             var listaSeriadas = new List<ReporteItem>();
-            var candados = new List<string> { "Lengua I", "C·lculo I", "MicroeconomÌa I", "MicroeconomÌa II", "MicroeconomÌa III", "EstadÌstica", "EconomÌa mexicana I", "MacroeconomÌa I", "MacroeconomÌa II", "EconometrÌa I" };
+            var candados = new List<string> { "Lengua I", "C√°lculo I", "Microeconom√≠a I", "Microeconom√≠a II", "Microeconom√≠a III", "Estad√≠stica", "Econom√≠a mexicana I", "Macroeconom√≠a I", "Macroeconom√≠a II", "Econometr√≠a I" };
 
             using (var workbook = new XLWorkbook(filePath))
             {
@@ -351,23 +437,23 @@ namespace PlaneaUV_Economia.Controllers
         public async Task<IActionResult> SubirPlanEstudio(IFormFile archivoPlan)
         {
             if (archivoPlan == null || archivoPlan.Length == 0)
-                return Json(new { success = false, message = "No se seleccionÛ ning˙n archivo." });
+                return Json(new { success = false, message = "No se seleccion√≥ ning√∫n archivo." });
 
             if (!archivoPlan.FileName.EndsWith(".xlsx"))
-                return Json(new { success = false, message = "El archivo debe ser un formato Excel v·lido (.xlsx)." });
+                return Json(new { success = false, message = "El archivo debe ser un formato Excel v√°lido (.xlsx)." });
 
             try
             {
                 // Usamos ContentRootPath para que sea compatible con IIS y seguro
                 string carpetaPlanes = Path.Combine(_env.ContentRootPath, "PlanesEstudio");
 
-                // Si la carpeta no existe, la creamos m·gicamente
+                // Si la carpeta no existe, la creamos m√°gicamente
                 if (!Directory.Exists(carpetaPlanes))
                 {
                     Directory.CreateDirectory(carpetaPlanes);
                 }
 
-                // Armamos la ruta final donde se guardar· el Excel
+                // Armamos la ruta final donde se guardar√° el Excel
                 string rutaCompleta = Path.Combine(carpetaPlanes, archivoPlan.FileName);
 
                 // Guardamos el archivo en el servidor
@@ -429,6 +515,8 @@ namespace PlaneaUV_Economia.Controllers
                         string credStr = ws.Cell(fila, 3).GetString().Trim();
                         string tipoStr = ws.Cell(fila, 4).GetString().Trim();
                         string reqStr = ws.Cell(fila, 5).GetString().Trim();
+                        // Columna F opcional: √Årea (General, B√°sica, Disciplinar, Terminal) para el color de la tarjeta
+                        string areaStr = ws.Cell(fila, 6).GetString().Trim();
 
                         // Parseo seguro
                         int.TryParse(semStr, out int semestre);
@@ -440,7 +528,8 @@ namespace PlaneaUV_Economia.Controllers
                             Nombre = nomStr,
                             Creditos = creditos,
                             Tipo = tipoStr,
-                            Prerrequisitos = reqStr
+                            Prerrequisitos = reqStr,
+                            Area = areaStr
                         });
 
                         fila++;
@@ -451,7 +540,7 @@ namespace PlaneaUV_Economia.Controllers
             }
             catch (System.Exception ex)
             {
-                // Si vuelve a fallar, nos dir· EXACTAMENTE por quÈ fallÛ.
+                // Si vuelve a fallar, nos dir√° EXACTAMENTE por qu√© fall√≥.
                 return Json(new { success = false, message = "Error C#: " + ex.Message });
             }
         }
