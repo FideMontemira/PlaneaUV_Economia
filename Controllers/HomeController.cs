@@ -343,9 +343,6 @@ namespace PlaneaUV_Economia.Controllers
                 }
             });
         }
-        // =========================================================================
-        // GESTOR DE PLANES DE ESTUDIO (PLANTILLAS EXCEL)
-        // =========================================================================
 
         [HttpPost]
         public async Task<IActionResult> SubirPlanEstudio(IFormFile archivoPlan)
@@ -358,19 +355,15 @@ namespace PlaneaUV_Economia.Controllers
 
             try
             {
-                // Usamos ContentRootPath para que sea compatible con IIS y seguro
                 string carpetaPlanes = Path.Combine(_env.ContentRootPath, "PlanesEstudio");
 
-                // Si la carpeta no existe, la creamos mágicamente
                 if (!Directory.Exists(carpetaPlanes))
                 {
                     Directory.CreateDirectory(carpetaPlanes);
                 }
 
-                // Armamos la ruta final donde se guardará el Excel
                 string rutaCompleta = Path.Combine(carpetaPlanes, archivoPlan.FileName);
 
-                // Guardamos el archivo en el servidor
                 using (var stream = new FileStream(rutaCompleta, FileMode.Create))
                 {
                     await archivoPlan.CopyToAsync(stream);
@@ -423,14 +416,12 @@ namespace PlaneaUV_Economia.Controllers
 
                     while (!ws.Cell(fila, 2).IsEmpty())
                     {
-                        // BLINDAJE: Extraemos los valores siempre como String primero
                         string semStr = ws.Cell(fila, 1).GetString().Trim();
                         string nomStr = ws.Cell(fila, 2).GetString().Trim();
                         string credStr = ws.Cell(fila, 3).GetString().Trim();
                         string tipoStr = ws.Cell(fila, 4).GetString().Trim();
                         string reqStr = ws.Cell(fila, 5).GetString().Trim();
 
-                        // Parseo seguro
                         int.TryParse(semStr, out int semestre);
                         int.TryParse(credStr, out int creditos);
 
@@ -451,7 +442,6 @@ namespace PlaneaUV_Economia.Controllers
             }
             catch (System.Exception ex)
             {
-                // Si vuelve a fallar, nos dirá EXACTAMENTE por qué falló.
                 return Json(new { success = false, message = "Error C#: " + ex.Message });
             }
         }
