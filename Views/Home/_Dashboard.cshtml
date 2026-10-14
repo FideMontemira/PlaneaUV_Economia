@@ -21,7 +21,7 @@
                 <input type="text" id="inputNombreAlumno" class="form-control form-control-sm fw-bold" placeholder="Nombre completo" readonly>
             </div>
 
-            <!-- NUEVO: Selector de Situación del Alumno -->
+            <!-- Selector de Situación del Alumno -->
             <div style="max-width: 150px;">
                 <label class="form-label fw-bold text-primary small mb-1">Situación Académica:</label>
                 <select class="form-select form-select-sm border-primary" id="selectSituacionAlumno" onchange="marcarCambios()">
@@ -36,7 +36,6 @@
         <div class="bg-light p-2 rounded border border-secondary" style="min-width: 180px;">
             <label class="form-label fw-bold text-dark small mb-1"><i class="bi bi-calendar3"></i> Periodo de Trabajo:</label>
             <select class="form-select form-select-sm fw-bold" id="selectPeriodoGlobal">
-                <!-- Se actualiza automáticamente al semestre actual, cubriendo histórico de la UV -->
                 <option value="Agosto - Enero 2026">Agosto - Enero 2026</option>
                 <option value="Febrero - Julio 2026">Febrero - Julio 2026</option>
                 <option value="Agosto - Enero 2027" selected>Agosto - Enero 2027</option>

@@ -18,7 +18,6 @@ let huboCambios = false;
 
 let tutoriasGlobal = [];
 
-// Lista maestra de optativas para saber diferenciar entre Optativa y AFEL al recrear historial
 const listaOptativas = [
     "Economía Agrícola", "Economía Ambiental", "Economía de la Salud", "Economía Regional",
     "Diseño y Evaluación de Políticas", "Gerencia Pública y Gobernanza", "Hacienda Municipal", "Demografía",
@@ -791,7 +790,6 @@ function exportarAvanceSilencioso(matricula, nombre, planDeEstudioParam) {
     let selSit = $('selectSituacionAlumno');
     let situacion = selSit ? selSit.value : 'Activo';
 
-    // Usamos un operador lógico seguro (||) para capturar el plan desde cualquier variable disponible
     let planFinal = planDeEstudioParam || window.planActualAlumno || (typeof planActualAlumno !== 'undefined' ? planActualAlumno : "Generico");
 
     let reqBody = {
@@ -888,7 +886,6 @@ function crearNuevoAlumno() {
             return res.json();
         })
         .then(alumnos => {
-            // BLINDAJE 1: (a.matricula || "") evita que crashee si hay una fila vacía en Excel
             if (alumnos.some(a => (a.matricula || "").toLowerCase() === mat.toLowerCase())) {
                 alert("Matrícula ya registrada.");
                 return;
@@ -898,14 +895,11 @@ function crearNuevoAlumno() {
             if ($('inputNombreAlumno')) $('inputNombreAlumno').value = nom;
             if ($('selectSituacionAlumno')) $('selectSituacionAlumno').value = 'Activo';
 
-            // BLINDAJE 2: window.planActualAlumno asegura que la variable global se asigne sin errores
             window.planActualAlumno = plan;
 
             tutoriasGlobal = [];
             cargarTutoriasALaVista();
 
-            // EL CAMBIO PRINCIPAL: Ahora le exigimos al sistema que descargue y dibuje la 
-            // plantilla de Excel que elijas, y HASTA QUE TERMINE, guarda al alumno.
             cargarMapaCurricular(plan, function () {
                 huboCambios = false;
                 actualizarProgreso();
@@ -1034,11 +1028,9 @@ function subirPlanEstudio() {
         return;
     }
 
-    // Usamos FormData porque estamos enviando un archivo binario, no JSON
     const formData = new FormData();
     formData.append("archivoPlan", archivo);
 
-    // Ponemos a cargar el botón para que el usuario sepa que está trabajando
     const btn = event.currentTarget;
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Subiendo...';
@@ -1055,7 +1047,7 @@ function subirPlanEstudio() {
 
             if (data.success) {
                 alert(data.message);
-                input.value = ""; // Limpiamos el input
+                input.value = ""; 
                 if (modalGestorPlanesInstance) modalGestorPlanesInstance.hide();
             } else {
                 alert("Error: " + data.message);
@@ -1105,7 +1097,7 @@ function cargarMapaCurricular(planNombre, callback) {
                 return;
             }
 
-            materiasPlanMaestro = res.data;
+            materiasPlanMaestro = res.data; 
 
             try {
                 renderizarMapaVisual();
@@ -1116,16 +1108,11 @@ function cargarMapaCurricular(planNombre, callback) {
 
             planDibujadoActual = planNombre;
 
-            // ✨ LA MAGIA OCURRE AQUÍ ✨
-            // Sacamos el 'callback' (el proceso de guardar alumno) fuera de la cadena 
-            // de promesas usando setTimeout. Esto obliga al navegador a pintar los colores
-            // en pantalla PRIMERO, y luego intentar guardar al alumno de forma independiente.
             if (callback) {
                 setTimeout(callback, 150);
             }
         })
         .catch(e => {
-            // Este catch AHORA SÍ es exclusivo para errores reales de internet/servidor.
             console.error("Error de conexión real:", e);
             alert("Ocurrió un error de red al intentar comunicarse con el servidor.");
             $('contenedor-mapa-dinamico').innerHTML = '<div class="alert alert-danger w-100 text-center mt-4">Error de conexión.</div>';
@@ -1140,7 +1127,6 @@ function renderizarMapaVisual() {
 
     let semestresAgrupados = {};
     materiasPlanMaestro.forEach(m => {
-        // Aceptamos tanto 'semestre' (ASP.NET) como 'Semestre'
         let sem = m.semestre || m.Semestre;
         if (!semestresAgrupados[sem]) semestresAgrupados[sem] = [];
         semestresAgrupados[sem].push(m);
@@ -1158,7 +1144,6 @@ function renderizarMapaVisual() {
         header.innerText = 'Semestre ' + numSemestre;
         col.appendChild(header);
 
-        // Aceptamos minúsculas y mayúsculas
         let tieneAfel = semestresAgrupados[numSemestre].some(m => ((m.tipo || m.Tipo) || "").toLowerCase() === 'afel');
         if (tieneAfel) col.id = 'contenedor-afeles';
 
@@ -1166,7 +1151,6 @@ function renderizarMapaVisual() {
             let card = document.createElement('div');
             card.className = 'materia-card shadow-sm mb-2';
 
-            // Extraemos los datos blindando las minúsculas de C#
             let nombreMat = mat.nombre || mat.Nombre || "Sin Nombre";
             let creditosMat = mat.creditos || mat.Creditos || 0;
             let tipoMat = (mat.tipo || mat.Tipo || "").toLowerCase();
