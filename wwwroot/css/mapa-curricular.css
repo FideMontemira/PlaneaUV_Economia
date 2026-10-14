@@ -439,3 +439,24 @@ body {
 .footer {
     background-color: #fff;
 }
+
+/* Botón "×" para quitar una AFEL agregada con "+ Agregar AFEL" */
+.btn-quitar-afel {
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    border: none;
+    background: transparent;
+    color: #0f5f4c;
+    font-size: 0.75rem;
+    line-height: 1;
+    padding: 2px 3px;
+    border-radius: 4px;
+    opacity: 0.55;
+}
+
+    .btn-quitar-afel:hover {
+        opacity: 1;
+        color: #fff;
+        background-color: #dc3545;
+    }

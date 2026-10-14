@@ -167,7 +167,9 @@ function agregarAfelExtra(nombrePers = "", creditosPers = 0) {
     const contenedor = $('contenedor-afeles');
     if (!contenedor) return null;
 
+    // Siguiente número libre (si se quitó uno de en medio, no se repite un nombre que ya existe)
     let numAfel = document.querySelectorAll('.bg-afel').length + 1;
+    while (document.querySelector(`.materia-card[data-nombre="AFEL ${numAfel}"]`)) numAfel++;
     let nombreBase = "AFEL " + numAfel;
     let crOtorga = creditosPers > 0 ? creditosPers : 6;
 
@@ -178,13 +180,30 @@ function agregarAfelExtra(nombrePers = "", creditosPers = 0) {
 
     if (nombrePers) nuevaTarjeta.setAttribute('data-nombre-personalizado', nombrePers);
 
-    nuevaTarjeta.innerHTML = `<strong>${escapeHTML(nombrePers || nombreBase)}</strong><br/>(${crOtorga} Cr.)`;
+    nuevaTarjeta.innerHTML = `<strong>${escapeHTML(nombrePers || nombreBase)}</strong><br/>(${crOtorga} Cr.)` + BOTON_QUITAR_AFEL;
     nuevaTarjeta.addEventListener("click", manejadorClickTarjeta);
 
     let btnContainer = contenedor.querySelector('.btn-outline-success').parentNode;
     contenedor.insertBefore(nuevaTarjeta, btnContainer);
 
     return nuevaTarjeta;
+}
+
+// Botón "×" de las AFEL agregadas con "+ Agregar AFEL" (las del plan no lo llevan: son lugares del plan)
+const BOTON_QUITAR_AFEL = '<button type="button" class="btn-quitar-afel" title="Quitar este AFEL" aria-label="Quitar este AFEL" onclick="quitarAfelExtra(event, this)"><i class="bi bi-x-lg"></i></button>';
+
+function quitarAfelExtra(e, boton) {
+    e.stopPropagation();   // que no abra la ventana de la materia
+    const tarjeta = boton.closest('.materia-card');
+    if (!tarjeta) return;
+
+    const historial = JSON.parse(tarjeta.getAttribute('data-historial') || '[]');
+    const nombre = tarjeta.getAttribute('data-nombre-personalizado') || tarjeta.getAttribute('data-nombre');
+    if (historial.length > 0 && !confirm(`"${nombre}" tiene ${historial.length} registro(s). Si lo quitas se borrarán. ¿Continuar?`)) return;
+
+    tarjeta.remove();
+    actualizarProgreso();
+    marcarCambios();   // se guarda al momento (si no tenía registros no cambia nada en el Excel)
 }
 
 function manejadorClickTarjeta(e) {
@@ -753,6 +772,7 @@ function actualizarTarjetaVisual(tarjeta, historialArray) {
 
     let htmlContenido = `<strong>${escapeHTML(nombreActual)}</strong><br/>(${creditosActual} Cr.)`;
     if (prereqSpan) htmlContenido += `<span class="prerequisito-text">${prereqSpan.innerHTML}</span>`;
+    if (tarjeta.classList.contains('afel-extra')) htmlContenido += BOTON_QUITAR_AFEL;
 
     if (historialArray.length === 0) {
         tarjeta.removeAttribute('data-estado');
