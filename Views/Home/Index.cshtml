@@ -55,6 +55,21 @@
 <!-- 4. Modales y panel lateral ocultos -->
 <partial name="_Modales" />
 
+@* El JavaScript está dividido por tema en wwwroot/js/planea/. Son scripts clásicos que comparten el ámbito
+   global (los botones del HTML llaman funciones con onclick), así que el orden importa: núcleo primero,
+   inicio al final. *@
 @section Scripts {
-    <script src="~/js/mapa-curricular.js" asp-append-version="true"></script>
+    <script src="~/js/planea/nucleo.js" asp-append-version="true"></script>
+    <script src="~/js/planea/periodos.js" asp-append-version="true"></script>
+    <script src="~/js/planea/guardado.js" asp-append-version="true"></script>
+    <script src="~/js/planea/plan.js" asp-append-version="true"></script>
+    <script src="~/js/planea/materias.js" asp-append-version="true"></script>
+    <script src="~/js/planea/situacion.js" asp-append-version="true"></script>
+    <script src="~/js/planea/progreso.js" asp-append-version="true"></script>
+    <script src="~/js/planea/alumnos.js" asp-append-version="true"></script>
+    <script src="~/js/planea/tutorias.js" asp-append-version="true"></script>
+    <script src="~/js/planea/reportes.js" asp-append-version="true"></script>
+    <script src="~/js/planea/sugerencia.js" asp-append-version="true"></script>
+    <script src="~/js/planea/panel-grupo.js" asp-append-version="true"></script>
+    <script src="~/js/planea/inicio.js" asp-append-version="true"></script>
 }

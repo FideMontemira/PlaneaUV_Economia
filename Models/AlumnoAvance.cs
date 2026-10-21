@@ -35,11 +35,4 @@ namespace PlaneaUV_Economia.Models
         public bool EnRezago { get; set; }
         public bool EnRiesgo { get; set; }
     }
-
-    public class ReporteItem
-    {
-        public string? Matricula { get; set; }
-        public string? Nombre { get; set; }
-        public string? Materia { get; set; }
-    }
 }

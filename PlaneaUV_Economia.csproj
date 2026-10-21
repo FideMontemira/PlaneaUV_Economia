@@ -14,4 +14,12 @@
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
   </ItemGroup>
 
+  <!-- Las pruebas automáticas son un proyecto aparte (Tests/): no deben compilarse ni publicarse con la aplicación -->
+  <ItemGroup>
+    <Compile Remove="Tests\**" />
+    <Content Remove="Tests\**" />
+    <None Remove="Tests\**" />
+    <EmbeddedResource Remove="Tests\**" />
+  </ItemGroup>
+
 </Project>

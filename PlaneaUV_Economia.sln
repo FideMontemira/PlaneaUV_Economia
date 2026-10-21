@@ -5,6 +5,10 @@ VisualStudioVersion = 17.14.36518.9 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlaneaUV_Economia", "PlaneaUV_Economia.csproj", "{A99C57A9-1517-4197-81BF-0F069F468A20}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{2F2F7CEF-D455-482E-9105-6EBCBE391F89}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlaneaUV_Economia.Tests", "Tests\PlaneaUV_Economia.Tests\PlaneaUV_Economia.Tests.csproj", "{2EFBF62B-3BC8-44A1-A320-470E03B408B4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,11 +19,18 @@ Global
 		{A99C57A9-1517-4197-81BF-0F069F468A20}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A99C57A9-1517-4197-81BF-0F069F468A20}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A99C57A9-1517-4197-81BF-0F069F468A20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2EFBF62B-3BC8-44A1-A320-470E03B408B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2EFBF62B-3BC8-44A1-A320-470E03B408B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2EFBF62B-3BC8-44A1-A320-470E03B408B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2EFBF62B-3BC8-44A1-A320-470E03B408B4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {89FF5400-4A12-414A-9293-94BFFB72FA3E}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2EFBF62B-3BC8-44A1-A320-470E03B408B4} = {2F2F7CEF-D455-482E-9105-6EBCBE391F89}
 	EndGlobalSection
 EndGlobal
