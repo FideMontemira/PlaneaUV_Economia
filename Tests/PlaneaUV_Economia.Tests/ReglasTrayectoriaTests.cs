@@ -97,6 +97,18 @@ namespace PlaneaUV_Economia.Tests
         }
 
         [Fact]
+        public void LasAfelSinSemestreNoCambianLaDuracionNiElRezago()
+        {
+            // En la plantilla las AFEL van con la columna Semestre vacía (se lee como 0)
+            var plan = Datos.PlanCorto();
+            plan.Materias.Single(m => m.EsAfel).Semestre = 0;
+
+            Assert.Equal(4, ReglasTrayectoria.DuracionPlan(plan));
+            var todasMenosAfel = new HashSet<string> { "A", "B", "C", "Optativa 1", "D", "E", "F" };
+            Assert.Empty(ReglasTrayectoria.MateriasEnRezago(plan, 99, todasMenosAfel));
+        }
+
+        [Fact]
         public void Calcular_JuntaTodoParaLaPantalla()
         {
             var alumno = Datos.Alumno("S24000001", Datos.Materia("A", "aprobada"), Datos.Materia("B", "reprobada"));

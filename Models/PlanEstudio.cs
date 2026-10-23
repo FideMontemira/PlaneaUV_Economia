@@ -12,6 +12,17 @@ namespace PlaneaUV_Economia.Models
         public List<OptativaPlan> Optativas { get; set; } = new List<OptativaPlan>();
         // Materias "candado": las que son prerrequisito de alguna otra materia del plan
         public HashSet<string> Seriadas { get; set; } = new HashSet<string>();
+        // Periodos de la trayectoria larga (el ritmo mínimo para terminar en el plazo máximo).
+        // 0 = no se indicó en la hoja "Datos": se usa 1.5 veces la duración del plan.
+        public int PeriodosTrayectoriaLarga { get; set; }
+        // Apoyos de la facultad con horario y lugar (hoja opcional "Apoyos"); se imprimen en la ficha de tutoría
+        public List<ApoyoPlan> Apoyos { get; set; } = new List<ApoyoPlan>();
+    }
+
+    public class ApoyoPlan
+    {
+        public string Nombre { get; set; } = "";
+        public string Detalle { get; set; } = "";   // horario, lugar o cómo solicitarlo
     }
 
     public class MateriaPlan

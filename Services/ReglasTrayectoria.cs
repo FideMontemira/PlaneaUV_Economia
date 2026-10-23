@@ -89,6 +89,52 @@ namespace PlaneaUV_Economia.Services
             return rezago;
         }
 
+        // Créditos aprobados: cada materia aprobada cuenta una sola vez (con los créditos de su registro)
+        public static int CreditosAprobados(AlumnoAvance alumno)
+        {
+            var aprobadas = new Dictionary<string, int>();
+            foreach (var m in alumno.Materias.Where(EstaAprobada)) aprobadas[m.Nombre ?? ""] = m.Creditos;
+            return aprobadas.Values.Sum();
+        }
+
+        // ---------- TRAYECTORIAS ESTÁNDAR Y LARGA ----------
+        // Estándar: terminar en la duración del plan. Larga: el ritmo mínimo para terminar en el plazo máximo.
+        // Los créditos esperados salen de cómo reparte el PLAN sus materias por periodo (no de partes iguales):
+        // al concluir 6 periodos de un plan de 8, la estándar pide los créditos de las materias de los periodos 1 a 6.
+        // Las AFEL no se exigen antes de terminar porque se pueden cursar en cualquier periodo.
+        public static int PeriodosTrayectoriaLarga(PlanInfo? plan)
+        {
+            if (plan == null) return 0;
+            return plan.PeriodosTrayectoriaLarga > 0 ? plan.PeriodosTrayectoriaLarga : (int)Math.Ceiling(DuracionPlan(plan) * 1.5);
+        }
+
+        public static int CreditosEsperados(PlanInfo plan, int periodosConcluidos, int periodosParaTerminar)
+        {
+            int duracion = DuracionPlan(plan);
+            if (periodosParaTerminar <= 0 || periodosConcluidos <= 0 || duracion <= 0) return 0;
+
+            // Periodo del plan al que equivale ir a ese ritmo (en la larga se avanza más despacio: 6 de 12 = periodo 4 de 8)
+            double equivalente = periodosConcluidos * (double)duracion / periodosParaTerminar;
+            // Ya debería haber terminado: se exige el total oficial del plan (hoja "Datos"), AFEL y optativas incluidas
+            if (equivalente >= duracion) return Math.Max(plan.CreditosTotales, plan.Materias.Sum(m => m.Creditos));
+
+            int completos = (int)Math.Floor(equivalente);
+            double fraccion = equivalente - completos;
+            var materias = plan.Materias.Where(m => !m.EsAfel).ToList();
+            double esperados = materias.Where(m => m.Semestre >= 1 && m.Semestre <= completos).Sum(m => m.Creditos)
+                             + fraccion * materias.Where(m => m.Semestre == completos + 1).Sum(m => m.Creditos);
+            return (int)Math.Round(esperados, MidpointRounding.AwayFromZero);
+        }
+
+        // "estandar" (va al corriente), "debajo-estandar" (amarillo), "debajo-minimo" (rojo) o null si no aplica
+        // (primer periodo, sin plan o matrícula sin año)
+        public static string? EstadoTrayectoria(int creditosAprobados, int creditosEstandar, int creditosLarga, int periodosConcluidos)
+        {
+            if (periodosConcluidos < 1 || creditosEstandar <= 0) return null;
+            if (creditosAprobados >= creditosEstandar) return "estandar";
+            return creditosAprobados >= creditosLarga ? "debajo-estandar" : "debajo-minimo";
+        }
+
         // Todo lo anterior junto, para mostrarlo en pantalla (la pantalla no calcula nada de esto)
         public static SituacionAlumno Calcular(AlumnoAvance alumno, PlanInfo? plan, string? periodo)
         {
@@ -112,6 +158,20 @@ namespace PlaneaUV_Economia.Services
 
             if (plan != null && cursa >= 1)
                 situacion.MateriasEnRezago = MateriasEnRezago(plan, cursa.Value, MateriasAprobadas(alumno)).Select(m => m.Nombre).ToList();
+
+            situacion.CreditosAprobados = CreditosAprobados(alumno);
+            if (plan != null)
+            {
+                situacion.CreditosTotales = plan.CreditosTotales;
+                situacion.PeriodosTrayectoriaLarga = PeriodosTrayectoriaLarga(plan);
+                if (cursa >= 1)
+                {
+                    int concluidos = cursa.Value - 1;
+                    situacion.CreditosEstandar = CreditosEsperados(plan, concluidos, situacion.DuracionPlan);
+                    situacion.CreditosLarga = CreditosEsperados(plan, concluidos, situacion.PeriodosTrayectoriaLarga);
+                    situacion.Trayectoria = EstadoTrayectoria(situacion.CreditosAprobados, situacion.CreditosEstandar, situacion.CreditosLarga, concluidos);
+                }
+            }
 
             return situacion;
         }

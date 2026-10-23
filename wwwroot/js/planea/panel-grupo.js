@@ -2,17 +2,17 @@
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 // ===================== PANEL DEL GRUPO =====================
-// Todos los alumnos en una tabla: periodo que cursa, avance, materias en curso, rezago y alertas.
+// Todos los alumnos en una tabla: semáforo, periodo que cursa, avance, materias en curso, rezago, alertas y seguimiento.
 let datosPanelGrupo = [];
 
-let ordenPanelGrupo = { columna: 'alertas', ascendente: false };
+let ordenPanelGrupo = { columna: 'nivelSemaforo', ascendente: false };
 
 function abrirPanelGrupo() {
     const selP = $('selectPeriodoGlobal');
     const periodo = selP ? selP.value : '';
     const sub = $('subtituloPanelGrupo'); if (sub) sub.innerText = 'Periodo de trabajo: ' + periodo;
     const tbody = document.querySelector('#tablaPanelGrupo tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
 
     // Encabezados clicables para ordenar (se enlazan una sola vez)
     document.querySelectorAll('#tablaPanelGrupo th[data-columna]').forEach(th => {
@@ -34,7 +34,7 @@ function abrirPanelGrupo() {
         .then(res => { datosPanelGrupo = res.data || []; dibujarPanelGrupo(); })
         .catch(e => {
             console.error(e);
-            if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger py-3">${escapeHTML(e.message)}</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center text-danger py-3">${escapeHTML(e.message)}</td></tr>`;
         });
 }
 
@@ -65,7 +65,7 @@ function dibujarPanelGrupo() {
     });
 
     tbody.innerHTML = '';
-    if (filas.length === 0) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No hay alumnos que mostrar.</td></tr>';
+    if (filas.length === 0) tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">No hay alumnos que mostrar.</td></tr>';
 
     filas.forEach(a => {
         const tr = document.createElement('tr');
@@ -75,7 +75,12 @@ function dibujarPanelGrupo() {
             : a.periodoQueCursa < 1 ? '<span class="text-muted">Aún no ingresa</span>'
             : `<span class="${excede ? 'text-danger fw-bold' : ''}">${a.periodoQueCursa}°${a.duracionPlan ? ' / ' + a.duracionPlan : ''}</span>`;
         const sit = a.situacion || 'Activo';
+        const contacto = a.diasSinContacto === null || a.diasSinContacto === undefined ? '<span class="text-muted">Sin registro</span>'
+            : `<span class="${a.diasSinContacto > 45 && a.nivelSemaforo >= 2 ? 'text-danger fw-bold' : ''}">hace ${a.diasSinContacto} d</span>`;
+        const caso = !a.estadoCaso ? '<span class="text-muted">—</span>'
+            : `<span class="badge ${a.estadoCaso === 'Cerrado' ? 'bg-secondary' : 'bg-warning text-dark'}">${escapeHTML(a.estadoCaso)}</span>`;
         tr.innerHTML = `
+            <td class="text-center" title="${a.semaforo !== a.semaforoSistema ? 'Valorado por el tutor; el sistema marca: ' + infoSemaforo(a.semaforoSistema).texto : ''}">${pastillaSemaforo(a.semaforo)}${a.semaforo !== a.semaforoSistema ? ' <i class="bi bi-person-check text-muted"></i>' : ''}</td>
             <td class="fw-bold">${escapeHTML(a.matricula)}</td>
             <td>${escapeHTML(a.nombre)}</td>
             <td class="small">${escapeHTML(a.programa)}</td>
@@ -83,13 +88,16 @@ function dibujarPanelGrupo() {
             <td class="text-center">${periodoTxt}</td>
             <td>
                 <div class="d-flex align-items-center gap-2" title="${a.creditosAprobados} de ${a.creditosTotales} créditos">
-                    <div class="progress flex-grow-1" style="height: 12px;"><div class="progress-bar bg-success" style="width: ${a.avance}%"></div></div>
+                    <div class="trayectoria-barra flex-grow-1" title="${a.trayectoria ? `Mínimo ${a.creditosLarga} · estándar ${a.creditosEstandar} créditos` : ''}"><i style="width:${a.avance}%"></i>
+                        ${a.trayectoria && a.creditosTotales ? `<s class="marca-larga" style="left:${Math.min(100, Math.round(a.creditosLarga * 100 / a.creditosTotales))}%"></s><s class="marca-estandar" style="left:${Math.min(100, Math.round(a.creditosEstandar * 100 / a.creditosTotales))}%"></s>` : ''}</div>
                     <span class="small fw-bold" style="min-width: 38px;">${a.avance}%</span>
                 </div>
             </td>
             <td class="text-center">${a.enCurso}</td>
             <td class="text-center">${a.rezago > 0 ? `<span class="badge bg-secondary">${a.rezago}</span>` : '<span class="text-muted">0</span>'}</td>
-            <td class="text-center">${a.alertas > 0 ? `<span class="badge bg-danger">${a.alertas}</span>` : '<span class="text-muted">0</span>'}</td>`;
+            <td class="text-center">${a.alertas > 0 ? `<span class="badge bg-danger">${a.alertas}</span>` : '<span class="text-muted">0</span>'}</td>
+            <td class="text-center">${caso}</td>
+            <td class="text-center small">${contacto}</td>`;
         tr.addEventListener('click', () => {
             if ($('inputMatricula')) $('inputMatricula').value = a.matricula;
             buscarAlumno();
@@ -103,6 +111,7 @@ function dibujarPanelGrupo() {
     if (resumen) {
         const conRezago = filas.filter(a => a.rezago > 0).length, conAlertas = filas.filter(a => a.alertas > 0).length;
         const promedio = filas.length ? Math.round(filas.reduce((s, a) => s + a.avance, 0) / filas.length) : 0;
-        resumen.innerText = `${filas.length} alumno(s) · avance promedio ${promedio}% · ${conRezago} con rezago · ${conAlertas} con alertas`;
+        const rojos = filas.filter(a => a.semaforo === 'rojo').length, amarillos = filas.filter(a => a.semaforo === 'amarillo').length;
+        resumen.innerText = `${filas.length} alumno(s) · ${rojos} en rojo · ${amarillos} en amarillo · avance promedio ${promedio}% · ${conRezago} con rezago · ${conAlertas} con alertas`;
     }
 }

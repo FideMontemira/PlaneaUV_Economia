@@ -11,6 +11,12 @@ namespace PlaneaUV_Economia.Services
     {
         private readonly IRepositorioPlanes _planes;
 
+        // Fuentes de las señales (se muestran junto a cada razón del semáforo)
+        public const string PlanDeEstudios = "Plan de estudios";
+        public const string Historial = "Historial académico";
+        public const string Tutoria = "Tutoría";
+        public const string Inscripcion = "Inscripción del periodo";
+
         public ServicioAlertas(IRepositorioPlanes planes) { _planes = planes; }
 
         // 'periodo' es el Periodo de Trabajo elegido en pantalla; con él se sabe en qué periodo va cada alumno.
@@ -50,17 +56,42 @@ namespace PlaneaUV_Economia.Services
                     if (rezago.Count > 0)
                     {
                         if (periodoQueCursa > duracionPlan)
-                            alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Detalle", Materia = $"Cursa el {periodoQueCursa}° periodo de un plan de {duracionPlan}; le faltan {rezago.Count} materias.", Resaltar = rezago[0].Nombre, Mensaje = "Excede la duración del plan", Badge = "bg-danger", Score = 90 });
+                            alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Detalle", Materia = $"Cursa el {periodoQueCursa}° periodo de un plan de {duracionPlan}; le faltan {rezago.Count} materias.", Resaltar = rezago[0].Nombre, Mensaje = "Excede la duración del plan", Badge = "bg-danger", Score = 90, Fuente = PlanDeEstudios });
 
                         var candados = rezago.Where(m => plan.Seriadas.Contains(m.Nombre)).ToList();
                         if (candados.Count > 0)
-                            alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Bloquean otras materias", Materia = ListarNombres(candados.Select(m => m.Nombre), 4), Resaltar = candados[0].Nombre, Mensaje = $"Candados pendientes ({candados.Count})", Badge = "bg-danger", Score = 75 });
+                            alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Bloquean otras materias", Materia = ListarNombres(candados.Select(m => m.Nombre), 4), Resaltar = candados[0].Nombre, Mensaje = $"Candados pendientes ({candados.Count})", Badge = "bg-danger", Score = 75, Fuente = PlanDeEstudios });
 
-                        alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Atrasadas", Materia = ListarNombres(rezago.Select(m => m.Nombre), 4), Resaltar = rezago[0].Nombre, Mensaje = $"Rezago: {rezago.Count} materia(s) de periodos anteriores", Badge = "bg-secondary", Score = 70 });
+                        alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Atrasadas", Materia = ListarNombres(rezago.Select(m => m.Nombre), 4), Resaltar = rezago[0].Nombre, Mensaje = $"Rezago: {rezago.Count} materia(s) de periodos anteriores", Badge = "bg-secondary", Score = 70, Fuente = PlanDeEstudios });
+                    }
+
+                    // Avance en créditos frente a las trayectorias estándar y larga (desde el 2° periodo)
+                    if (leFaltanMaterias && periodoQueCursa >= 2)
+                    {
+                        int concluidos = periodoQueCursa.Value - 1;
+                        int creditos = ReglasTrayectoria.CreditosAprobados(alumno);
+                        int estandar = ReglasTrayectoria.CreditosEsperados(plan, concluidos, duracionPlan);
+                        int larga = ReglasTrayectoria.CreditosEsperados(plan, concluidos, ReglasTrayectoria.PeriodosTrayectoriaLarga(plan));
+                        string detalle = $"Lleva {creditos} créditos; la trayectoria estándar pide {estandar} y la larga (mínimo) {larga}.";
+                        var estado = ReglasTrayectoria.EstadoTrayectoria(creditos, estandar, larga, concluidos);
+                        if (estado == "debajo-minimo")
+                            alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Créditos", Materia = detalle, Resaltar = "", Mensaje = "Debajo del mínimo (trayectoria larga)", Badge = "bg-danger", Score = 85, Fuente = Historial });
+                        else if (estado == "debajo-estandar")
+                            alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Créditos", Materia = detalle, Resaltar = "", Mensaje = "Debajo de la trayectoria estándar", Badge = "bg-warning text-dark", Score = 52, Fuente = Historial });
+                    }
+
+                    // Inscribió menos materias de las que le quedan pendientes de SU periodo (si adelantó alguna, no se le pide)
+                    if (tieneRegistroEnPeriodo && !enPausaEstePeriodo && periodoQueCursa <= duracionPlan)
+                    {
+                        int registradas = alumno.Materias.Where(m => m.Periodo == periodo).Select(m => m.Nombre ?? "").Distinct().Count();
+                        // Pendientes hasta su periodo menos pendientes de periodos anteriores = pendientes de su periodo
+                        int esperadas = ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value + 1, aprobadas).Count - rezago.Count;
+                        if (registradas < esperadas)
+                            alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Inscripción", Materia = $"Registró {registradas} de las {esperadas} materias de su {periodoQueCursa}° periodo.", Resaltar = "", Mensaje = "Carga menor a la del plan", Badge = "bg-warning text-dark", Score = 48, Fuente = Inscripcion });
                     }
 
                     if (leFaltanMaterias && !tieneRegistroEnPeriodo && !enPausaEstePeriodo)
-                        alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Periodo", Materia = periodo!, Resaltar = "", Mensaje = "Sin materias registradas en el periodo", Badge = "bg-warning text-dark", Score = 50 });
+                        alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Periodo", Materia = periodo!, Resaltar = "", Mensaje = "Sin materias registradas en el periodo", Badge = "bg-warning text-dark", Score = 50, Fuente = Inscripcion });
                 }
 
                 // Faltas a tutoría en el periodo de trabajo
@@ -68,7 +99,25 @@ namespace PlaneaUV_Economia.Services
                 {
                     int faltas = alumno.Tutorias.Count(t => t.Periodo == periodo && t.Asistencia == "falto");
                     if (faltas > 0)
-                        alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Periodo", Materia = periodo, Resaltar = "", Mensaje = $"Faltó a {faltas} tutoría(s)", Badge = "bg-warning text-dark", Score = 45 });
+                        alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Periodo", Materia = periodo, Resaltar = "", Mensaje = $"Faltó a {faltas} tutoría(s)", Badge = "bg-warning text-dark", Score = 45, Fuente = Tutoria });
+
+                    // Caso de tutoría abierto o en atención: se avisa a qué se canalizó (o qué situación detectó).
+                    // Cuenta el estado de la última sesión que lo indica; si el tutor lo cerró, ya no se alerta.
+                    var delPeriodo = alumno.Tutorias.Where(t => t.Periodo == periodo).OrderBy(t => t.Sesion).ToList();
+                    var ultimaConEstado = delPeriodo.LastOrDefault(t => !string.IsNullOrWhiteSpace(t.EstadoCaso) || t.RequiereSeguimiento);
+                    bool casoAbierto = ultimaConEstado != null && (string.IsNullOrWhiteSpace(ultimaConEstado.EstadoCaso)
+                        ? ultimaConEstado.RequiereSeguimiento : ultimaConEstado.EstadoCaso != "Cerrado");
+                    var conSeguimiento = casoAbierto ? delPeriodo.Where(t => t.RequiereSeguimiento || (!string.IsNullOrWhiteSpace(t.EstadoCaso) && t.EstadoCaso != "Cerrado")).ToList() : new List<TutoriaRecord>();
+                    if (conSeguimiento.Count > 0)
+                    {
+                        var canalizado = conSeguimiento.SelectMany(t => (t.Canalizaciones ?? new List<string>())
+                            .Concat(string.IsNullOrWhiteSpace(t.OtraCanalizacion) ? Array.Empty<string>() : new[] { t.OtraCanalizacion!.Trim() })).Distinct().ToList();
+                        var situaciones = conSeguimiento.SelectMany(t => t.Situaciones ?? new List<string>()).Distinct().ToList();
+                        string detalle = canalizado.Count > 0 ? string.Join(", ", canalizado)
+                                       : situaciones.Count > 0 ? "Situación: " + string.Join(", ", situaciones)
+                                       : "Sin canalización registrada";
+                        alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = canalizado.Count > 0 ? "Canalizado a" : "Detalle", Materia = detalle, Resaltar = "", Mensaje = "Requiere seguimiento de tutoría", Badge = "bg-warning text-dark", Score = 55, Fuente = Tutoria });
+                    }
                 }
 
                 // ---------- Alertas por materia (según su último intento) ----------
@@ -82,7 +131,7 @@ namespace PlaneaUV_Economia.Services
                     else if (mat.EnRiesgo) { nivel = 60; mensaje = "Riesgo Manual"; badge = "bg-warning text-dark"; }
                     else if (estado == "reprobada" && insc == "primera") { nivel = 40; mensaje = "Reprobada 1ª Insc."; badge = "bg-warning text-dark"; }
 
-                    if (nivel > 0) alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Materia = mat.Nombre ?? "", Mensaje = mensaje, Badge = badge, Score = nivel });
+                    if (nivel > 0) alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Materia = mat.Nombre ?? "", Mensaje = mensaje, Badge = badge, Score = nivel, Fuente = Historial });
                 }
             }
 

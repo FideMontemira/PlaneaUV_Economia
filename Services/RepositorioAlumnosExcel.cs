@@ -80,8 +80,21 @@ namespace PlaneaUV_Economia.Services
             {
                 using var libro = File.Exists(_ruta) ? new XLWorkbook(_ruta) : new XLWorkbook();
                 string hoja = NombreDeHoja(alumno.Matricula);
-                IXLWorksheet ws;
-                if (libro.Worksheets.Contains(hoja)) { ws = libro.Worksheet(hoja); ws.Clear(); }
+                var ws = libro.Worksheets.Contains(hoja) ? libro.Worksheet(hoja) : null;
+                string existente = ws?.Cell(1, 2).GetString().Trim() ?? "";
+                bool esElMismoAlumno = ws != null && (existente == "" || string.Equals(existente, alumno.Matricula.Trim(), StringComparison.Ordinal));
+
+                // Una matrícula con formato no válido se recortaría al nombrar la hoja y podría chocar con otra.
+                // (Si ya existe exactamente esa matrícula se deja guardar, para no bloquear registros anteriores.)
+                var errorMatricula = ValidacionAlumno.ErrorEnMatricula(alumno.Matricula);
+                if (errorMatricula != null && !esElMismoAlumno) throw new ArgumentException(errorMatricula);
+
+                // Excel no distingue mayúsculas en el nombre de la hoja: "S21..." y "s21..." serían la misma.
+                // Si la hoja es de OTRO alumno, no se sobrescribe.
+                if (ws != null && !esElMismoAlumno)
+                    throw new InvalidOperationException($"Ya existe el alumno con matrícula {existente}. Revisa la matrícula (no puede diferir solo en mayúsculas).");
+
+                if (ws != null) ws.Clear();
                 else ws = libro.Worksheets.Add(hoja);
 
                 EscribirHoja(ws, alumno);
@@ -158,7 +171,23 @@ namespace PlaneaUV_Economia.Services
                     Sesion = sesion,
                     Fecha = ws.Cell(fila, 12).GetString(),
                     Asistencia = ws.Cell(fila, 13).GetString(),
-                    Comentarios = ws.Cell(fila, 14).GetString()
+                    Comentarios = ws.Cell(fila, 14).GetString(),
+                    // Formato guiado (columnas O-U). Los registros anteriores no las tienen y quedan vacías.
+                    Modalidad = ws.Cell(fila, 15).GetString(),
+                    Temas = Lista(ws.Cell(fila, 16).GetString()),
+                    Situaciones = Lista(ws.Cell(fila, 17).GetString()),
+                    Canalizaciones = Lista(ws.Cell(fila, 18).GetString()),
+                    OtraCanalizacion = ws.Cell(fila, 19).GetString(),
+                    Acuerdos = ws.Cell(fila, 20).GetString(),
+                    RequiereSeguimiento = bool.TryParse(ws.Cell(fila, 21).GetString(), out bool seguimiento) && seguimiento,
+                    // Seguimiento y valoración del riesgo (columnas V-AA)
+                    MateriaDificultad = ws.Cell(fila, 22).GetString(),
+                    FechaRevision = ws.Cell(fila, 23).GetString(),
+                    // Los registros anteriores solo tenían "Requiere seguimiento": equivale a un caso abierto
+                    EstadoCaso = ws.Cell(fila, 24).IsEmpty() && seguimiento ? "Abierto" : ws.Cell(fila, 24).GetString(),
+                    ValoracionRiesgo = ws.Cell(fila, 25).GetString(),
+                    MotivoValoracion = ws.Cell(fila, 26).GetString(),
+                    SemaforoSistema = ws.Cell(fila, 27).GetString()
                 });
             }
             return alumno;
@@ -200,9 +229,11 @@ namespace PlaneaUV_Economia.Services
                 fila++;
             }
 
-            string[] encabezadoTutorias = { "Periodo Tutoria", "Sesión", "Fecha", "Asistencia", "Comentarios" };
+            string[] encabezadoTutorias = { "Periodo Tutoria", "Sesión", "Fecha", "Asistencia", "Comentarios",
+                                            "Modalidad", "Temas", "Situaciones", "Canalizaciones", "Otra canalización", "Acuerdos", "Seguimiento",
+                                            "Materia con dificultad", "Fecha de revisión", "Estado del caso", "Valoración del riesgo", "Motivo de la valoración", "Semáforo del sistema" };
             for (int i = 0; i < encabezadoTutorias.Length; i++) ws.Cell(5, i + 10).Value = encabezadoTutorias[i];
-            var rangoT = ws.Range("J5:N5");
+            var rangoT = ws.Range("J5:AA5");
             rangoT.Style.Font.Bold = true;
             rangoT.Style.Fill.BackgroundColor = XLColor.LightCyan;
 
@@ -214,6 +245,19 @@ namespace PlaneaUV_Economia.Services
                 ws.Cell(fila, 12).Value = t.Fecha;
                 ws.Cell(fila, 13).Value = t.Asistencia;
                 ws.Cell(fila, 14).Value = t.Comentarios;
+                ws.Cell(fila, 15).Value = t.Modalidad;
+                ws.Cell(fila, 16).Value = string.Join(" | ", t.Temas ?? new List<string>());
+                ws.Cell(fila, 17).Value = string.Join(" | ", t.Situaciones ?? new List<string>());
+                ws.Cell(fila, 18).Value = string.Join(" | ", t.Canalizaciones ?? new List<string>());
+                ws.Cell(fila, 19).Value = t.OtraCanalizacion;
+                ws.Cell(fila, 20).Value = t.Acuerdos;
+                ws.Cell(fila, 21).Value = t.RequiereSeguimiento.ToString();
+                ws.Cell(fila, 22).Value = t.MateriaDificultad;
+                ws.Cell(fila, 23).Value = t.FechaRevision;
+                ws.Cell(fila, 24).Value = t.EstadoCaso;
+                ws.Cell(fila, 25).Value = t.ValoracionRiesgo;
+                ws.Cell(fila, 26).Value = t.MotivoValoracion;
+                ws.Cell(fila, 27).Value = t.SemaforoSistema;
                 fila++;
             }
 
@@ -230,6 +274,10 @@ namespace PlaneaUV_Economia.Services
             if (File.Exists(_ruta)) File.Replace(temporal, _ruta, RutaHermana("AvanceAlumnos.respaldo.xlsx"));
             else File.Move(temporal, _ruta);
         }
+
+        // Celda con varios valores separados por "|" (temas, situaciones, canalizaciones)
+        private static List<string> Lista(string texto) =>
+            texto.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
         private string RutaHermana(string nombre) => Path.Combine(Path.GetDirectoryName(_ruta)!, nombre);
 

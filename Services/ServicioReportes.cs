@@ -68,9 +68,9 @@ namespace PlaneaUV_Economia.Services
         }
 
         // Una fila por alumno con su periodo, avance, rezago y número de alertas
-        public List<FilaPanelGrupo> PanelGrupo(IReadOnlyList<AlumnoAvance> alumnos, string? periodo)
+        public List<FilaPanelGrupo> PanelGrupo(IReadOnlyList<AlumnoAvance> alumnos, string? periodo, DateTime? hoy = null)
         {
-            var alertasPorAlumno = _alertas.Calcular(alumnos, periodo).GroupBy(a => a.Matricula).ToDictionary(g => g.Key, g => g.Count());
+            var alertasPorAlumno = _alertas.Calcular(alumnos, periodo).GroupBy(a => a.Matricula).ToDictionary(g => g.Key, g => g.ToList());
             var filas = new List<FilaPanelGrupo>();
 
             foreach (var alumno in alumnos)
@@ -93,6 +93,19 @@ namespace PlaneaUV_Economia.Services
                 int? periodoQueCursa = ReglasTrayectoria.PeriodoQueCursa(matricula, periodo, alumno.PeriodosSinInscripcion ?? new List<string>());
                 int rezago = (plan != null && periodoQueCursa >= 1) ? ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value, new HashSet<string>(aprobadas.Keys)).Count : 0;
 
+                // Créditos que ya debería llevar según las trayectorias estándar y larga
+                int estandar = 0, larga = 0;
+                string? trayectoria = null;
+                if (plan != null && periodoQueCursa >= 1)
+                {
+                    int concluidos = periodoQueCursa.Value - 1;
+                    estandar = ReglasTrayectoria.CreditosEsperados(plan, concluidos, ReglasTrayectoria.DuracionPlan(plan));
+                    larga = ReglasTrayectoria.CreditosEsperados(plan, concluidos, ReglasTrayectoria.PeriodosTrayectoriaLarga(plan));
+                    trayectoria = ReglasTrayectoria.EstadoTrayectoria(creditosAprobados, estandar, larga, concluidos);
+                }
+                var alertasAlumno = alertasPorAlumno.TryGetValue(matricula, out var lista) ? lista : new List<Alerta>();
+                var semaforo = ReglasSemaforo.Calcular(alumno, periodo, alertasAlumno, hoy ?? DateTime.Today);
+
                 filas.Add(new FilaPanelGrupo
                 {
                     Matricula = matricula,
@@ -106,7 +119,15 @@ namespace PlaneaUV_Economia.Services
                     Avance = creditosTotales > 0 ? Math.Min(100, (int)Math.Round(creditosAprobados * 100.0 / creditosTotales)) : 0,
                     EnCurso = enCurso,
                     Rezago = rezago,
-                    Alertas = alertasPorAlumno.TryGetValue(matricula, out int n) ? n : 0
+                    CreditosEstandar = estandar,
+                    CreditosLarga = larga,
+                    Trayectoria = trayectoria,
+                    Alertas = alertasAlumno.Count,
+                    Semaforo = semaforo.Final,
+                    SemaforoSistema = semaforo.Sistema,
+                    NivelSemaforo = ReglasSemaforo.Nivel(semaforo.Final),
+                    EstadoCaso = semaforo.EstadoCaso,
+                    DiasSinContacto = semaforo.DiasSinContacto
                 });
             }
             return filas;

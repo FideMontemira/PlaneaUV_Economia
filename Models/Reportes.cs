@@ -26,6 +26,8 @@ namespace PlaneaUV_Economia.Models
         public string Mensaje { get; set; } = "";
         public string Badge { get; set; } = "";
         public int Score { get; set; }
+        // De dónde sale la señal: Plan de estudios, Historial académico o Tutoría
+        public string Fuente { get; set; } = "";
     }
 
     // Una fila del panel del grupo
@@ -42,7 +44,15 @@ namespace PlaneaUV_Economia.Models
         public int Avance { get; set; }
         public int EnCurso { get; set; }
         public int Rezago { get; set; }
+        public int CreditosEstandar { get; set; }
+        public int CreditosLarga { get; set; }
+        public string? Trayectoria { get; set; }
         public int Alertas { get; set; }
+        public string Semaforo { get; set; } = "verde";         // color final (con la valoración del tutor)
+        public string SemaforoSistema { get; set; } = "verde";  // color que calculó el sistema
+        public int NivelSemaforo { get; set; }                   // para ordenar: 3 rojo, 2 amarillo, 1 verde, 0 sin
+        public string? EstadoCaso { get; set; }
+        public int? DiasSinContacto { get; set; }
     }
 
     // Reporte global: por cada materia, los alumnos en esa condición
@@ -77,5 +87,60 @@ namespace PlaneaUV_Economia.Models
         public int DuracionPlan { get; set; }                // último periodo del plan (sin contar AFEL)
         public List<string> MateriasEnRezago { get; set; } = new List<string>();      // nombres de tarjeta del plan
         public List<string> PeriodosDesdeIngreso { get; set; } = new List<string>();  // para marcar pausas
+        public SemaforoAlumno? Semaforo { get; set; }
+
+        // Avance frente a las trayectorias (créditos que ya debería llevar al concluir los periodos anteriores)
+        public int CreditosAprobados { get; set; }
+        public int CreditosTotales { get; set; }
+        public int CreditosEstandar { get; set; }
+        public int CreditosLarga { get; set; }
+        public int PeriodosTrayectoriaLarga { get; set; }
+        public string? Trayectoria { get; set; }             // estandar, debajo-estandar, debajo-minimo o null
+
+        // Materias con alta reprobación en el grupo (para marcarlas en el mapa)
+        public List<MateriaCritica> MateriasCriticas { get; set; } = new List<MateriaCritica>();
+    }
+
+    // Materia con alta reprobación entre los alumnos registrados (la calcula ReglasMateriasCriticas)
+    public class MateriaCritica
+    {
+        public string Materia { get; set; } = "";
+        public int Intentos { get; set; }           // intentos con resultado (aprobada o reprobada)
+        public int Reprobaciones { get; set; }
+        public int Porcentaje { get; set; }         // % de reprobación
+        public int Alumnos { get; set; }            // alumnos distintos que la han cursado
+        public int CursandoAhora { get; set; }      // alumnos que la cursan en el periodo de trabajo
+        public int EnRiesgoAhora { get; set; }      // alumnos con la materia marcada en riesgo
+        public bool Critica { get; set; }
+    }
+
+    // Una señal que explica el color del semáforo, con su fuente
+    public class SenalRiesgo
+    {
+        public string Texto { get; set; } = "";
+        public string Fuente { get; set; } = "";
+        public bool Grave { get; set; }
+        // Solo informa (lo registró el tutor, cursa una materia crítica...): no cambia el color
+        public bool Informativa { get; set; }
+    }
+
+    // Semáforo de riesgo del alumno en un periodo (lo calcula ReglasSemaforo)
+    public class SemaforoAlumno
+    {
+        public string Sistema { get; set; } = "verde";   // rojo, amarillo, verde, sin (alumno de baja)
+        public string Final { get; set; } = "verde";     // con la valoración del tutor
+        public List<SenalRiesgo> Senales { get; set; } = new List<SenalRiesgo>();
+        public List<string> TemasSugeridos { get; set; } = new List<string>();
+
+        public string? Valoracion { get; set; }          // confirma, eleva, descarta
+        public string? MotivoValoracion { get; set; }
+        public bool ValoracionDesactualizada { get; set; }
+
+        public string? EstadoCaso { get; set; }          // Abierto, En atención, Cerrado
+        public string? UltimoContacto { get; set; }      // última sesión a la que asistió (yyyy-MM-dd)
+        public int? DiasSinContacto { get; set; }
+        public string? AcuerdoPendiente { get; set; }
+        public string? FechaRevision { get; set; }
+        public bool RevisionVencida { get; set; }
     }
 }

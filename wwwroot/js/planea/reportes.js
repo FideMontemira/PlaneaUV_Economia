@@ -61,6 +61,8 @@ function cargarDatosReporteGlobal() {
     if (rRezago) rRezago.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-secondary" role="status"></div></div>';
     if (rSeriada) rSeriada.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-danger" role="status"></div></div>';
 
+    cargarMateriasCriticas();
+
     const selPeriodoReporte = $('selectPeriodoGlobal');
     fetch(`/Home/ObtenerReporteGlobal?periodo=${encodeURIComponent(selPeriodoReporte ? selPeriodoReporte.value : '')}`).then(leerRespuesta).then(res => {
         let htmlRiesgo = renderizarListaAgrupada(res.data.riesgos, "warning"); if (rRiesgo) rRiesgo.innerHTML = htmlRiesgo || '<p class="text-muted small">No hay alumnos en riesgo.</p>';
@@ -72,6 +74,32 @@ function cargarDatosReporteGlobal() {
         const msg = `<p class="text-danger small">${escapeHTML(error.message)}</p>`;
         [rRiesgo, rRezago, rSeriada].forEach(c => { if (c) c.innerHTML = msg; });
     });
+}
+
+// Materias con mayor reprobación entre los alumnos registrados (ReglasMateriasCriticas.cs)
+function cargarMateriasCriticas() {
+    const c = $('contenedorReporteCriticas');
+    if (!c) return;
+    c.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-dark" role="status"></div></div>';
+    const selP = $('selectPeriodoGlobal');
+    fetch(`/Home/ObtenerMateriasCriticas?periodo=${encodeURIComponent(selP ? selP.value : '')}`).then(leerRespuesta).then(res => {
+        const criterio = $('criterioMateriasCriticas');
+        if (criterio) criterio.innerText = `Crítica: ${res.porcentajeCritico} % o más de reprobación con al menos ${res.minimoIntentos} intentos registrados`;
+        const lista = res.data || [];
+        if (lista.length === 0) { c.innerHTML = '<p class="text-muted small mb-0">No hay materias reprobadas registradas.</p>'; return; }
+        // Misma estructura que las otras secciones (tarjeta > encabezado + lista) para que se imprima igual
+        c.innerHTML = lista.map(m => `
+            <div class="border rounded bg-white p-2 ${m.critica ? 'border-danger' : ''}">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <strong class="text-dark" style="font-size: 0.85rem;">${m.critica ? '<i class="bi bi-fire text-danger me-1"></i>' : ''}${escapeHTML(m.materia)}</strong>
+                    <span class="badge ${m.critica ? 'bg-danger' : 'bg-secondary'} rounded-pill">${m.porcentaje} %</span>
+                </div>
+                <ul class="list-unstyled mb-0 ms-2 text-muted" style="font-size: 0.8rem;">
+                    <li>Reprobó en ${m.reprobaciones} de ${m.intentos} intento(s) · ${m.alumnos} alumno(s)</li>
+                    <li>La cursan ahora: ${m.cursandoAhora}${m.enRiesgoAhora ? ` · en riesgo: ${m.enRiesgoAhora}` : ''}</li>
+                </ul>
+            </div>`).join('');
+    }).catch(e => { c.innerHTML = `<p class="text-danger small">${escapeHTML(e.message)}</p>`; });
 }
 
 function renderizarListaAgrupada(arreglo, colorClase) {
@@ -93,7 +121,8 @@ function imprimirReporteGlobal() {
     const secciones = [
         { titulo: 'Materias en Riesgo', color: '#ffc107', id: 'contenedorReporteRiesgo' },
         { titulo: 'Materias en Rezago', color: '#6c757d', id: 'contenedorReporteRezago' },
-        { titulo: 'Seriadas Adeudadas (Candados)', color: '#dc3545', id: 'contenedorReporteSeriadas' }
+        { titulo: 'Seriadas Adeudadas (Candados)', color: '#dc3545', id: 'contenedorReporteSeriadas' },
+        { titulo: 'Materias críticas (mayor reprobación)', color: '#212529', id: 'contenedorReporteCriticas' }
     ];
 
     if (document.querySelector('#modalReporteGlobal .spinner-border')) { alert("El reporte aún se está cargando. Intenta de nuevo en un momento."); return; }

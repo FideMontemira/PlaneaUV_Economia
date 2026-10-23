@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
         // Debe ir primero: alertas, tutorías y periodo del alumno leen el Periodo de Trabajo
         llenarSelectorDePeriodos();
+        cargarCatalogoTutorias();   // arma el formato guiado de tutoría con las opciones del servidor
 
         const modalInicioEl = $('modalInicio');
         if (modalInicioEl) {

@@ -29,6 +29,13 @@ function aplicarDatosDelPlan(res, planNombre) {
     const titulo = $('tituloMapa');
     if (titulo) titulo.innerText = programaPlan ? 'Mapa Curricular - ' + programaPlan : 'Mapa Curricular';
 
+    // Si la plantilla declara un total mayor que lo que suman sus materias, faltan créditos por capturar
+    const deMaterias = parseInt(res.creditosMaterias) || 0;
+    mostrarAvisoCreditosPlan(creditosTotalesPlan > deMaterias && deMaterias > 0
+        ? `<i class="bi bi-exclamation-triangle-fill me-1"></i><strong>El plan no cuadra:</strong> declara ${creditosTotalesPlan} créditos, pero sus materias suman ${deMaterias} (faltan ${creditosTotalesPlan - deMaterias}). `
+          + `Revisa en la plantilla los créditos de las AFEL y de las optativas. Mientras tanto, el avance se mide contra ${creditosTotalesPlan}.`
+        : '');
+
     const sel = $('inputOptativa');
     if (!sel) return;
     sel.innerHTML = '<option value="">-- Seleccione la experiencia educativa --</option>';
@@ -110,8 +117,16 @@ function cargarPlanesDropdown() {
 
 // Cuando el alumno no tiene plan (o su plan ya no existe) se muestra un selector para asignarle uno.
 // Como el mapa ya no muestra lo que había, se olvida el plan dibujado para que el siguiente se dibuje de nuevo.
+function mostrarAvisoCreditosPlan(html) {
+    const aviso = $('avisoCreditosPlan');
+    if (!aviso) return;
+    aviso.innerHTML = html;
+    aviso.classList.toggle('d-none', !html);
+}
+
 function mostrarSelectorPlan(mensaje) {
     planDibujadoActual = '';
+    mostrarAvisoCreditosPlan('');
     const titulo = $('tituloMapa'); if (titulo) titulo.innerText = 'Mapa Curricular';
     $('contenedor-mapa-dinamico').innerHTML = `
         <div class="alert alert-warning text-center w-100 mt-4">
@@ -208,14 +223,19 @@ function renderizarMapaVisual() {
     if (!contenedor) return;
     contenedor.innerHTML = '';
 
-    const ordinal = n => n + (n === 1 || n === 3 ? 'er' : n === 2 ? 'do' : n === 7 || n === 10 ? 'mo' : n === 8 ? 'vo' : n === 9 ? 'no' : 'to');
+    // 1er, 2do... 10mo; del 11 en adelante "11°", "12°"... (planes de más de 10 semestres)
+    const ordinal = n => n > 10 ? n + '°' : n + (n === 1 || n === 3 ? 'er' : n === 2 ? 'do' : n === 7 || n === 10 ? 'mo' : n === 8 ? 'vo' : n === 9 ? 'no' : 'to');
     const clasesArea = { general: 'bg-general', 'básica': 'bg-basica', basica: 'bg-basica', disciplinar: 'bg-disciplinar', terminal: 'bg-terminal' };
     const tipoDe = m => ((m.tipo || m.Tipo) || '').toLowerCase();
 
+    // Las AFEL no pertenecen a un periodo: van SIEMPRE juntas en su propia columna al final,
+    // sin importar el número de semestre que traigan en la plantilla (así un plan de 10, 12 o más
+    // semestres no las mezcla con un periodo aunque el coordinador les ponga "9").
+    const COLUMNA_AFEL = 'AFEL';
     let semestresAgrupados = {};
     materiasPlanMaestro.forEach(m => {
         // Aceptamos tanto 'semestre' (ASP.NET) como 'Semestre'
-        let sem = m.semestre || m.Semestre;
+        let sem = tipoDe(m) === 'afel' ? COLUMNA_AFEL : (m.semestre || m.Semestre);
         if (!semestresAgrupados[sem]) semestresAgrupados[sem] = [];
         semestresAgrupados[sem].push(m);
     });
@@ -224,7 +244,10 @@ function renderizarMapaVisual() {
     const grid = document.createElement('div');
     grid.className = 'mapa-grid w-100';
 
-    Object.keys(semestresAgrupados).map(Number).sort((a, b) => a - b).forEach(numSemestre => {
+    const ordenColumnas = Object.keys(semestresAgrupados).filter(k => k !== COLUMNA_AFEL).map(Number).sort((a, b) => a - b);
+    if (semestresAgrupados[COLUMNA_AFEL]) ordenColumnas.push(COLUMNA_AFEL);
+
+    ordenColumnas.forEach(numSemestre => {
         const materias = semestresAgrupados[numSemestre];
         const soloAfel = materias.every(m => tipoDe(m) === 'afel');
         const tieneAfel = materias.some(m => tipoDe(m) === 'afel');

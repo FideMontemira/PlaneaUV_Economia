@@ -27,10 +27,17 @@ function $(id) {
 // Lee la respuesta JSON del servidor; si es un error (p. ej. 409: Excel abierto) lanza el mensaje del servidor
 function leerRespuesta(res) {
     return res.json().catch(() => ({})).then(data => {
-        if (!res.ok) throw new Error(data.message || `Error del servidor (${res.status}).`);
+        if (!res.ok) {
+            const error = new Error(data.message || `Error del servidor (${res.status}).`);
+            error.status = res.status;   // 400 = datos no válidos (no tiene caso reintentar); 409 = Excel abierto
+            throw error;
+        }
         return data;
     });
 }
+
+// Formato de matrícula aceptado (el servidor valida lo mismo en Services/ValidacionAlumno.cs)
+const FORMATO_MATRICULA = /^[A-Za-z0-9-]{3,20}$/;
 
 // Aviso visible en la parte superior de la pantalla (no bloquea como alert)
 function mostrarAviso(mensaje) {

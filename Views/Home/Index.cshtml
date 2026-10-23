@@ -48,6 +48,8 @@
         <span class="small text-muted"><i class="bi bi-hand-index-thumb me-1"></i>Haz clic en una materia para registrar el avance del estudiante.</span>
     </div>
     <div class="card-body pt-2">
+        <!-- Aviso cuando los créditos de las materias del plan no suman el total oficial (p. ej. faltan AFEL u optativas) -->
+        <div id="avisoCreditosPlan" class="alert alert-warning small py-2 mb-2 d-none" role="status"></div>
         <partial name="_MapaGrid" />
     </div>
 </div>

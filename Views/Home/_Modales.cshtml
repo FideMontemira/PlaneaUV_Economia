@@ -155,88 +155,31 @@
 
 <!-- Modal Tutorías -->
 <div class="modal fade" id="modalTutorias" tabindex="-1" aria-labelledby="modalTutoriasLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header text-white" style="background-color: #17a2b8;">
-                <h5 class="modal-title" id="modalTutoriasLabel"><i class="bi bi-journal-text me-2"></i>Registro de Tutorías</h5>
+                <h5 class="modal-title" id="modalTutoriasLabel"><i class="bi bi-journal-text me-2"></i>Reporte de tutoría</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body bg-light">
-                <!-- Sesion 1 -->
-                <div class="card mb-3 shadow-sm border-0">
-                    <div class="card-header bg-white fw-bold text-info"><i class="bi bi-1-circle-fill me-1"></i> Primera Sesión</div>
-                    <div class="card-body py-2">
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold mb-1">Fecha</label>
-                                <input type="date" class="form-control form-control-sm" id="fechaTutoria1" onchange="marcarCambios()">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold mb-1">Asistencia</label>
-                                <select class="form-select form-select-sm" id="asistenciaTutoria1" onchange="marcarCambios()">
-                                    <option value="pendiente">Pendiente</option>
-                                    <option value="asistio"> Asistió</option>
-                                    <option value="falto"> Faltó</option>
-                                    <option value="reprogramada"> Reprogramada</option>
-                                </select>
-                            </div>
-                        </div>
-                        <label class="form-label small fw-bold mb-1">Comentarios y Acuerdos</label>
-                        <textarea class="form-control form-control-sm" id="tutoria1" rows="2" placeholder="Notas de la primera sesión..." onchange="marcarCambios()"></textarea>
-                    </div>
+                <!-- Formato guiado de tutoría: una pestaña por sesión. El contenido de cada pestaña (casillas de
+                     temas, situaciones y canalización) lo arma tutorias.js con el catálogo del servidor. -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <div class="small text-muted">Periodo: <strong id="periodoTutorias">—</strong> · Marca lo que se trató en cada sesión. Todo se guarda solo.</div>
                 </div>
-
-                <!-- Sesion 2 -->
-                <div class="card mb-3 shadow-sm border-0">
-                    <div class="card-header bg-white fw-bold text-info"><i class="bi bi-2-circle-fill me-1"></i> Segunda Sesión</div>
-                    <div class="card-body py-2">
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold mb-1">Fecha</label>
-                                <input type="date" class="form-control form-control-sm" id="fechaTutoria2" onchange="marcarCambios()">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold mb-1">Asistencia</label>
-                                <select class="form-select form-select-sm" id="asistenciaTutoria2" onchange="marcarCambios()">
-                                    <option value="pendiente">Pendiente</option>
-                                    <option value="asistio"> Asistió</option>
-                                    <option value="falto"> Faltó</option>
-                                    <option value="reprogramada"> Reprogramada</option>
-                                </select>
-                            </div>
-                        </div>
-                        <label class="form-label small fw-bold mb-1">Comentarios y Acuerdos</label>
-                        <textarea class="form-control form-control-sm" id="tutoria2" rows="2" placeholder="Notas de la segunda sesión..." onchange="marcarCambios()"></textarea>
-                    </div>
-                </div>
-
-                <!-- Sesion 3 -->
-                <div class="card mb-2 shadow-sm border-0">
-                    <div class="card-header bg-white fw-bold text-info"><i class="bi bi-3-circle-fill me-1"></i> Tercera Sesión</div>
-                    <div class="card-body py-2">
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold mb-1">Fecha</label>
-                                <input type="date" class="form-control form-control-sm" id="fechaTutoria3" onchange="marcarCambios()">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold mb-1">Asistencia</label>
-                                <select class="form-select form-select-sm" id="asistenciaTutoria3" onchange="marcarCambios()">
-                                    <option value="pendiente">Pendiente</option>
-                                    <option value="asistio"> Asistió</option>
-                                    <option value="falto"> Faltó</option>
-                                    <option value="reprogramada"> Reprogramada</option>
-                                </select>
-                            </div>
-                        </div>
-                        <label class="form-label small fw-bold mb-1">Comentarios y Acuerdos</label>
-                        <textarea class="form-control form-control-sm" id="tutoria3" rows="2" placeholder="Notas de la tercera sesión..." onchange="marcarCambios()"></textarea>
-                    </div>
+                <!-- Lo que detectó el sistema antes de la sesión: semáforo, señales, temas sugeridos y seguimiento -->
+                <div id="senalesTutoria" class="mb-3"></div>
+                <ul class="nav nav-tabs" id="tabsTutorias" role="tablist"></ul>
+                <div class="tab-content bg-white border border-top-0 rounded-bottom p-3" id="contenidoTutorias">
+                    <div class="text-center text-muted py-4">Cargando formato de tutoría...</div>
                 </div>
             </div>
             <div class="modal-footer bg-white border-top">
+                <button type="button" class="btn btn-outline-primary" onclick="abrirFichaTutoria()" title="Una hoja con lo que conviene saber antes de la sesión">
+                    <i class="bi bi-printer me-1"></i> Imprimir ficha para la sesión
+                </button>
                 <button type="button" class="btn btn-primary me-auto" onclick="descargarWordTutorias()">
-                    <i class="bi bi-file-earmark-word-fill me-1"></i> Exportar a Word
+                    <i class="bi bi-file-earmark-word-fill me-1"></i> Descargar reporte en Word
                 </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
@@ -270,6 +213,15 @@
                         <div class="card h-100 border-danger shadow-sm">
                             <div class="card-header bg-danger text-white fw-bold"><i class="bi bi-lock-fill me-2"></i>Seriadas Adeudadas (Candados)</div>
                             <div class="card-body" id="contenedorReporteSeriadas"></div>
+                        </div>
+                    </div>
+                    <div class="col-12 order-first">
+                        <div class="card border-dark shadow-sm">
+                            <div class="card-header bg-dark text-white fw-bold d-flex flex-wrap justify-content-between gap-2">
+                                <span><i class="bi bi-fire me-2"></i>Materias críticas (mayor reprobación)</span>
+                                <small class="fw-normal opacity-75" id="criterioMateriasCriticas"></small>
+                            </div>
+                            <div class="card-body rejilla-criticas" id="contenedorReporteCriticas"></div>
                         </div>
                     </div>
                 </div>
@@ -397,6 +349,7 @@
                     <table class="table table-sm table-hover align-middle mb-0" id="tablaPanelGrupo">
                         <thead class="table-dark">
                             <tr>
+                                <th role="button" data-columna="nivelSemaforo" class="text-center">Semáforo</th>
                                 <th role="button" data-columna="matricula">Matrícula</th>
                                 <th role="button" data-columna="nombre">Nombre</th>
                                 <th role="button" data-columna="programa">Programa</th>
@@ -406,6 +359,8 @@
                                 <th role="button" data-columna="enCurso" class="text-center">En curso</th>
                                 <th role="button" data-columna="rezago" class="text-center">Rezago</th>
                                 <th role="button" data-columna="alertas" class="text-center">Alertas</th>
+                                <th role="button" data-columna="estadoCaso" class="text-center">Caso</th>
+                                <th role="button" data-columna="diasSinContacto" class="text-center" title="Días desde la última tutoría a la que asistió">Último contacto</th>
                             </tr>
                         </thead>
                         <tbody></tbody>

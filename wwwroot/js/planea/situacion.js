@@ -92,6 +92,10 @@ function aplicarSituacionAlumno() {
     document.querySelectorAll('.badge-rezago-auto').forEach(b => b.remove());
     document.querySelectorAll('.materia-card[data-rezago-auto]').forEach(t => t.removeAttribute('data-rezago-auto'));
 
+    pintarSemaforoAlumno();
+    if (typeof pintarSenalesTutoria === 'function') pintarSenalesTutoria();
+    marcarMateriasCriticas();
+
     if (!info) return;
     info.className = 'form-control form-control-sm fw-bold bg-light text-muted';
     info.title = '';
@@ -134,4 +138,80 @@ function aplicarSituacionAlumno() {
         if (t.getAttribute('data-rezago') === 'true') return;   // ya trae la etiqueta de rezago manual
         t.insertAdjacentHTML('beforeend', '<div class="badge bg-secondary text-white mt-1 shadow-sm badge-rezago-auto" style="font-size:0.65rem; width:100%" title="Materia de un periodo anterior al que cursa">EN REZAGO</div>');
     });
+}
+
+// ===================== SEMÁFORO DE RIESGO =====================
+// El color lo calcula el servidor (Services/ReglasSemaforo.cs) y llega junto con la situación del alumno.
+const SEMAFORO = {
+    rojo: { texto: 'Riesgo alto', clase: 'semaforo-rojo' },
+    amarillo: { texto: 'Atención', clase: 'semaforo-amarillo' },
+    verde: { texto: 'Sin riesgo', clase: 'semaforo-verde' },
+    sin: { texto: 'Sin semáforo', clase: 'semaforo-sin' }
+};
+const infoSemaforo = color => SEMAFORO[color] || SEMAFORO.sin;
+
+function pastillaSemaforo(color) {
+    const i = infoSemaforo(color);
+    return `<span class="semaforo-pastilla ${i.clase}"><span class="semaforo-punto"></span>${i.texto}</span>`;
+}
+
+const TEXTO_VALORACION = { confirma: 'confirmó el semáforo', eleva: 'indicó que el riesgo es mayor', descarta: 'descartó el riesgo' };
+
+function pintarSemaforoAlumno() {
+    const boton = $('semaforoAlumno'), texto = $('textoSemaforoAlumno');
+    if (!boton || !texto) return;
+    const inputMat = $('inputMatricula');
+    const s = situacionActual();
+    const sem = s ? s.semaforo : null;
+
+    if (!inputMat || !inputMat.value.trim()) { boton.className = 'semaforo-boton semaforo-sin'; texto.innerText = '—'; boton.title = 'Selecciona un alumno'; return; }
+    if (!sem) { boton.className = 'semaforo-boton semaforo-sin'; texto.innerText = 'Calculando...'; boton.title = ''; return; }
+
+    const i = infoSemaforo(sem.final);
+    boton.className = 'semaforo-boton ' + i.clase;
+    texto.innerText = i.texto + (sem.valoracion && sem.final !== sem.sistema ? ' (tutor)' : '');
+    const razones = sem.senales.map(x => '• ' + x.texto).join('\n');
+    boton.title = (sem.final === 'sin' ? 'Alumno dado de baja: no se calcula semáforo.' : (razones || 'Sin señales de riesgo en este periodo.'))
+        + (sem.valoracion ? `\n\nEl tutor ${TEXTO_VALORACION[sem.valoracion]} (sistema: ${infoSemaforo(sem.sistema).texto}).` : '')
+        + '\n\nClic para ver el detalle y valorarlo en el reporte de tutoría.';
+}
+
+// ===================== MATERIAS CRÍTICAS EN EL MAPA =====================
+// Las de mayor reprobación del grupo (las calcula el servidor: ReglasMateriasCriticas.cs)
+function marcarMateriasCriticas() {
+    document.querySelectorAll('.badge-critica').forEach(b => b.remove());
+    const s = situacionActual();
+    if (!s || !s.materiasCriticas) return;
+    const criticas = new Map(s.materiasCriticas.map(c => [c.materia.toLowerCase(), c]));
+    document.querySelectorAll('#contenedor-mapa-dinamico .materia-card').forEach(t => {
+        const nombre = (t.getAttribute('data-nombre-personalizado') || t.getAttribute('data-nombre') || '').toLowerCase();
+        const c = criticas.get(nombre);
+        if (!c || t.getAttribute('data-estado') === 'aprobada') return;
+        t.insertAdjacentHTML('beforeend', `<div class="badge-critica" title="Materia crítica: reprueba el ${c.porcentaje} % (${c.reprobaciones} de ${c.intentos} intentos registrados)"><i class="bi bi-fire"></i> Crítica ${c.porcentaje} %</div>`);
+    });
+}
+
+// ===================== TRAYECTORIA =====================
+// Barra de avance con las marcas de la trayectoria larga (mínimo) y la estándar. 'creditos' son los aprobados
+// que se ven en el mapa; los créditos esperados y el estado los da el servidor.
+function pintarTrayectoria(creditos) {
+    const caja = $('trayectoriaAlumno');
+    if (!caja) return;
+    const s = situacionActual();
+    if (!s || !s.creditosTotales || !s.trayectoria) { caja.classList.add('d-none'); caja.innerHTML = ''; return; }
+
+    const pct = c => Math.min(100, Math.round(c * 100 / s.creditosTotales));
+    const estados = {
+        'estandar': ['text-success', 'Al corriente'],
+        'debajo-estandar': ['text-warning-emphasis', 'Debajo de la estándar'],
+        'debajo-minimo': ['text-danger', 'Debajo del mínimo']
+    };
+    const [clase, texto] = estados[s.trayectoria] || ['text-muted', ''];
+    caja.classList.remove('d-none');
+    caja.title = `Trayectoria estándar: ${s.creditosEstandar} créditos al concluir ${s.periodoQueCursa - 1} periodo(s) (plan de ${s.duracionPlan}).\n`
+        + `Trayectoria larga (mínimo): ${s.creditosLarga} créditos (plazo de ${s.periodosTrayectoriaLarga} periodos).`;
+    caja.innerHTML = `
+        <div class="trayectoria-barra"><i style="width:${pct(creditos)}%"></i>
+            <s class="marca-larga" style="left:${pct(s.creditosLarga)}%"></s><s class="marca-estandar" style="left:${pct(s.creditosEstandar)}%"></s></div>
+        <div class="trayectoria-leyenda"><span class="fw-bold ${clase}">${texto}</span> · mín. ${s.creditosLarga} · est. ${s.creditosEstandar} Cr.</div>`;
 }

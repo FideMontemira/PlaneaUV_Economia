@@ -45,6 +45,43 @@ namespace PlaneaUV_Economia.Tests
         }
 
         [Fact]
+        public void GuardaYLeeElFormatoGuiadoDeTutoria()
+        {
+            var alumno = Datos.Alumno("S24000001");
+            alumno.Tutorias.Add(new TutoriaRecord
+            {
+                Periodo = "Agosto - Enero 2027", Sesion = 1, Asistencia = "asistio", Modalidad = "En línea",
+                Temas = { "Trayectoria y avance académico", "Movilidad estudiantil" },
+                Situaciones = { "Económica" },
+                Canalizaciones = { "CENDHIU (desarrollo humano y apoyo psicológico)", "Becas y apoyos económicos" },
+                OtraCanalizacion = "Bolsa de trabajo",
+                Acuerdos = "Acudir a CENDHIU",
+                RequiereSeguimiento = true,
+                MateriaDificultad = "Microeconomía I", FechaRevision = "2026-10-15", EstadoCaso = "En atención",
+                ValoracionRiesgo = "descarta", MotivoValoracion = "Ya regularizó", SemaforoSistema = "amarillo"
+            });
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = "Febrero - Julio 2026", Sesion = 1, RequiereSeguimiento = true });   // registro anterior
+            _repo.Guardar(alumno);
+
+            var leidas = _repo.Buscar("S24000001")!.Tutorias;
+            var t = leidas[0];
+            Assert.Equal("Microeconomía I", t.MateriaDificultad);
+            Assert.Equal("2026-10-15", t.FechaRevision);
+            Assert.Equal("En atención", t.EstadoCaso);
+            Assert.Equal("descarta", t.ValoracionRiesgo);
+            Assert.Equal("Ya regularizó", t.MotivoValoracion);
+            Assert.Equal("amarillo", t.SemaforoSistema);
+            Assert.Equal("Abierto", leidas[1].EstadoCaso);   // "requiere seguimiento" sin estado = caso abierto
+            Assert.Equal("En línea", t.Modalidad);
+            Assert.Equal(new[] { "Trayectoria y avance académico", "Movilidad estudiantil" }, t.Temas);
+            Assert.Equal(new[] { "Económica" }, t.Situaciones);
+            Assert.Equal(2, t.Canalizaciones.Count);
+            Assert.Equal("Bolsa de trabajo", t.OtraCanalizacion);
+            Assert.Equal("Acudir a CENDHIU", t.Acuerdos);
+            Assert.True(t.RequiereSeguimiento);
+        }
+
+        [Fact]
         public void GuardarDeNuevoReemplazaAlAlumnoYDejaRespaldo()
         {
             _repo.Guardar(Datos.Alumno("S24000001", Datos.Materia("A", "cursando")));
@@ -115,6 +152,10 @@ namespace PlaneaUV_Economia.Tests
                 var d = libro.Worksheets.Add("Datos");
                 d.Cell(1, 1).Value = "Programa"; d.Cell(1, 2).Value = "Licenciatura en Pruebas";
                 d.Cell(2, 1).Value = "Creditos totales"; d.Cell(2, 2).Value = 100;
+                d.Cell(3, 1).Value = "Periodos trayectoria larga"; d.Cell(3, 2).Value = 7;
+                var a = libro.Worksheets.Add("Apoyos");
+                a.Cell(1, 1).Value = "Apoyo"; a.Cell(1, 2).Value = "Horario y lugar";
+                a.Cell(2, 1).Value = "Asesoría de pares"; a.Cell(2, 2).Value = "Martes 13:00, sala 2";
                 var o = libro.Worksheets.Add("Optativas");
                 o.Cell(1, 1).Value = "Optativa"; o.Cell(1, 2).Value = "Grupo";
                 o.Cell(2, 1).Value = "Teoría de Juegos"; o.Cell(2, 2).Value = "Área 1";
@@ -134,6 +175,8 @@ namespace PlaneaUV_Economia.Tests
             Assert.Equal("Cálculo I", plan.Materias[1].Prerrequisitos);
             Assert.Equal("Teoría de Juegos", Assert.Single(plan.Optativas).Nombre);
             Assert.Equal(new[] { "Cálculo I" }, plan.Seriadas);
+            Assert.Equal(7, plan.PeriodosTrayectoriaLarga);
+            Assert.Equal("Martes 13:00, sala 2", Assert.Single(plan.Apoyos).Detalle);
         }
 
         [Fact]

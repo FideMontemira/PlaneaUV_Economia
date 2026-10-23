@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Linq;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -36,7 +37,13 @@ namespace PlaneaUV_Economia.Controllers
         {
             try { return accion(); }
             catch (IOException) { return StatusCode(409, new { success = false, message = MensajeArchivoOcupado }); }
-            catch (Exception ex) { return StatusCode(500, new { success = false, message = "Error al procesar los datos de los alumnos: " + ex.Message }); }
+            // Datos no válidos (matrícula repetida o con formato incorrecto): es un error del usuario, no se reintenta
+            catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException) { return BadRequest(new { success = false, message = ex.Message }); }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("Error con los datos de los alumnos: " + ex);
+                return StatusCode(500, new { success = false, message = "No se pudieron procesar los datos de los alumnos. Si continúa, cierra y vuelve a abrir PlaneaUV." });
+            }
         }
 
         // =========================================================================
@@ -46,7 +53,9 @@ namespace PlaneaUV_Economia.Controllers
         [HttpPost]
         public IActionResult ExportarExcel([FromBody] AlumnoAvance avance) => ConDatosDeAlumnos(() =>
         {
-            if (avance == null || string.IsNullOrEmpty(avance.Matricula)) return BadRequest("Datos incompletos.");
+            if (avance == null) return BadRequest(new { success = false, message = "Datos incompletos." });
+            var error = ValidacionAlumno.Errores(avance);
+            if (error != null) return BadRequest(new { success = false, message = error });
             _alumnos.Guardar(avance);
             return Json(new { success = true });
         });
@@ -79,7 +88,29 @@ namespace PlaneaUV_Economia.Controllers
             if (string.IsNullOrEmpty(matricula)) return BadRequest("Matrícula requerida.");
             var alumno = _alumnos.Buscar(matricula);
             if (alumno == null) return Json(new { success = false, message = "Alumno no encontrado." });
-            return Json(new { success = true, data = ReglasTrayectoria.Calcular(alumno, ObtenerPlanSeguro(alumno.PlanEstudio), periodo) });
+            return Json(new { success = true, data = SituacionCompleta(alumno, periodo) });
+        });
+
+        // Situación del alumno con su semáforo y las materias críticas del grupo
+        private SituacionAlumno SituacionCompleta(AlumnoAvance alumno, string? periodo)
+        {
+            var criticas = ReglasMateriasCriticas.Calcular(_alumnos.ObtenerTodos(), periodo);
+            var situacion = ReglasTrayectoria.Calcular(alumno, ObtenerPlanSeguro(alumno.PlanEstudio), periodo);
+            situacion.MateriasCriticas = criticas.Where(c => c.Critica).ToList();
+            situacion.Semaforo = ReglasSemaforo.Calcular(alumno, periodo, _alertas.Calcular(new[] { alumno }, periodo), DateTime.Today, criticas);
+            return situacion;
+        }
+
+        // Ficha para llevar a la sesión de tutoría (una hoja para imprimir o guardar en PDF)
+        [HttpGet]
+        public IActionResult FichaTutoria(string matricula, string? periodo) => ConDatosDeAlumnos(() =>
+        {
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("Matrícula requerida.");
+            var alumno = _alumnos.Buscar(matricula);
+            if (alumno == null) return NotFound("Alumno no encontrado.");
+            var plan = ObtenerPlanSeguro(alumno.PlanEstudio);
+            string html = GeneradorFichaTutoria.Generar(alumno, plan, SituacionCompleta(alumno, periodo), periodo ?? "", DateTime.Today);
+            return Content(html, "text/html; charset=utf-8");
         });
 
         [HttpGet]
@@ -114,6 +145,11 @@ namespace PlaneaUV_Economia.Controllers
         public IActionResult ObtenerPanelGrupo(string? periodo) => ConDatosDeAlumnos(() =>
             Json(new { success = true, data = _reportes.PanelGrupo(_alumnos.ObtenerTodos(), periodo) }));
 
+        [HttpGet]
+        public IActionResult ObtenerMateriasCriticas(string? periodo) => ConDatosDeAlumnos(() =>
+            Json(new { success = true, data = ReglasMateriasCriticas.Calcular(_alumnos.ObtenerTodos(), periodo),
+                       minimoIntentos = ReglasMateriasCriticas.MinimoIntentos, porcentajeCritico = ReglasMateriasCriticas.PorcentajeCritico }));
+
         // =========================================================================
         // PLANES DE ESTUDIO
         // =========================================================================
@@ -124,22 +160,46 @@ namespace PlaneaUV_Economia.Controllers
             if (archivoPlan == null || archivoPlan.Length == 0)
                 return Json(new { success = false, message = "No se seleccionó ningún archivo." });
 
-            if (!archivoPlan.FileName.EndsWith(".xlsx"))
+            if (!archivoPlan.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
                 return Json(new { success = false, message = "El archivo debe ser un formato Excel válido (.xlsx)." });
+
+            if (archivoPlan.Length > RepositorioPlanesExcel.TamanoMaximo)
+                return Json(new { success = false, message = "El archivo es demasiado grande (máximo 5 MB)." });
 
             try
             {
                 await _planes.GuardarAsync(archivoPlan);
                 return Json(new { success = true, message = "Plan de estudios subido correctamente." });
             }
+            catch (ArgumentException ex)
+            {
+                return Json(new { success = false, message = ex.Message });   // la plantilla no es válida: se explica por qué
+            }
+            catch (IOException)
+            {
+                return Json(new { success = false, message = "No se pudo guardar el plan. Si ese archivo está abierto en Excel, ciérralo e intenta de nuevo." });
+            }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = "Error interno al guardar: " + ex.Message });
+                Console.Error.WriteLine("Error al subir un plan: " + ex);
+                return Json(new { success = false, message = "No se pudo guardar el plan de estudios." });
             }
         }
 
         [HttpGet]
         public IActionResult ObtenerPlanesEstudio() => Json(_planes.Listar());
+
+        // Opciones del formato guiado de tutoría (temas, situaciones, canalizaciones, modalidades)
+        [HttpGet]
+        public IActionResult ObtenerCatalogoTutorias() => Json(new
+        {
+            modalidades = CatalogoTutorias.Modalidades,
+            temas = CatalogoTutorias.Temas,
+            situaciones = CatalogoTutorias.Situaciones,
+            problematicas = CatalogoTutorias.Problematicas,
+            estadosCaso = CatalogoTutorias.EstadosCaso,
+            canalizaciones = CatalogoTutorias.Canalizaciones
+        });
 
         [HttpGet]
         public IActionResult ObtenerMapaCurricular(string planNombre)
@@ -153,11 +213,13 @@ namespace PlaneaUV_Economia.Controllers
             try
             {
                 var plan = _planes.Obtener(planNombre)!;
-                return Json(new { success = true, data = plan.Materias, programa = plan.Programa, creditosTotales = plan.CreditosTotales, optativas = plan.Optativas });
+                return Json(new { success = true, data = plan.Materias, programa = plan.Programa, creditosTotales = plan.CreditosTotales,
+                                  creditosMaterias = plan.Materias.Sum(m => m.Creditos), optativas = plan.Optativas });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = "Error al leer el plan: " + ex.Message });
+                Console.Error.WriteLine("Error al leer un plan: " + ex);
+                return Json(new { success = false, message = "No se pudo leer el plan: revisa que la plantilla tenga el formato correcto." });
             }
         }
 

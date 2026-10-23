@@ -88,6 +88,12 @@ function procesarColaGuardado() {
         })
         .catch(e => {
             console.error(e);
+            // Datos no válidos o petición rechazada: reintentar no lo arregla, se avisa y se deja de intentar
+            if (e.status === 400 || e.status === 403) {
+                mostrarEstadoGuardado('error');
+                mostrarAviso('No se guardó: ' + e.message);
+                return;
+            }
             // Se vuelve a encolar (salvo que ya haya datos más nuevos de ese alumno) y se reintenta más tarde
             if (!guardadosPendientes.has(matricula) && !alumnosEliminados.has(matricula)) guardadosPendientes.set(matricula, datos);
             mostrarEstadoGuardado('error');

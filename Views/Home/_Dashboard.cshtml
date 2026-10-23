@@ -24,6 +24,14 @@
             </div>
         </div>
 
+        <!-- Semáforo de riesgo: lo calcula el servidor (Services/ReglasSemaforo.cs); clic para ver las señales y valorarlo -->
+        <div>
+            <label class="app-etiqueta">Semáforo de riesgo</label>
+            <button type="button" id="semaforoAlumno" class="semaforo-boton semaforo-sin" onclick="abrirModalTutorias()" title="Selecciona un alumno">
+                <span class="semaforo-punto"></span><span id="textoSemaforoAlumno">—</span>
+            </button>
+        </div>
+
         <!-- Situación académica -->
         <div>
             <label class="app-etiqueta" for="selectSituacionAlumno">Situación académica</label>
@@ -74,6 +82,8 @@
                     <div>
                         <div class="app-etiqueta mb-0">Avance en créditos</div>
                         <span id="textoCreditos" class="text-primary fw-bold fs-5">0 Cr.</span>
+                        <!-- Avance frente a las trayectorias estándar y larga (los créditos esperados los calcula el servidor) -->
+                        <div id="trayectoriaAlumno" class="trayectoria d-none"></div>
                     </div>
                 </div>
 

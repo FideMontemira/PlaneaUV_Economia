@@ -33,7 +33,7 @@ function buscarAlumno(materiaAResaltar = null) {
             cargarMapaCurricular(planActualAlumno, function () {
 
                 // --- ESTO SE EJECUTA HASTA QUE EL MAPA ESTÉ COMPLETAMENTE DIBUJADO ---
-                tutoriasGlobal = (res.data.tutorias || []).map(t => ({ Periodo: t.periodo, Sesion: t.sesion, Fecha: t.fecha, Asistencia: t.asistencia, Comentarios: t.comentarios }));
+                tutoriasGlobal = (res.data.tutorias || []).map(tutoriaDesdeServidor);
                 cargarTutoriasALaVista();
                 periodosSinInscripcion = (res.data.periodosSinInscripcion || []).slice();
 
@@ -237,6 +237,10 @@ function crearNuevoAlumno() {
 
     if (!mat || !nom || !plan) {
         alert("Faltan datos o no has seleccionado el Plan de Estudios.");
+        return;
+    }
+    if (!FORMATO_MATRICULA.test(mat)) {
+        alert("La matrícula solo puede tener letras y números (de 3 a 20 caracteres), por ejemplo S21012345.");
         return;
     }
 

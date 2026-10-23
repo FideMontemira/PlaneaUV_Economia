@@ -142,8 +142,60 @@ namespace PlaneaUV_Economia.Tests
 
             Assert.Contains("Pérez &lt;López&gt;", html);              // los acentos se conservan
             Assert.Contains("Promedio &lt; 7 &amp; faltas", html);
-            Assert.Contains("Evidencia de Tutoría Académica - Economía", html);
+            Assert.Contains("Reporte de Tutoría Académica", html);
+            Assert.Contains("Economía", html);
             Assert.Contains("Asistió", html);
+        }
+
+        [Fact]
+        public void ImprimeElFormatoGuiadoConCasillasYOmiteSesionesVacias()
+        {
+            var alumno = Datos.Alumno("S24000001");
+            alumno.Tutorias.Add(new TutoriaRecord
+            {
+                Periodo = "Agosto - Enero 2027", Sesion = 1, Fecha = "2026-09-10", Asistencia = "asistio", Modalidad = "Presencial",
+                Temas = { CatalogoTutorias.Temas[0] },
+                Situaciones = { "Económica", "Emocional o psicológica" },
+                Canalizaciones = { CatalogoTutorias.Canalizaciones[0] },
+                OtraCanalizacion = "Bolsa de trabajo",
+                Acuerdos = "Acudir a CENDHIU",
+                RequiereSeguimiento = true
+            });
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = "Agosto - Enero 2027", Sesion = 2, Asistencia = "pendiente" });   // vacía
+
+            string html = GeneradorDocumentoTutorias.Generar(alumno, "Economía");
+
+            Assert.Contains("&#9746; Económica", html);                                   // marcada
+            Assert.Contains("&#9744; Salud física", html);                                // del catálogo, sin marcar
+            Assert.Contains("&#9746; " + CatalogoTutorias.Canalizaciones[0], html);
+            Assert.Contains("Otra: Bolsa de trabajo", html);
+            Assert.Contains("10/09/2026", html);
+            Assert.Contains("Requiere seguimiento</th><td><span class='alerta'>Sí</span>", html);   // resumen del periodo
+            Assert.Contains("Sesión 1", html);
+            Assert.DoesNotContain("Sesión 2", html);                                      // la sesión vacía no se imprime
+            Assert.Contains("Personales y de salud</b> (confidencial", html);              // categoría privada
+            Assert.Contains("&#9746; Abierto", html);                                     // estado del caso
+        }
+    }
+
+    public class TutoriasEnAlertasTests
+    {
+        [Fact]
+        public void LaSesionQueRequiereSeguimientoGeneraUnaAlertaConLaCanalizacion()
+        {
+            const string periodo = "Agosto - Enero 2027";
+            var alumno = Datos.Alumno("PRUEBA10");
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = periodo, Sesion = 1, Asistencia = "asistio", Situaciones = { "Económica" }, Canalizaciones = { "Becas y apoyos económicos" }, RequiereSeguimiento = true });
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = "Febrero - Julio 2026", Sesion = 1, RequiereSeguimiento = true });   // otro periodo: no cuenta
+
+            var alerta = Assert.Single(new ServicioAlertas(PlanesEnMemoria.ConPlanCorto()).Calcular(new[] { alumno }, periodo));
+            Assert.Equal("Requiere seguimiento de tutoría", alerta.Mensaje);
+            Assert.Equal("Canalizado a", alerta.Etiqueta);
+            Assert.Equal("Becas y apoyos económicos", alerta.Materia);
+
+            // Si en una sesión posterior el tutor cierra el caso, la alerta desaparece
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = periodo, Sesion = 2, Asistencia = "asistio", EstadoCaso = "Cerrado" });
+            Assert.Empty(new ServicioAlertas(PlanesEnMemoria.ConPlanCorto()).Calcular(new[] { alumno }, periodo));
         }
     }
 }

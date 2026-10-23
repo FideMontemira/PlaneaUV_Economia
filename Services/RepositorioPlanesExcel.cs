@@ -25,6 +25,8 @@ namespace PlaneaUV_Economia.Services
     //   Hoja 1 (obligatoria): Semestre | Materia | Creditos | Tipo | Prerrequisitos | Area (opcional)
     //   Hoja "Datos" (opcional): filas "Programa" y "Creditos totales" en la columna A, su valor en la B
     //   Hoja "Optativas" (opcional): columna A = nombre de la optativa, columna B = grupo (opcional)
+    //   En "Datos" también puede ir "Periodos trayectoria larga" (si no, se usa 1.5 veces la duración del plan)
+    //   Hoja "Apoyos" (opcional): columna A = apoyo, columna B = horario, lugar o cómo solicitarlo
     public class RepositorioPlanesExcel : IRepositorioPlanes
     {
         private readonly string _carpeta;
@@ -38,7 +40,9 @@ namespace PlaneaUV_Economia.Services
         public IReadOnlyList<string> Listar()
         {
             if (!Directory.Exists(_carpeta)) return new List<string>();
-            return Directory.GetFiles(_carpeta, "*.xlsx").Select(f => Path.GetFileNameWithoutExtension(f)!).ToList();
+            // Se omiten los temporales de Excel (~$...) y los de una subida en curso (.xxx.subiendo.xlsx)
+            return Directory.GetFiles(_carpeta, "*.xlsx").Select(f => Path.GetFileNameWithoutExtension(f)!)
+                .Where(n => !n.StartsWith("~$") && !n.StartsWith(".")).ToList();
         }
 
         public bool Existe(string planNombre) => !string.IsNullOrWhiteSpace(planNombre) && File.Exists(Ruta(planNombre));
@@ -55,13 +59,57 @@ namespace PlaneaUV_Economia.Services
             return plan;
         }
 
+        public const long TamanoMaximo = 5 * 1024 * 1024;   // 5 MB: una plantilla de plan pesa unos KB
+
+        // Guarda primero en un archivo temporal, revisa que sea una plantilla válida y solo entonces
+        // reemplaza al plan anterior. Así un archivo dañado o equivocado no borra un plan que funciona.
         public async Task GuardarAsync(IFormFile archivo)
         {
-            Directory.CreateDirectory(_carpeta);
+            if (archivo.Length > TamanoMaximo) throw new ArgumentException("El archivo es demasiado grande (máximo 5 MB).");
+
             // GetFileName evita que un nombre con "..\" salga de la carpeta de planes
-            string ruta = Path.Combine(_carpeta, Path.GetFileName(archivo.FileName));
-            using var stream = new FileStream(ruta, FileMode.Create);
-            await archivo.CopyToAsync(stream);
+            string nombre = Path.GetFileName(archivo.FileName ?? "");
+            string sinExtension = Path.GetFileNameWithoutExtension(nombre);
+            if (!nombre.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) || sinExtension.Length == 0 || sinExtension.Length > 80
+                || sinExtension.Any(c => !(char.IsLetterOrDigit(c) || c == ' ' || c == '_' || c == '-' || c == '.' || c == '(' || c == ')')))
+                throw new ArgumentException("El nombre del archivo solo puede tener letras, números, espacios, guiones y guion bajo, y terminar en .xlsx.");
+
+            Directory.CreateDirectory(_carpeta);
+            string ruta = Path.Combine(_carpeta, sinExtension + ".xlsx");
+            string temporal = Path.Combine(_carpeta, "." + Guid.NewGuid().ToString("N") + ".subiendo.xlsx");
+            try
+            {
+                using (var stream = new FileStream(temporal, FileMode.CreateNew))
+                    await archivo.CopyToAsync(stream);
+
+                PlanInfo plan;
+                try { plan = Leer(temporal, sinExtension); }
+                catch (Exception) { throw new ArgumentException("El archivo no se pudo leer como plantilla de plan de estudios. Revisa que sea un Excel (.xlsx) válido."); }
+                if (plan.Materias.Count == 0)
+                    throw new ArgumentException("La plantilla no tiene materias: la primera hoja debe tener encabezados en la fila 1 y las materias desde la fila 2 (columna B = nombre).");
+                if (plan.Materias.Any(m => m.Creditos < 0 || m.Creditos > 100))
+                    throw new ArgumentException("Hay materias con créditos no válidos en la plantilla.");
+
+                File.Move(temporal, ruta, overwrite: true);
+                _cache.TryRemove(ruta, out _);
+            }
+            finally
+            {
+                BorrarTemporal(temporal);
+            }
+        }
+
+        // Si el Excel no era válido, la librería puede tardar en soltar el archivo: se reintenta una vez
+        private static void BorrarTemporal(string ruta)
+        {
+            if (!File.Exists(ruta)) return;
+            try { File.Delete(ruta); }
+            catch (IOException)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                try { File.Delete(ruta); } catch (IOException) { }   // queda oculto (empieza con ".") y no se lista
+            }
         }
 
         // GetFileName evita que un nombre con "..\" salga de la carpeta de planes
@@ -100,6 +148,7 @@ namespace PlaneaUV_Economia.Services
                         string valor = wsDatos.Cell(f, 2).GetString().Trim();
                         if (clave.StartsWith("programa") && valor != "") plan.Programa = valor;
                         else if (clave.StartsWith("cr")) int.TryParse(valor, out creditosDeclarados);
+                        else if (clave.StartsWith("periodos") && int.TryParse(valor, out int larga) && larga > 0) plan.PeriodosTrayectoriaLarga = larga;
                     }
                 }
 
@@ -111,6 +160,15 @@ namespace PlaneaUV_Economia.Services
                     int f = (primera.StartsWith("optativa") || primera.StartsWith("nombre") || primera.StartsWith("materia")) ? 2 : 1;
                     for (; !wsOptativas.Cell(f, 1).IsEmpty(); f++)
                         plan.Optativas.Add(new OptativaPlan { Nombre = wsOptativas.Cell(f, 1).GetString().Trim(), Grupo = wsOptativas.Cell(f, 2).GetString().Trim() });
+                }
+
+                var wsApoyos = libro.Worksheets.FirstOrDefault(h => h.Name.Trim().Equals("Apoyos", StringComparison.OrdinalIgnoreCase));
+                if (wsApoyos != null)
+                {
+                    string primera = wsApoyos.Cell(1, 1).GetString().Trim().ToLowerInvariant();
+                    int f = (primera.StartsWith("apoyo") || primera.StartsWith("nombre") || primera.StartsWith("servicio")) ? 2 : 1;
+                    for (; !wsApoyos.Cell(f, 1).IsEmpty(); f++)
+                        plan.Apoyos.Add(new ApoyoPlan { Nombre = wsApoyos.Cell(f, 1).GetString().Trim(), Detalle = wsApoyos.Cell(f, 2).GetString().Trim() });
                 }
             }
 
