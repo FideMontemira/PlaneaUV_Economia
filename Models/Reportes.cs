@@ -112,6 +112,13 @@ namespace PlaneaUV_Economia.Models
         public int CursandoAhora { get; set; }      // alumnos que la cursan en el periodo de trabajo
         public int EnRiesgoAhora { get; set; }      // alumnos con la materia marcada en riesgo
         public bool Critica { get; set; }
+        // Por qué no es crítica (si no lo es): "pocos casos" o "baja reprobación"
+        public string? Motivo { get; set; }
+
+        // Quiénes: para que coordinación sepa a qué alumnos atender, no solo cuántos son
+        public List<AlumnoDeReporte> Reprobaron { get; set; } = new List<AlumnoDeReporte>();
+        public List<AlumnoDeReporte> Cursando { get; set; } = new List<AlumnoDeReporte>();
+        public List<AlumnoDeReporte> EnRiesgo { get; set; } = new List<AlumnoDeReporte>();
     }
 
     // Una señal que explica el color del semáforo, con su fuente
@@ -142,5 +149,13 @@ namespace PlaneaUV_Economia.Models
         public string? AcuerdoPendiente { get; set; }
         public string? FechaRevision { get; set; }
         public bool RevisionVencida { get; set; }
+    }
+
+    // Lo que manda la pantalla de tutorías: las sesiones de UN periodo de un alumno
+    public class SolicitudTutorias
+    {
+        public string? Matricula { get; set; }
+        public string? Periodo { get; set; }
+        public List<TutoriaRecord> Sesiones { get; set; } = new List<TutoriaRecord>();
     }
 }

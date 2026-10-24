@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#18529d" />
     <title>@ViewData["Title"] - PlaneaUV</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <!-- Bootstrap Icons incluida en el proyecto (funciona sin internet); sin ella los <i class="bi ..."> salen vacíos -->
@@ -18,7 +19,7 @@
             <div class="container-fluid app-contenedor">
                 <a class="navbar-brand fw-bold d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index">
                     <i class="bi bi-mortarboard-fill me-2"></i>PlaneaUV
-                    <span class="app-brand-sub d-none d-xl-inline">Seguimiento de trayectorias académicas</span>
+                    <span class="app-brand-sub d-none d-xl-inline">Universidad Veracruzana · Seguimiento de trayectorias académicas</span>
                 </a>
                 @if (IsSectionDefined("NavItems"))
                 {
@@ -38,10 +39,12 @@
             @RenderBody()
         </main>
     </div>
+    @* Tema institucional: va después de las hojas de estilo de cada página para que mande sobre ellas *@
+    <link rel="stylesheet" href="~/css/tema-uv.css" asp-append-version="true" />
 
     <footer class="border-top footer text-muted">
         <div class="container-fluid app-contenedor small">
-            &copy; 2026 - PlaneaUV · Seguimiento de trayectorias académicas
+            <strong>PlaneaUV</strong> · Seguimiento de trayectorias académicas · Universidad Veracruzana &copy; 2026
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

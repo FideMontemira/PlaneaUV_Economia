@@ -102,7 +102,16 @@ namespace PlaneaUV_Economia.Tests
             Assert.Equal(1, a.CursandoAhora);
             Assert.True(a.Critica);
 
-            Assert.False(lista.Single(m => m.Materia == "B").Critica);           // un solo intento: muestra insuficiente
+            Assert.Equal(new[] { "S25000001", "S25000002" }, a.Reprobaron.Select(x => x.Matricula));   // quiénes, no solo cuántos
+            Assert.Equal("S25000003", Assert.Single(a.Cursando).Matricula);
+            Assert.Null(a.Motivo);
+
+            var b = lista.Single(m => m.Materia == "B");
+            Assert.False(b.Critica);                                              // un solo intento: muestra insuficiente
+            Assert.Equal("pocos-casos", b.Motivo);
+            var cMateria = lista.Single(m => m.Materia == "C");
+            Assert.Equal("sin-reprobaciones", cMateria.Motivo);                   // aparece solo por estar en riesgo
+            Assert.Equal("S25000002", Assert.Single(cMateria.EnRiesgo).Matricula);
             Assert.Equal(1, lista.Single(m => m.Materia == "C").EnRiesgoAhora);
         }
 

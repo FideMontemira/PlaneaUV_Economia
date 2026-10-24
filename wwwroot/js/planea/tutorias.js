@@ -1,5 +1,6 @@
 // PlaneaUV · Tutorías: reporte guiado por sesión en 4 pasos y reporte en Word.
-// Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
+// Se usa en la pantalla de tutoría (Views/Home/Tutoria.cshtml, junto con tutoria-pagina.js, que carga al alumno
+// y guarda). Es un script clásico: comparte el ámbito global con los demás archivos de esta carpeta.
 //
 //   1. La sesión (fecha, asistencia, modalidad)
 //   2. Valoración del semáforo que calculó el sistema (confirma / es mayor / no hay riesgo con motivo)
@@ -8,8 +9,6 @@
 //
 // Las opciones de las casillas NO están aquí: las da el servidor (Services/CatalogoTutorias.cs), que también las
 // imprime en el Word. El semáforo, las señales y los temas sugeridos los calcula el servidor (ReglasSemaforo.cs).
-
-let modalTutoriasInstance = null;
 
 // Sesiones de tutoría del alumno cargado (todas sus sesiones de todos los periodos)
 let tutoriasGlobal = [];
@@ -171,16 +170,6 @@ function armarFormularioTutorias() {
     formularioTutoriasListo = true;
 }
 
-function abrirModalTutorias() {
-    let inputMat = $('inputMatricula');
-    if (!inputMat || !inputMat.value.trim()) {
-        alert("Selecciona un alumno primero.");
-        return;
-    }
-    cargarTutoriasALaVista();
-    if (modalTutoriasInstance) modalTutoriasInstance.show();
-}
-
 const valoresMarcados = (n, grupo) =>
     [...document.querySelectorAll(`#panelTutoria${n} input[data-grupo="${grupo}"]:checked`)].map(c => c.getAttribute('data-valor'));
 
@@ -245,13 +234,12 @@ function guardarTutoriasEnMemoria() {
     }
 }
 
-// Materias del mapa del alumno para "Materia con dificultad" (con su nombre personalizado si lo tiene)
+// Materias del alumno para "Materia con dificultad": las de su plan y las que tiene registradas
+// (la pantalla de tutoría llena materiasDelAlumno al cargar al alumno)
+let materiasDelAlumno = [];
+
 function opcionesMateriaDificultad(select, valor) {
-    const nombres = [];
-    document.querySelectorAll('#contenedor-mapa-dinamico .materia-card').forEach(t => {
-        const nombre = t.getAttribute('data-nombre-personalizado') || t.getAttribute('data-nombre');
-        if (nombre && !nombres.includes(nombre)) nombres.push(nombre);
-    });
+    const nombres = materiasDelAlumno.slice();
     if (valor && !nombres.includes(valor)) nombres.unshift(valor);
     select.innerHTML = '<option value="">Materia con dificultad (opcional)</option>' + nombres.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
     select.value = valor || '';
@@ -355,19 +343,27 @@ function pintarSenalesTutoria() {
             + (sem.fechaRevision ? ` · revisar el ${fecha(sem.fechaRevision)}${sem.revisionVencida ? ' <span class="badge bg-danger">Vencida</span>' : ''}` : '') + '</div>'
         : '';
 
+    // Columna lateral de la pantalla: una sección debajo de otra
     caja.innerHTML = `
-        <div class="card app-card">
-            <div class="card-body py-2">
-                <div class="d-flex flex-wrap align-items-center gap-2">
+        <div class="card app-card mb-3">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                     <span class="app-etiqueta mb-0">Semáforo</span> ${pastillaSemaforo(sem.final)}
                     ${sem.final !== sem.sistema ? `<span class="small text-muted">(sistema: ${infoSemaforo(sem.sistema).texto})</span>` : ''}
-                    <span class="small text-muted ms-auto">${seguimiento.join(' · ')}</span>
                 </div>
-                ${valoracion}${desactualizada}${acuerdo}
-                <div class="row g-3 mt-0">
-                    <div class="col-md-6"><div class="app-etiqueta">Señales detectadas</div>${senales}</div>
-                    <div class="col-md-6"><div class="app-etiqueta">Temas sugeridos para la sesión</div>${temas}</div>
-                </div>
+                ${valoracion}${desactualizada}
+                <div class="small text-muted mt-2">${seguimiento.join('<br>')}</div>
+                ${acuerdo}
+            </div>
+        </div>
+        <div class="card app-card mb-3">
+            <div class="card-body">
+                <div class="app-etiqueta mb-1"><i class="bi bi-activity me-1"></i>Señales detectadas</div>${senales}
+            </div>
+        </div>
+        <div class="card app-card mb-3">
+            <div class="card-body">
+                <div class="app-etiqueta mb-1"><i class="bi bi-chat-dots me-1"></i>Temas sugeridos para la sesión</div>${temas}
             </div>
         </div>`;
     actualizarEstadoPestanasTutoria();
@@ -404,6 +400,6 @@ function descargarWordTutorias() {
     let inputMat = $('inputMatricula');
     var matricula = inputMat ? inputMat.value.trim() : '';
     if (!matricula) { alert("Selecciona un alumno primero."); return; }
-    if (hayGuardadosPendientes()) { alert("Se están guardando los últimos cambios. Intenta de nuevo en un momento."); return; }
-    window.location.href = `/Home/DescargarWordTutorias?matricula=${encodeURIComponent(matricula)}`;
+    // Se espera a que se guarde lo último que se capturó para que salga en el Word
+    esperarGuardadoEnCurso().then(() => { window.location.href = `/Home/DescargarWordTutorias?matricula=${encodeURIComponent(matricula)}`; });
 }

@@ -477,7 +477,7 @@ body {
     padding: 0.3rem 0.8rem;
     font-size: 0.85rem;
     min-width: 150px;
-    cursor: pointer;
+    cursor: help;   /* solo indicador: al pasar el mouse muestra las razones */
 }
 
 .semaforo-pastilla {
@@ -498,7 +498,7 @@ body {
 .semaforo-verde { background-color: #e5f6ec; color: #1a7f45; border-color: #a7dcbc; }
 .semaforo-sin { background-color: #f1f3f5; color: #6c757d; border-color: #dee2e6; }
 
-.semaforo-boton:hover { filter: brightness(0.97); }
+
 
 /* ---------- Pasos del reporte de tutoría ---------- */
 .paso-tutoria {
@@ -585,3 +585,20 @@ body {
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 0.5rem;
 }
+
+
+/* ---------- Pantalla de tutoría ---------- */
+/* La columna de señales acompaña al formulario mientras se baja por la página */
+@media (min-width: 992px) {
+    .tutoria-lateral {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+    }
+}
+
+
+/* Títulos y avisos dentro de la rejilla de materias críticas: ocupan todo el ancho */
+.rejilla-criticas > h6,
+.rejilla-criticas > p { grid-column: 1 / -1; }

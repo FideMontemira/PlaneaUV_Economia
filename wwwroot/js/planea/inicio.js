@@ -5,16 +5,24 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
         // Debe ir primero: alertas, tutorías y periodo del alumno leen el Periodo de Trabajo
         llenarSelectorDePeriodos();
-        cargarCatalogoTutorias();   // arma el formato guiado de tutoría con las opciones del servidor
+
+        // Al volver de la pantalla de tutoría se abre directo el alumno y periodo con los que se trabajaba
+        const parametros = new URLSearchParams(window.location.search);
+        const matriculaInicial = parametros.get('matricula') || '';
+        const periodoInicial = parametros.get('periodo') || '';
+        const selP = $('selectPeriodoGlobal');
+        if (selP && periodoInicial && [...selP.options].some(o => o.value === periodoInicial)) selP.value = periodoInicial;
 
         const modalInicioEl = $('modalInicio');
         if (modalInicioEl) {
             modalInicioInstance = new bootstrap.Modal(modalInicioEl);
-            setTimeout(() => { modalInicioInstance.show(); }, 150);
+            if (!matriculaInicial) setTimeout(() => { modalInicioInstance.show(); }, 150);
         }
-
-        const modalTutEl = $('modalTutorias');
-        if (modalTutEl) modalTutoriasInstance = new bootstrap.Modal(modalTutEl);
+        if (matriculaInicial && $('inputMatricula')) {
+            $('inputMatricula').value = matriculaInicial;
+            buscarAlumno();
+            history.replaceState(null, '', window.location.pathname);   // que al recargar no se repita
+        }
 
         const modalReporteEl = $('modalReporteGlobal');
         if (modalReporteEl) modalReporteGlobalInstance = new bootstrap.Modal(modalReporteEl);
@@ -67,7 +75,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (selPeriodo) {
             // Cambiar de periodo solo cambia lo que se ve; no modifica datos, así que no se guarda
             selPeriodo.addEventListener('change', () => {
-                cargarTutoriasALaVista();
                 actualizarProgreso();      // muestra "Calculando..." mientras llega la respuesta
                 cargarSituacionAlumno();   // el servidor recalcula periodo que cursa y rezago
                 cargarAlertas();           // las alertas dependen del periodo que cursa cada alumno

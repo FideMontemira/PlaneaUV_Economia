@@ -24,12 +24,13 @@
             </div>
         </div>
 
-        <!-- Semáforo de riesgo: lo calcula el servidor (Services/ReglasSemaforo.cs); clic para ver las señales y valorarlo -->
+        <!-- Semáforo de riesgo: solo indicador (lo calcula Services/ReglasSemaforo.cs). Las razones salen al pasar
+             el mouse; para verlo a detalle y valorarlo se usa el botón "Tutorías". -->
         <div>
-            <label class="app-etiqueta">Semáforo de riesgo</label>
-            <button type="button" id="semaforoAlumno" class="semaforo-boton semaforo-sin" onclick="abrirModalTutorias()" title="Selecciona un alumno">
+            <span class="app-etiqueta">Semáforo de riesgo</span>
+            <div id="semaforoAlumno" class="semaforo-boton semaforo-sin" role="status" title="Selecciona un alumno">
                 <span class="semaforo-punto"></span><span id="textoSemaforoAlumno">—</span>
-            </button>
+            </div>
         </div>
 
         <!-- Situación académica -->
@@ -56,7 +57,7 @@
 
         <!-- Acciones del alumno -->
         <div class="d-flex gap-2 ms-lg-auto">
-            <button class="btn btn-outline-info fw-bold" type="button" onclick="abrirModalTutorias()" title="Registro de sesiones de tutoría">
+            <button class="btn btn-outline-info fw-bold" type="button" onclick="irATutorias()" title="Abrir la pantalla de tutoría del alumno">
                 <i class="bi bi-journal-text me-1"></i>Tutorías
             </button>
             <button type="button" class="btn btn-success fw-bold" onclick="abrirSugerenciaCarga()" title="Materias que le conviene inscribir al alumno">
@@ -70,7 +71,7 @@
 <div class="row g-3 mb-3">
 
     <!-- Avance global y contadores -->
-    <div class="col-12 col-xl-5">
+    <div class="col-12 col-xl-6">
         <div class="card app-card h-100">
             <div class="card-body d-flex flex-wrap align-items-center justify-content-around gap-3">
                 <div class="d-flex align-items-center gap-3">
@@ -104,7 +105,7 @@
     </div>
 
     <!-- Avance por área: una gráfica por cada tipo de materia del plan (las dibuja el JS: dibujarGraficasPorArea) -->
-    <div class="col-12 col-xl-7">
+    <div class="col-12 col-xl-6">
         <div class="card app-card h-100">
             <div class="card-body">
                 <div class="app-etiqueta mb-2"><i class="bi bi-pie-chart-fill me-1"></i>Avance por área (créditos aprobados)</div>

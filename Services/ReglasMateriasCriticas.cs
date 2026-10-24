@@ -22,6 +22,7 @@ namespace PlaneaUV_Economia.Services
             foreach (var alumno in alumnos)
             {
                 string matricula = alumno.Matricula ?? "";
+                var quien = new AlumnoDeReporte { Matricula = matricula, Nombre = alumno.Nombre ?? "" };
                 var ultimoIntento = new Dictionary<string, MateriaCursada>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var m in alumno.Materias)
@@ -36,15 +37,19 @@ namespace PlaneaUV_Economia.Services
 
                     string estado = (m.Estado ?? "").ToLowerInvariant();
                     if (estado == "aprobada" || estado == "reprobada") c.Intentos++;
-                    if (estado == "reprobada") c.Reprobaciones++;
+                    if (estado == "reprobada")
+                    {
+                        c.Reprobaciones++;
+                        if (!c.Reprobaron.Any(a => a.Matricula == matricula)) c.Reprobaron.Add(quien);
+                    }
                 }
 
                 // Lo que pasa ahora: se mira solo el último intento de cada materia
                 foreach (var m in ultimoIntento.Values)
                 {
                     var c = porMateria[(m.Nombre ?? "").Trim()];
-                    if (string.Equals(m.Estado, "cursando", StringComparison.OrdinalIgnoreCase) && (string.IsNullOrEmpty(periodo) || m.Periodo == periodo)) c.CursandoAhora++;
-                    if (m.EnRiesgo && !ReglasTrayectoria.EstaAprobada(m)) c.EnRiesgoAhora++;
+                    if (string.Equals(m.Estado, "cursando", StringComparison.OrdinalIgnoreCase) && (string.IsNullOrEmpty(periodo) || m.Periodo == periodo)) { c.CursandoAhora++; c.Cursando.Add(quien); }
+                    if (m.EnRiesgo && !ReglasTrayectoria.EstaAprobada(m)) { c.EnRiesgoAhora++; c.EnRiesgo.Add(quien); }
                 }
             }
 
@@ -53,6 +58,10 @@ namespace PlaneaUV_Economia.Services
                 c.Alumnos = alumnosPorMateria[c.Materia].Count;
                 c.Porcentaje = c.Intentos > 0 ? (int)Math.Round(c.Reprobaciones * 100.0 / c.Intentos, MidpointRounding.AwayFromZero) : 0;
                 c.Critica = c.Intentos >= MinimoIntentos && c.Porcentaje >= PorcentajeCritico;
+                c.Motivo = c.Critica ? null
+                         : c.Reprobaciones == 0 ? "sin-reprobaciones"
+                         : c.Intentos < MinimoIntentos ? "pocos-casos"
+                         : "baja-reprobacion";
             }
 
             // Primero las críticas, luego las de mayor reprobación

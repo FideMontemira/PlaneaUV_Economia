@@ -19,6 +19,10 @@ namespace PlaneaUV_Economia.Services
         AlumnoAvance? Buscar(string matricula);
         void Guardar(AlumnoAvance alumno);
         bool Eliminar(string matricula);   // false si el alumno no existe
+
+        // Lee al alumno (null si no existe), aplica 'cambio' y guarda el resultado, todo sin que otra petición
+        // se meta en medio. Así dos pantallas abiertas a la vez (mapa y tutorías) no se pisan los datos.
+        void Modificar(string matricula, Func<AlumnoAvance?, AlumnoAvance> cambio);
     }
 
     // Implementación actual: AvanceAlumnos.xlsx, una hoja por alumno.
@@ -99,6 +103,15 @@ namespace PlaneaUV_Economia.Services
 
                 EscribirHoja(ws, alumno);
                 GuardarLibroSeguro(libro);
+            }
+        }
+
+        public void Modificar(string matricula, Func<AlumnoAvance?, AlumnoAvance> cambio)
+        {
+            // El candado se puede volver a tomar dentro (Buscar y Guardar lo usan): nadie más entra en medio
+            lock (_candado)
+            {
+                Guardar(cambio(Buscar(matricula)));
             }
         }
 

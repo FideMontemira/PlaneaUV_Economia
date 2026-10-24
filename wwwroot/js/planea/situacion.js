@@ -93,7 +93,6 @@ function aplicarSituacionAlumno() {
     document.querySelectorAll('.materia-card[data-rezago-auto]').forEach(t => t.removeAttribute('data-rezago-auto'));
 
     pintarSemaforoAlumno();
-    if (typeof pintarSenalesTutoria === 'function') pintarSenalesTutoria();
     marcarMateriasCriticas();
 
     if (!info) return;
@@ -141,21 +140,16 @@ function aplicarSituacionAlumno() {
 }
 
 // ===================== SEMÁFORO DE RIESGO =====================
-// El color lo calcula el servidor (Services/ReglasSemaforo.cs) y llega junto con la situación del alumno.
-const SEMAFORO = {
-    rojo: { texto: 'Riesgo alto', clase: 'semaforo-rojo' },
-    amarillo: { texto: 'Atención', clase: 'semaforo-amarillo' },
-    verde: { texto: 'Sin riesgo', clase: 'semaforo-verde' },
-    sin: { texto: 'Sin semáforo', clase: 'semaforo-sin' }
-};
-const infoSemaforo = color => SEMAFORO[color] || SEMAFORO.sin;
+// Colores y textos en semaforo.js. El color lo calcula el servidor y llega junto con la situación del alumno.
 
-function pastillaSemaforo(color) {
-    const i = infoSemaforo(color);
-    return `<span class="semaforo-pastilla ${i.clase}"><span class="semaforo-punto"></span>${i.texto}</span>`;
+// Abre la pantalla de tutoría del alumno en pantalla (después de guardar lo pendiente del mapa)
+function irATutorias() {
+    const inputMat = $('inputMatricula');
+    const matricula = inputMat ? inputMat.value.trim() : '';
+    if (!matricula || alumnoCargado !== matricula) { alert("Selecciona un alumno primero."); return; }
+    const selP = $('selectPeriodoGlobal');
+    esperarGuardadoEnCurso().then(() => { window.location.href = urlTutoria(matricula, selP ? selP.value : ''); });
 }
-
-const TEXTO_VALORACION = { confirma: 'confirmó el semáforo', eleva: 'indicó que el riesgo es mayor', descarta: 'descartó el riesgo' };
 
 function pintarSemaforoAlumno() {
     const boton = $('semaforoAlumno'), texto = $('textoSemaforoAlumno');
@@ -173,7 +167,7 @@ function pintarSemaforoAlumno() {
     const razones = sem.senales.map(x => '• ' + x.texto).join('\n');
     boton.title = (sem.final === 'sin' ? 'Alumno dado de baja: no se calcula semáforo.' : (razones || 'Sin señales de riesgo en este periodo.'))
         + (sem.valoracion ? `\n\nEl tutor ${TEXTO_VALORACION[sem.valoracion]} (sistema: ${infoSemaforo(sem.sistema).texto}).` : '')
-        + '\n\nClic para ver el detalle y valorarlo en el reporte de tutoría.';
+        + '\n\nPara ver el detalle y valorarlo, abre «Tutorías».';
 }
 
 // ===================== MATERIAS CRÍTICAS EN EL MAPA =====================

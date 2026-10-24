@@ -1,0 +1,255 @@
+/* =====================================================================
+   TEMA PLANEAUV · UNIVERSIDAD VERACRUZANA
+   Paleta institucional (azul y verde UV) aplicada sobre Bootstrap 5.1.
+   Se carga al FINAL (Views/Shared/_Layout.cshtml) para que mande sobre los demás estilos.
+   Para cambiar un color de toda la aplicación basta con cambiar la variable aquí.
+   Nota: validar los tonos exactos con el manual de identidad gráfica de la UV.
+   ===================================================================== */
+:root {
+    /* Colores institucionales */
+    --uv-azul: #18529d;
+    --uv-azul-oscuro: #0f2c55;
+    --uv-azul-medio: #2a6cc0;
+    --uv-azul-claro: #e8f0fa;
+    --uv-verde: #28ad56;
+    --uv-verde-oscuro: #1e8443;
+    --uv-verde-claro: #e6f6ec;
+
+    /* Neutros */
+    --uv-fondo: #f3f6fa;
+    --uv-borde: #dde5ef;
+    --uv-texto: #1c2633;
+    --uv-texto-suave: #5a6778;
+
+    /* Estados */
+    --uv-rojo: #c0392b;
+    --uv-ambar: #d99a00;
+
+    /* Las variables que ya usaba el resto de los estilos apuntan a la paleta UV */
+    --app-azul: var(--uv-azul);
+    --app-azul-oscuro: var(--uv-azul-oscuro);
+    --app-fondo: var(--uv-fondo);
+    --app-borde: var(--uv-borde);
+    --app-texto-suave: var(--uv-texto-suave);
+
+    --bs-primary: var(--uv-azul);
+    --bs-primary-rgb: 24, 82, 157;
+    --bs-success: var(--uv-verde);
+    --bs-success-rgb: 40, 173, 86;
+    --bs-body-color: var(--uv-texto);
+    --bs-font-sans-serif: "Segoe UI", "Source Sans Pro", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+    background-color: var(--uv-fondo);
+    color: var(--uv-texto);
+    font-family: var(--bs-font-sans-serif);
+}
+
+a { color: var(--uv-azul); }
+a:hover { color: var(--uv-azul-oscuro); }
+
+h1, h2, h3, h4, h5, h6, .h4, .h5 { color: var(--uv-azul-oscuro); }
+.modal-header h5, .modal-header .modal-title, .offcanvas-header h5 { color: #fff; }
+
+/* ---------- Barra superior: azul UV con franja verde ---------- */
+.app-navbar {
+    background: linear-gradient(90deg, var(--uv-azul-oscuro) 0%, var(--uv-azul) 70%, var(--uv-azul-medio) 100%) !important;
+    border-bottom: 4px solid var(--uv-verde);
+}
+
+.app-navbar .navbar-brand { font-weight: 800; letter-spacing: 0.2px; }
+.app-navbar .navbar-brand i { color: #9fe0b5; }
+
+.app-navbar .nav-link:hover,
+.app-navbar .nav-link:focus { background-color: rgba(255, 255, 255, 0.14); }
+
+.app-navbar .btn-warning {
+    background-color: #ffc845;
+    border-color: #ffc845;
+    color: var(--uv-azul-oscuro);
+}
+
+/* ---------- Botones ---------- */
+.btn { border-radius: 8px; font-weight: 600; }
+
+.btn-primary {
+    background-color: var(--uv-azul);
+    border-color: var(--uv-azul);
+}
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: var(--uv-azul-oscuro) !important;
+    border-color: var(--uv-azul-oscuro) !important;
+}
+
+.btn-outline-primary, .btn-outline-info {
+    color: var(--uv-azul);
+    border-color: var(--uv-azul);
+}
+.btn-outline-primary:hover, .btn-outline-info:hover,
+.btn-check:checked + .btn-outline-primary {
+    background-color: var(--uv-azul);
+    border-color: var(--uv-azul);
+    color: #fff;
+}
+
+.btn-success {
+    background-color: var(--uv-verde);
+    border-color: var(--uv-verde);
+}
+.btn-success:hover, .btn-success:focus, .btn-success:active {
+    background-color: var(--uv-verde-oscuro) !important;
+    border-color: var(--uv-verde-oscuro) !important;
+}
+
+.btn-outline-success { color: var(--uv-verde-oscuro); border-color: var(--uv-verde); }
+.btn-outline-success:hover, .btn-check:checked + .btn-outline-success {
+    background-color: var(--uv-verde);
+    border-color: var(--uv-verde);
+    color: #fff;
+}
+
+.btn:focus, .form-control:focus, .form-select:focus, .form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(24, 82, 157, 0.25) !important;
+    border-color: var(--uv-azul-medio);
+}
+
+/* ---------- Colores de utilidad de Bootstrap ---------- */
+.bg-primary { background-color: var(--uv-azul) !important; }
+.text-primary { color: var(--uv-azul) !important; }
+.border-primary { border-color: var(--uv-azul) !important; }
+.bg-success { background-color: var(--uv-verde) !important; }
+.text-success { color: var(--uv-verde-oscuro) !important; }
+.border-success { border-color: var(--uv-verde) !important; }
+.text-info { color: var(--uv-azul-medio) !important; }
+.progress-bar.bg-success, .progress-bar { background-color: var(--uv-verde); }
+
+.form-check-input:checked {
+    background-color: var(--uv-azul);
+    border-color: var(--uv-azul);
+}
+
+.dropdown-item:active, .dropdown-item.active { background-color: var(--uv-azul); }
+
+/* ---------- Pestañas ---------- */
+.nav-tabs .nav-link { color: var(--uv-texto-suave); border: none; border-bottom: 3px solid transparent; }
+.nav-tabs .nav-link:hover { color: var(--uv-azul); border-bottom-color: var(--uv-borde); }
+.nav-tabs .nav-link.active {
+    color: var(--uv-azul);
+    background-color: transparent;
+    border-bottom: 3px solid var(--uv-verde);
+}
+.nav-pills .nav-link.active { background-color: var(--uv-azul); }
+
+/* ---------- Tarjetas ---------- */
+.app-card {
+    border: 1px solid var(--uv-borde);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 44, 85, 0.05), 0 4px 14px rgba(15, 44, 85, 0.04);
+    background-color: #fff;
+}
+
+.app-card-header { border-bottom: 1px solid var(--uv-borde); }
+.app-card-header h2 { color: var(--uv-azul-oscuro); }
+
+.app-etiqueta { color: var(--uv-texto-suave); }
+
+.alumno-avatar {
+    background: linear-gradient(135deg, var(--uv-azul-claro), var(--uv-verde-claro));
+    color: var(--uv-azul);
+}
+
+/* ---------- Ventanas: todos los encabezados con el azul UV ---------- */
+.modal-content { border: none; border-radius: 14px; overflow: hidden; box-shadow: 0 18px 50px rgba(15, 44, 85, 0.25); }
+
+.modal-header,
+.offcanvas-header {
+    background: linear-gradient(90deg, var(--uv-azul-oscuro), var(--uv-azul)) !important;
+    color: #fff !important;
+    border-bottom: 3px solid var(--uv-verde) !important;
+}
+.modal-header .btn-close, .offcanvas-header .btn-close { filter: invert(1) grayscale(1) brightness(2); }
+.modal-header small, .modal-header .opacity-75 { color: rgba(255, 255, 255, 0.8); }
+
+.modal-footer { border-top: 1px solid var(--uv-borde); }
+
+/* Reporte global: encabezados de sección blancos con una franja del color de la categoría */
+#modalReporteGlobal .card { border-radius: 12px; border: 1px solid var(--uv-borde) !important; overflow: hidden; }
+#modalReporteGlobal .card-header {
+    background-color: #fff !important;
+    color: var(--uv-azul-oscuro) !important;
+    border-bottom: 1px solid var(--uv-borde);
+    border-top: 4px solid var(--uv-azul);
+}
+#modalReporteGlobal .card-header.bg-warning { border-top-color: var(--uv-ambar); }
+#modalReporteGlobal .card-header.bg-secondary { border-top-color: #64748b; }
+#modalReporteGlobal .card-header.bg-danger { border-top-color: var(--uv-rojo); }
+#modalReporteGlobal .card-header.bg-dark { border-top-color: var(--uv-verde); }
+#modalReporteGlobal .card-header .opacity-75 { color: var(--uv-texto-suave); opacity: 1 !important; }
+
+/* Tablas con encabezado oscuro (panel del grupo, sugerencia de carga) */
+.table-dark {
+    --bs-table-bg: var(--uv-azul-oscuro);
+    --bs-table-striped-bg: var(--uv-azul-oscuro);
+    --bs-table-hover-bg: var(--uv-azul);
+    border-color: var(--uv-azul-oscuro);
+}
+.table-hover > tbody > tr:hover > * { --bs-table-accent-bg: var(--uv-azul-claro); }
+
+/* ---------- Mapa curricular ---------- */
+.periodo-header {
+    background: var(--uv-azul-oscuro) !important;
+    border-radius: 10px;
+    padding: 7px 6px;
+    font-size: 0.85rem;
+}
+.periodo-header.bg-success { background: var(--uv-verde-oscuro) !important; }   /* columna de AFEL */
+.periodo-header.periodo-actual {
+    background: var(--uv-verde) !important;
+    box-shadow: 0 0 0 3px rgba(40, 173, 86, 0.3);
+}
+
+.materia-card {
+    border-radius: 10px;
+    border-width: 1px;
+    box-shadow: 0 1px 2px rgba(15, 44, 85, 0.06);
+}
+
+/* Áreas del plan: mismos significados, tonos más suaves y coherentes con la paleta */
+.bg-general { background-color: #f4f6f9; border-color: #8a97a8; color: #3a4656; }
+.bg-basica { background-color: #fff6dc; border-color: #e0a800; color: #6e5100; }
+.bg-disciplinar { background-color: var(--uv-verde-claro); border-color: var(--uv-verde); color: #14572c; }
+.bg-terminal { background-color: #fdecea; border-color: #d9534f; color: #7a1f17; }
+.bg-optativa { background-color: var(--uv-azul-claro); border-color: var(--uv-azul-medio); color: var(--uv-azul-oscuro); }
+.bg-afel { background-color: #e3f5f1; border-color: #17a589; color: #0d5c4c; }
+
+/* Estados de la materia */
+.estado-aprobada {
+    border: 2px solid var(--uv-verde) !important;
+    background-color: #f7fbf8 !important;
+    color: #5f6b62 !important;
+}
+.estado-cursando {
+    border: 2px dashed var(--uv-azul-medio) !important;
+    box-shadow: 0 0 0 3px rgba(42, 108, 192, 0.15) !important;
+}
+.estado-reprobada { border: 2px solid var(--uv-rojo) !important; }
+
+/* Indicadores y gráficas */
+.indicador-numero.text-info { color: var(--uv-azul-medio) !important; }
+
+/* ---------- Estado del guardado en la barra ---------- */
+.estado-guardado.ok { color: #9fe0b5; }
+
+/* ---------- Pie de página ---------- */
+.footer {
+    background-color: #fff;
+    border-top: 3px solid var(--uv-verde) !important;
+    color: var(--uv-texto-suave) !important;
+}
+.footer strong { color: var(--uv-azul-oscuro); }
+
+/* ---------- Pantalla de tutoría ---------- */
+.paso-tutoria { border-radius: 12px; border-color: var(--uv-borde); }
+.paso-numero { background-color: var(--uv-azul); }
+.paso-tutoria-titulo { color: var(--uv-azul-oscuro); }

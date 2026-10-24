@@ -5,12 +5,13 @@
 // Una gráfica circular por cada tipo de materia del plan, igual a la de créditos pero por área.
 // El área de cada tarjeta es su clase de color (sale de las columnas Tipo y Area de la plantilla).
 const AREAS_DEL_PLAN = [
-    { clase: 'bg-general', nombre: 'General', color: '#6c757d' },
-    { clase: 'bg-basica', nombre: 'Básica', color: '#f0ad00' },
-    { clase: 'bg-disciplinar', nombre: 'Disciplinar', color: '#28a745' },
-    { clase: 'bg-terminal', nombre: 'Terminal', color: '#dc3545' },
-    { clase: 'bg-optativa', nombre: 'Optativas', color: '#0d6efd' },
-    { clase: 'bg-afel', nombre: 'AFEL', color: '#20c997' }
+    // Mismos tonos que las tarjetas del mapa (wwwroot/css/tema-uv.css)
+    { clase: 'bg-general', nombre: 'General', color: '#8a97a8' },
+    { clase: 'bg-basica', nombre: 'Básica', color: '#e0a800' },
+    { clase: 'bg-disciplinar', nombre: 'Disciplinar', color: '#28ad56' },
+    { clase: 'bg-terminal', nombre: 'Terminal', color: '#d9534f' },
+    { clase: 'bg-optativa', nombre: 'Optativas', color: '#2a6cc0' },
+    { clase: 'bg-afel', nombre: 'AFEL', color: '#17a589' }
 ];
 
 function dibujarGraficasPorArea() {
@@ -66,7 +67,7 @@ function actualizarProgreso() {
     let txtPorc = $('textoPorcentaje'); if (txtPorc) txtPorc.innerText = porcentaje + '%';
     let txtCred = $('textoCreditos'); if (txtCred) txtCred.innerText = total > 0 ? `${creditosAprobados} / ${total} Cr.` : `${creditosAprobados} Cr.`;
     pintarTrayectoria(creditosAprobados);
-    let grAv = $('graficaAvance'); if (grAv) grAv.style.background = `conic-gradient(#28a745 ${porcentaje}%, #e9ecef ${porcentaje}%)`;
+    let grAv = $('graficaAvance'); if (grAv) grAv.style.background = `conic-gradient(#28ad56 ${porcentaje}%, #e6ebf2 ${porcentaje}%)`;
     let txRiesgo = $('textoRiesgo'); if (txRiesgo) txRiesgo.innerText = materiasEnRiesgo;
     let txCurso = $('textoCurso'); if (txCurso) txCurso.innerText = materiasEnCurso;
 

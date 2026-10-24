@@ -31,6 +31,15 @@ namespace PlaneaUV_Economia.Controllers
 
         public IActionResult Index() { return View(); }
 
+        // Pantalla de tutoría de un alumno (antes era una ventana emergente dentro del mapa)
+        [HttpGet]
+        public IActionResult Tutoria(string? matricula, string? periodo)
+        {
+            ViewData["Matricula"] = matricula ?? "";
+            ViewData["Periodo"] = periodo ?? "";
+            return View();
+        }
+
         // Convierte los errores al leer o guardar los datos (p. ej. el Excel abierto en Excel) en una
         // respuesta 409 con un mensaje claro; la pantalla lo muestra y reintenta el guardado sola.
         private IActionResult ConDatosDeAlumnos(Func<IActionResult> accion)
@@ -56,7 +65,37 @@ namespace PlaneaUV_Economia.Controllers
             if (avance == null) return BadRequest(new { success = false, message = "Datos incompletos." });
             var error = ValidacionAlumno.Errores(avance);
             if (error != null) return BadRequest(new { success = false, message = error });
-            _alumnos.Guardar(avance);
+            // Las tutorías ya no se editan en el mapa sino en su propia pantalla: se conservan las guardadas,
+            // así el guardado del mapa nunca borra una sesión capturada en la otra pantalla.
+            _alumnos.Modificar(avance.Matricula!, existente =>
+            {
+                avance.Tutorias = existente?.Tutorias ?? new List<TutoriaRecord>();
+                return avance;
+            });
+            return Json(new { success = true });
+        });
+
+        // Guarda SOLO las sesiones de tutoría de un periodo (las de otros periodos y las materias no se tocan)
+        [HttpPost]
+        public IActionResult GuardarTutorias([FromBody] SolicitudTutorias solicitud) => ConDatosDeAlumnos(() =>
+        {
+            if (solicitud == null || string.IsNullOrWhiteSpace(solicitud.Matricula)) return BadRequest(new { success = false, message = "Datos incompletos." });
+            if (!ReglasTrayectoria.EsPeriodoValido(solicitud.Periodo)) return BadRequest(new { success = false, message = "El periodo no es válido." });
+            var sesiones = (solicitud.Sesiones ?? new List<TutoriaRecord>())
+                .Where(GeneradorDocumentoTutorias.TieneInformacion)
+                .Select(t => { t.Periodo = solicitud.Periodo; return t; })
+                .ToList();
+            if (sesiones.Select(t => t.Sesion).Distinct().Count() != sesiones.Count || sesiones.Any(t => t.Sesion < 1 || t.Sesion > 10))
+                return BadRequest(new { success = false, message = "Las sesiones no son válidas." });
+
+            _alumnos.Modificar(solicitud.Matricula, alumno =>
+            {
+                if (alumno == null) throw new InvalidOperationException("El alumno ya no existe.");
+                alumno.Tutorias = alumno.Tutorias.Where(t => t.Periodo != solicitud.Periodo).Concat(sesiones).ToList();
+                var error = ValidacionAlumno.Errores(alumno);
+                if (error != null) throw new ArgumentException(error);
+                return alumno;
+            });
             return Json(new { success = true });
         });
 

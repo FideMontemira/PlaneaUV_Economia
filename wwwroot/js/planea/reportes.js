@@ -86,19 +86,40 @@ function cargarMateriasCriticas() {
         const criterio = $('criterioMateriasCriticas');
         if (criterio) criterio.innerText = `Crítica: ${res.porcentajeCritico} % o más de reprobación con al menos ${res.minimoIntentos} intentos registrados`;
         const lista = res.data || [];
-        if (lista.length === 0) { c.innerHTML = '<p class="text-muted small mb-0">No hay materias reprobadas registradas.</p>'; return; }
+        if (lista.length === 0) { c.innerHTML = '<p class="text-muted small mb-0">No hay materias reprobadas ni en riesgo registradas.</p>'; return; }
+
+        const nombres = alumnos => alumnos.map(a => escapeHTML(a.nombre || a.matricula)).join(', ');
+        const quienes = m => [
+            m.reprobaron.length ? `<li><strong>Reprobaron:</strong> ${nombres(m.reprobaron)}</li>` : '',
+            m.cursando.length ? `<li><strong>La cursan ahora:</strong> ${nombres(m.cursando)}</li>` : '',
+            m.enRiesgo.length ? `<li class="text-danger"><strong>En riesgo ahora:</strong> ${nombres(m.enRiesgo)}</li>` : ''
+        ].join('');
+        // Lo que se muestra en la etiqueta: el % solo cuando hay casos suficientes para que signifique algo
+        const etiqueta = m => m.critica ? `${m.porcentaje} % reprueba`
+            : m.motivo === 'sin-reprobaciones' ? 'Sin reprobaciones'
+            : `${m.reprobaciones} de ${m.intentos} reprobó`;
+        const explicacion = m => m.critica ? `Reprobaron ${m.reprobaciones} de ${m.intentos} intentos registrados.`
+            : m.motivo === 'pocos-casos' ? `Aún son pocos casos para saber si es crítica (se necesitan al menos ${res.minimoIntentos} intentos con resultado).`
+            : m.motivo === 'sin-reprobaciones' ? 'Nadie la ha reprobado; aparece porque hay alumnos en riesgo en ella.'
+            : `Reprobación de ${m.porcentaje} %, por debajo del ${res.porcentajeCritico} %.`;
         // Misma estructura que las otras secciones (tarjeta > encabezado + lista) para que se imprima igual
-        c.innerHTML = lista.map(m => `
+        const tarjeta = m => `
             <div class="border rounded bg-white p-2 ${m.critica ? 'border-danger' : ''}">
-                <div class="d-flex justify-content-between align-items-center mb-1">
+                <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
                     <strong class="text-dark" style="font-size: 0.85rem;">${m.critica ? '<i class="bi bi-fire text-danger me-1"></i>' : ''}${escapeHTML(m.materia)}</strong>
-                    <span class="badge ${m.critica ? 'bg-danger' : 'bg-secondary'} rounded-pill">${m.porcentaje} %</span>
+                    <span class="badge ${m.critica ? 'bg-danger' : 'bg-light text-dark border'} rounded-pill text-nowrap">${etiqueta(m)}</span>
                 </div>
                 <ul class="list-unstyled mb-0 ms-2 text-muted" style="font-size: 0.8rem;">
-                    <li>Reprobó en ${m.reprobaciones} de ${m.intentos} intento(s) · ${m.alumnos} alumno(s)</li>
-                    <li>La cursan ahora: ${m.cursandoAhora}${m.enRiesgoAhora ? ` · en riesgo: ${m.enRiesgoAhora}` : ''}</li>
+                    <li class="fst-italic">${explicacion(m)}</li>
+                    ${quienes(m)}
                 </ul>
-            </div>`).join('');
+            </div>`;
+
+        const criticas = lista.filter(m => m.critica), observacion = lista.filter(m => !m.critica);
+        c.innerHTML =
+            `<h6 class="fw-bold text-danger mb-0">Materias críticas (${criticas.length})</h6>`
+            + (criticas.length ? criticas.map(tarjeta).join('') : '<p class="text-muted small mb-0">Ninguna materia cumple el criterio todavía.</p>')
+            + (observacion.length ? `<h6 class="fw-bold text-secondary mb-0 mt-2">En observación (${observacion.length})</h6>` + observacion.map(tarjeta).join('') : '');
     }).catch(e => { c.innerHTML = `<p class="text-danger small">${escapeHTML(e.message)}</p>`; });
 }
 
@@ -122,7 +143,7 @@ function imprimirReporteGlobal() {
         { titulo: 'Materias en Riesgo', color: '#ffc107', id: 'contenedorReporteRiesgo' },
         { titulo: 'Materias en Rezago', color: '#6c757d', id: 'contenedorReporteRezago' },
         { titulo: 'Seriadas Adeudadas (Candados)', color: '#dc3545', id: 'contenedorReporteSeriadas' },
-        { titulo: 'Materias críticas (mayor reprobación)', color: '#212529', id: 'contenedorReporteCriticas' }
+        { titulo: 'Reprobación por materia', color: '#212529', id: 'contenedorReporteCriticas' }
     ];
 
     if (document.querySelector('#modalReporteGlobal .spinner-border')) { alert("El reporte aún se está cargando. Intenta de nuevo en un momento."); return; }

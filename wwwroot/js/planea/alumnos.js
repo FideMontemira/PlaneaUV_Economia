@@ -23,8 +23,15 @@ function buscarAlumno(materiaAResaltar = null) {
         .then(() => fetch(`/Home/BuscarAlumnoExcel?matricula=${encodeURIComponent(matricula)}`))
         .then(leerRespuesta)
         .then(res => {
-            if (!res.success) { alert(res.message); return; }
+            if (!res.success) {
+                alert(res.message);
+                // Sin alumno en pantalla (p. ej. se volvió de la tutoría de un alumno que ya no existe): se ofrece elegir otro
+                if (!document.querySelector('#contenedor-mapa-dinamico .materia-card') && modalInicioInstance) modalInicioInstance.show();
+                return;
+            }
 
+            // Se usa la matrícula tal como está guardada: si se escribió en minúsculas, los guardados chocarían
+            if (res.data.matricula) { matricula = res.data.matricula; inputMat.value = matricula; }
             if ($('inputNombreAlumno')) $('inputNombreAlumno').value = res.data.nombre;
             if ($('selectSituacionAlumno')) $('selectSituacionAlumno').value = res.data.situacion || 'Activo';
             planActualAlumno = res.data.planEstudio || "";
@@ -33,8 +40,6 @@ function buscarAlumno(materiaAResaltar = null) {
             cargarMapaCurricular(planActualAlumno, function () {
 
                 // --- ESTO SE EJECUTA HASTA QUE EL MAPA ESTÉ COMPLETAMENTE DIBUJADO ---
-                tutoriasGlobal = (res.data.tutorias || []).map(tutoriaDesdeServidor);
-                cargarTutoriasALaVista();
                 periodosSinInscripcion = (res.data.periodosSinInscripcion || []).slice();
 
                 let materiasAgrupadas = {};
@@ -209,8 +214,6 @@ function limpiarVistaAlumno() {
     if ($('selectSituacionAlumno')) $('selectSituacionAlumno').value = 'Activo';
     planActualAlumno = '';
     planDibujadoActual = '';
-    tutoriasGlobal = [];
-    cargarTutoriasALaVista();
     huboCambios = false;
     alumnoCargado = '';
     periodosSinInscripcion = [];
@@ -263,8 +266,6 @@ function crearNuevoAlumno() {
             // hay que asignar la variable real o los guardados posteriores mandan el plan vacío ("Generico")
             planActualAlumno = plan;
 
-            tutoriasGlobal = [];
-            cargarTutoriasALaVista();
             periodosSinInscripcion = [];
             alumnosEliminados.delete(mat);
 

@@ -34,6 +34,10 @@ namespace PlaneaUV_Economia.Services
                 : (anio - anioIngreso.Value) * 2;
         }
 
+        // "Agosto - Enero 2027" o "Febrero - Julio 2026"
+        public static bool EsPeriodoValido(string? periodo) =>
+            periodo != null && Regex.IsMatch(periodo, @"^(Agosto - Enero|Febrero - Julio) (19|20)\d{2}$");
+
         // Nombre del periodo número i (1, 2, 3...) de un alumno que ingresó en 'anioIngreso'
         public static string NombreDePeriodo(int anioIngreso, int i)
         {

@@ -28,11 +28,12 @@ namespace PlaneaUV_Economia.Services
             return null;
         }
 
+        // El FORMATO de la matrícula lo revisa el repositorio solo al crear un alumno nuevo, para no bloquear
+        // a alumnos registrados antes con una matrícula que hoy no sería válida. Aquí solo que no venga vacía o enorme.
         public static string? Errores(AlumnoAvance a)
         {
-            var errorMatricula = ErrorEnMatricula(a.Matricula);
-            if (errorMatricula != null) return errorMatricula;
-            if (string.IsNullOrWhiteSpace(a.Nombre)) return "El nombre es obligatorio.";
+            if (string.IsNullOrWhiteSpace(a.Matricula)) return "La matrícula es obligatoria.";
+            if (a.Matricula.Length > 31) return "La matrícula es demasiado larga.";
             if (Largo(a.Nombre) > MaxNombre) return $"El nombre no puede pasar de {MaxNombre} caracteres.";
             if (Largo(a.Situacion) > MaxTextoCorto || Largo(a.PlanEstudio) > MaxTextoCorto) return "La situación o el plan de estudios tienen un texto demasiado largo.";
 

@@ -12,7 +12,7 @@ function abrirPanelGrupo() {
     const periodo = selP ? selP.value : '';
     const sub = $('subtituloPanelGrupo'); if (sub) sub.innerText = 'Periodo de trabajo: ' + periodo;
     const tbody = document.querySelector('#tablaPanelGrupo tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="13" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
 
     // Encabezados clicables para ordenar (se enlazan una sola vez)
     document.querySelectorAll('#tablaPanelGrupo th[data-columna]').forEach(th => {
@@ -34,7 +34,7 @@ function abrirPanelGrupo() {
         .then(res => { datosPanelGrupo = res.data || []; dibujarPanelGrupo(); })
         .catch(e => {
             console.error(e);
-            if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center text-danger py-3">${escapeHTML(e.message)}</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="13" class="text-center text-danger py-3">${escapeHTML(e.message)}</td></tr>`;
         });
 }
 
@@ -65,7 +65,7 @@ function dibujarPanelGrupo() {
     });
 
     tbody.innerHTML = '';
-    if (filas.length === 0) tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">No hay alumnos que mostrar.</td></tr>';
+    if (filas.length === 0) tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-3">No hay alumnos que mostrar.</td></tr>';
 
     filas.forEach(a => {
         const tr = document.createElement('tr');
@@ -97,7 +97,10 @@ function dibujarPanelGrupo() {
             <td class="text-center">${a.rezago > 0 ? `<span class="badge bg-secondary">${a.rezago}</span>` : '<span class="text-muted">0</span>'}</td>
             <td class="text-center">${a.alertas > 0 ? `<span class="badge bg-danger">${a.alertas}</span>` : '<span class="text-muted">0</span>'}</td>
             <td class="text-center">${caso}</td>
-            <td class="text-center small">${contacto}</td>`;
+            <td class="text-center small">${contacto}</td>
+            <td class="text-center"><a class="btn btn-sm btn-outline-info py-0 px-2 btn-tutoria-grupo" title="Abrir la tutoría de este alumno" href="${urlTutoria(a.matricula, $('selectPeriodoGlobal') ? $('selectPeriodoGlobal').value : '')}"><i class="bi bi-journal-text"></i></a></td>`;
+        // El botón de tutoría abre su pantalla; no debe abrir también el mapa del alumno
+        tr.querySelector('.btn-tutoria-grupo').addEventListener('click', e => e.stopPropagation());
         tr.addEventListener('click', () => {
             if ($('inputMatricula')) $('inputMatricula').value = a.matricula;
             buscarAlumno();

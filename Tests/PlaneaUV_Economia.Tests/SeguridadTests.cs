@@ -48,6 +48,22 @@ namespace PlaneaUV_Economia.Tests
         }
 
         [Fact]
+        public void UnAlumnoAntiguoConMatriculaNoValidaSePuedeSeguirGuardando()
+        {
+            // Registros de antes de la validación: no se deben bloquear
+            var repo = Repo();
+            var libro = new XLWorkbook();
+            var ws = libro.Worksheets.Add("S24001");
+            ws.Cell(1, 2).Value = "S24/001"; ws.Cell(2, 2).Value = "Antiguo"; ws.Cell(3, 2).Value = "Activo"; ws.Cell(4, 2).Value = "Plan_Corto";
+            libro.SaveAs(Path.Combine(_carpeta.Ruta, "AvanceAlumnos.xlsx")); libro.Dispose();
+
+            var antiguo = Datos.Alumno("S24/001"); antiguo.Nombre = "Antiguo";
+            Assert.Null(ValidacionAlumno.Errores(antiguo));                   // el controlador no lo frena
+            repo.Guardar(antiguo);                                             // y el repositorio lo deja guardar
+            Assert.Equal("Antiguo", repo.Buscar("S24/001")!.Nombre);
+        }
+
+        [Fact]
         public void TextosDemasiadoLargosSeRechazanConUnMensajeClaro()
         {
             var alumno = Datos.Alumno("S24000001");
@@ -64,6 +80,35 @@ namespace PlaneaUV_Economia.Tests
             alumno.Materias.Add(Datos.Materia("A", "aprobada", creditos: 999));
             Assert.NotNull(ValidacionAlumno.Errores(alumno));
         }
+
+        [Fact]
+        public void ModificarLeeCambiaYGuardaSinTocarLoDemas()
+        {
+            var repo = Repo();
+            var alumno = Datos.Alumno("S24000001", Datos.Materia("A", "aprobada"));
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = "Febrero - Julio 2026", Sesion = 1, Asistencia = "asistio" });
+            repo.Guardar(alumno);
+
+            // Como hace la pantalla de tutoría: reemplaza solo las sesiones de un periodo
+            repo.Modificar("S24000001", a =>
+            {
+                a!.Tutorias = a.Tutorias.Where(t => t.Periodo != "Agosto - Enero 2027")
+                    .Append(new TutoriaRecord { Periodo = "Agosto - Enero 2027", Sesion = 1, Asistencia = "citado" }).ToList();
+                return a;
+            });
+
+            var leido = repo.Buscar("S24000001")!;
+            Assert.Equal(2, leido.Tutorias.Count);                       // la del otro periodo se conserva
+            Assert.Single(leido.Materias);                                 // las materias no se tocan
+            Assert.Equal("citado", leido.Tutorias.Single(t => t.Periodo == "Agosto - Enero 2027").Asistencia);
+        }
+
+        [Theory]
+        [InlineData("Agosto - Enero 2027", true)]
+        [InlineData("Febrero - Julio 2026", true)]
+        [InlineData("Agosto 2027", false)]
+        [InlineData("<b>Agosto - Enero 2027</b>", false)]
+        public void PeriodoValido(string periodo, bool valido) => Assert.Equal(valido, ReglasTrayectoria.EsPeriodoValido(periodo));
 
         private static IFormFile Archivo(string nombre, byte[] contenido) =>
             new FormFile(new MemoryStream(contenido), 0, contenido.Length, "archivoPlan", nombre);

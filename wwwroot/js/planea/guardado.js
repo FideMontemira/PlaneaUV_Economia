@@ -42,7 +42,6 @@ function construirDatosAlumno() {
     // inexistente) o todavía se está cargando, guardar mandaría otras materias o ninguna y borraría su avance.
     if (!matricula || alumnoCargado !== matricula || !document.querySelector('#contenedor-mapa-dinamico .materia-card')) return null;
 
-    guardarTutoriasEnMemoria();
 
     const materias = [];
     document.querySelectorAll('.materia-card').forEach(t => {
@@ -57,7 +56,8 @@ function construirDatosAlumno() {
         // Respaldo: si por alguna razón no hay plan, usar el que está dibujado en pantalla
         PlanEstudio: planActualAlumno || planDibujadoActual,
         PeriodosSinInscripcion: periodosSinInscripcion.slice(),
-        Tutorias: JSON.parse(JSON.stringify(tutoriasGlobal)),
+        // Las tutorías se guardan desde su propia pantalla; el servidor conserva las que ya existen
+        Tutorias: [],
         Materias: materias
     };
 }
