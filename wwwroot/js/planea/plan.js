@@ -284,6 +284,12 @@ function renderizarMapaVisual() {
                 prerreqHtml = `<span class="prerequisito-text">Req: ${escapeHTML(prerreqMat)}</span>`;
                 card.classList.add('estado-bloqueada');
             }
+            // Requisito de créditos (columna G): servicio social, experiencia recepcional, prácticas...
+            const porcentajeMat = parseInt(mat.porcentajeCreditos || mat.PorcentajeCreditos) || 0;
+            if (porcentajeMat > 0) {
+                card.setAttribute('data-creditos-minimos', porcentajeMat);
+                prerreqHtml += `<span class="prerequisito-text requisito-creditos-text">Req: ${porcentajeMat} % de créditos</span>`;
+            }
 
             card.innerHTML = `<strong>${escapeHTML(nombreMat)}</strong><br/>(${creditosMat} Cr.)${prerreqHtml}`;
             card.addEventListener('click', manejadorClickTarjeta);

@@ -139,6 +139,9 @@ namespace PlaneaUV_Economia.Controllers
             var situacion = ReglasTrayectoria.Calcular(alumno, ObtenerPlanSeguro(alumno.PlanEstudio), periodo);
             situacion.MateriasCriticas = criticas.Where(c => c.Critica).ToList();
             situacion.Semaforo = ReglasSemaforo.Calcular(alumno, periodo, _alertas.Calcular(new[] { alumno }, periodo), DateTime.Today, criticas);
+            // Ya puede inscribir servicio social / experiencia recepcional / prácticas (solo informativo, alumnos activos)
+            var aviso = ReglasTrayectoria.SenalRequisitosCumplidos(situacion.RequisitosCreditos);
+            if (aviso != null && situacion.Semaforo.Sistema != "sin") situacion.Semaforo.Senales.Add(aviso);
             return situacion;
         }
 

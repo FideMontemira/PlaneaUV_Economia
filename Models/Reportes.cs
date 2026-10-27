@@ -99,6 +99,20 @@ namespace PlaneaUV_Economia.Models
 
         // Materias con alta reprobación en el grupo (para marcarlas en el mapa)
         public List<MateriaCritica> MateriasCriticas { get; set; } = new List<MateriaCritica>();
+
+        // Materias que piden un porcentaje de créditos (servicio social, experiencia recepcional, prácticas...)
+        public List<RequisitoCreditos> RequisitosCreditos { get; set; } = new List<RequisitoCreditos>();
+    }
+
+    // Requisito de créditos de una materia del plan frente al avance del alumno
+    public class RequisitoCreditos
+    {
+        public string Materia { get; set; } = "";
+        public int Porcentaje { get; set; }          // p. ej. 70
+        public int CreditosNecesarios { get; set; }  // el porcentaje de los créditos totales, redondeado hacia arriba
+        public int Faltan { get; set; }              // 0 si ya lo cumple
+        public bool Cumple { get; set; }
+        public bool YaInscrita { get; set; }         // ya la aprobó o la está cursando
     }
 
     // Materia con alta reprobación entre los alumnos registrados (la calcula ReglasMateriasCriticas)

@@ -194,9 +194,48 @@ namespace PlaneaUV_Economia.Services
                     situacion.CreditosLarga = CreditosEsperados(plan, concluidos, situacion.PeriodosTrayectoriaLarga);
                     situacion.Trayectoria = EstadoTrayectoria(situacion.CreditosAprobados, situacion.CreditosEstandar, situacion.CreditosLarga, concluidos);
                 }
+                situacion.RequisitosCreditos = RequisitosDeCreditos(plan, alumno, situacion.CreditosAprobados);
             }
 
             return situacion;
+        }
+
+        // ---------- REQUISITO DE CRÉDITOS ----------
+        // Algunas materias (servicio social, experiencia recepcional, prácticas profesionales) solo se inscriben
+        // con cierto porcentaje de los créditos totales aprobado. El porcentaje sale de la columna G de la plantilla.
+        // 70 % de 369 = 258.3: se piden 259 (no basta con estar "casi" en el porcentaje).
+        public static int CreditosParaRequisito(PlanInfo plan, int porcentaje) =>
+            porcentaje <= 0 ? 0 : (int)Math.Ceiling(plan.CreditosTotales * porcentaje / 100.0 - 1e-9);
+
+        public static bool CumpleRequisitoCreditos(PlanInfo plan, MateriaPlan materia, int creditosAprobados) =>
+            materia.PorcentajeCreditos <= 0 || plan.CreditosTotales <= 0 || creditosAprobados >= CreditosParaRequisito(plan, materia.PorcentajeCreditos);
+
+        public static List<RequisitoCreditos> RequisitosDeCreditos(PlanInfo plan, AlumnoAvance alumno, int creditosAprobados)
+        {
+            var inscritas = new HashSet<string>(alumno.Materias
+                .Where(m => EstaAprobada(m) || string.Equals(m.Estado, "cursando", StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.Nombre ?? ""));
+            return plan.Materias.Where(m => m.PorcentajeCreditos > 0 && plan.CreditosTotales > 0).Select(m =>
+            {
+                int necesarios = CreditosParaRequisito(plan, m.PorcentajeCreditos);
+                return new RequisitoCreditos
+                {
+                    Materia = m.Nombre, Porcentaje = m.PorcentajeCreditos, CreditosNecesarios = necesarios,
+                    Faltan = Math.Max(0, necesarios - creditosAprobados), Cumple = creditosAprobados >= necesarios,
+                    YaInscrita = inscritas.Contains(m.Nombre)
+                };
+            }).ToList();
+        }
+
+        // Aviso para el tutor (no cambia el color del semáforo): ya cubre el porcentaje y aún no las inscribe
+        public static SenalRiesgo? SenalRequisitosCumplidos(IEnumerable<RequisitoCreditos> requisitos)
+        {
+            var pendientes = requisitos.Where(r => r.Cumple && !r.YaInscrita).ToList();
+            if (pendientes.Count == 0) return null;
+            var nombres = pendientes.Select(r => r.Materia).ToList();
+            string lista = nombres.Count == 1 ? nombres[0] : string.Join(", ", nombres.Take(nombres.Count - 1)) + " y " + nombres[^1];
+            int porcentaje = pendientes.Min(r => r.Porcentaje);
+            return new SenalRiesgo { Texto = $"Ya cubre el {porcentaje} % de créditos: puede inscribir {lista}", Fuente = "Avance en créditos", Informativa = true };
         }
     }
 }

@@ -50,7 +50,7 @@ function quitarAfelExtra(e, boton) {
 
 function manejadorClickTarjeta(e) {
     if (this.classList.contains('estado-bloqueada')) {
-        alert(`Materia bloqueada. Debes aprobar primero: "${this.getAttribute('data-prerequisito')}".`);
+        alert('Materia bloqueada. ' + (this.getAttribute('data-motivo-bloqueo') || `Debes aprobar primero: "${this.getAttribute('data-prerequisito')}".`));
         return;
     }
 
@@ -437,10 +437,11 @@ function actualizarTarjetaVisual(tarjeta, historialArray) {
     tarjeta.classList.remove('estado-aprobada', 'estado-reprobada', 'estado-cursando');
     const nombreActual = tarjeta.getAttribute('data-nombre-personalizado') || tarjeta.getAttribute('data-nombre');
     const creditosActual = tarjeta.getAttribute('data-creditos');
-    const prereqSpan = tarjeta.querySelector('.prerequisito-text');
+    // Se conservan las leyendas "Req:" (prerrequisito y porcentaje de créditos) con su clase; actualizarProgreso decide si se ven
+    const leyendas = [...tarjeta.querySelectorAll('.prerequisito-text')];
 
     let htmlContenido = `<strong>${escapeHTML(nombreActual)}</strong><br/>(${creditosActual} Cr.)`;
-    if (prereqSpan) htmlContenido += `<span class="prerequisito-text">${prereqSpan.innerHTML}</span>`;
+    leyendas.forEach(s => { htmlContenido += `<span class="${s.className}">${s.innerHTML}</span>`; });
     if (tarjeta.classList.contains('afel-extra')) htmlContenido += BOTON_QUITAR_AFEL;
 
     if (historialArray.length === 0) {

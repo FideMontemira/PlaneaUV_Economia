@@ -89,7 +89,7 @@ function calcularSugerenciaCarga() {
     if (sugeridas.length > 0) html += `<h6 class="fw-bold text-success"><i class="bi bi-check2-circle me-1"></i>Sugeridas (${sugeridas.length})</h6>` + tabla(sugeridas);
     else html += `<div class="alert alert-warning">No hay materias que sugerir con ese máximo de créditos${candidatas.length === 0 ? ': no le quedan materias disponibles para inscribir.' : '.'}</div>`;
     if (fuera.length > 0) html += `<h6 class="fw-bold text-muted"><i class="bi bi-plus-circle me-1"></i>También puede cursar (no caben en el máximo)</h6>` + tabla(fuera);
-    if (bloqueadas > 0) html += `<p class="small text-muted mb-0"><i class="bi bi-lock-fill me-1"></i>${bloqueadas} materia(s) no se sugieren porque les falta aprobar un prerrequisito.</p>`;
+    if (bloqueadas > 0) html += `<p class="small text-muted mb-0"><i class="bi bi-lock-fill me-1"></i>${bloqueadas} materia(s) no se sugieren porque les falta aprobar un prerrequisito o cubrir el porcentaje de créditos que piden.</p>`;
     contenedor.innerHTML = html;
 
     const total = $('totalSugerencia');

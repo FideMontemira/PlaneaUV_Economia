@@ -77,20 +77,38 @@ function actualizarProgreso() {
 
     dibujarGraficasPorArea();
 
-    document.querySelectorAll('.materia-card[data-prerequisito]').forEach(tarjeta => {
-        let todasAprobadas = true;
-        tarjeta.getAttribute('data-prerequisito').split(',').map(p => p.trim()).forEach(prereq => {
+    // Bloqueos: prerrequisitos sin aprobar y porcentaje de créditos sin cubrir (lo segundo, misma regla que el servidor:
+    // 70 % de 369 = 258.3, se piden 259). Una materia que ya tiene registro no se bloquea por créditos.
+    document.querySelectorAll('.materia-card[data-prerequisito], .materia-card[data-creditos-minimos]').forEach(tarjeta => {
+        const faltan = [];
+        (tarjeta.getAttribute('data-prerequisito') || '').split(',').map(p => p.trim()).filter(p => p).forEach(prereq => {
             const tPrereq = Array.from(document.querySelectorAll('.materia-card')).find(x => x.getAttribute('data-nombre') === prereq || x.getAttribute('data-nombre-personalizado') === prereq);
-            if (tPrereq && tPrereq.getAttribute('data-estado') !== 'aprobada') todasAprobadas = false;
+            if (tPrereq && tPrereq.getAttribute('data-estado') !== 'aprobada') faltan.push(prereq);
         });
 
-        const s = tarjeta.querySelector('.prerequisito-text');
-        if (todasAprobadas) {
-            if (s) s.style.display = 'none';
-            tarjeta.classList.remove('estado-bloqueada');
-        } else {
-            if (s) s.style.display = 'block';
+        let motivoCreditos = '';
+        const minimo = parseInt(tarjeta.getAttribute('data-creditos-minimos')) || 0;
+        const yaRegistrada = !!tarjeta.getAttribute('data-estado');
+        if (minimo > 0 && total > 0 && !yaRegistrada) {
+            const necesarios = Math.ceil(total * minimo / 100 - 1e-9);
+            if (creditosAprobados < necesarios)
+                motivoCreditos = `Requiere el ${minimo} % de los créditos (${necesarios} de ${total}). Lleva ${creditosAprobados}: le faltan ${necesarios - creditosAprobados}.`;
+        }
+
+        const sPrereq = tarjeta.querySelector('.prerequisito-text:not(.requisito-creditos-text)');
+        const sCreditos = tarjeta.querySelector('.requisito-creditos-text');
+        if (sPrereq) sPrereq.style.display = faltan.length > 0 ? 'block' : 'none';
+        if (sCreditos) sCreditos.style.display = motivoCreditos ? 'block' : 'none';
+
+        const motivos = [];
+        if (faltan.length > 0) motivos.push(`Debes aprobar primero: "${faltan.join('", "')}".`);
+        if (motivoCreditos) motivos.push(motivoCreditos);
+        if (motivos.length > 0) {
             tarjeta.classList.add('estado-bloqueada');
+            tarjeta.setAttribute('data-motivo-bloqueo', motivos.join(' '));
+        } else {
+            tarjeta.classList.remove('estado-bloqueada');
+            tarjeta.removeAttribute('data-motivo-bloqueo');
         }
     });
 }

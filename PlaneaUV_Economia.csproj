@@ -7,6 +7,7 @@
     <UserSecretsId>210986af-de1e-4471-b7c7-4eefa5a36d07</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>.</DockerfileContext>
+    <ApplicationIcon>planeauv.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

@@ -22,7 +22,7 @@ namespace PlaneaUV_Economia.Services
     }
 
     // Implementación actual: un .xlsx por plan en la carpeta PlanesEstudio.
-    //   Hoja 1 (obligatoria): Semestre | Materia | Creditos | Tipo | Prerrequisitos | Area (opcional)
+    //   Hoja 1 (obligatoria): Semestre | Materia | Creditos | Tipo | Prerrequisitos | Area (opcional) | Creditos minimos (%) (opcional)
     //   Hoja "Datos" (opcional): filas "Programa" y "Creditos totales" en la columna A, su valor en la B
     //   Hoja "Optativas" (opcional): columna A = nombre de la optativa, columna B = grupo (opcional)
     //   En "Datos" también puede ir "Periodos trayectoria larga" (si no, se usa 1.5 veces la duración del plan)
@@ -89,6 +89,9 @@ namespace PlaneaUV_Economia.Services
                     throw new ArgumentException("La plantilla no tiene materias: la primera hoja debe tener encabezados en la fila 1 y las materias desde la fila 2 (columna B = nombre).");
                 if (plan.Materias.Any(m => m.Creditos < 0 || m.Creditos > 100))
                     throw new ArgumentException("Hay materias con créditos no válidos en la plantilla.");
+                var malPorcentaje = plan.Materias.FirstOrDefault(m => m.PorcentajeCreditos < 0);
+                if (malPorcentaje != null)
+                    throw new ArgumentException($"El porcentaje de créditos de \"{malPorcentaje.Nombre}\" debe estar entre 0 y 100 (columna G).");
 
                 File.Move(temporal, ruta, overwrite: true);
                 _cache.TryRemove(ruta, out _);
@@ -110,6 +113,17 @@ namespace PlaneaUV_Economia.Services
                 GC.WaitForPendingFinalizers();
                 try { File.Delete(ruta); } catch (IOException) { }   // queda oculto (empieza con ".") y no se lista
             }
+        }
+
+        // Columna G "Creditos minimos (%)": acepta 70, "70 %" o 0.7 (celda con formato de porcentaje).
+        // Vacío o no numérico = sin requisito. Un valor fuera de 0-100 se marca con -1 para rechazar la plantilla.
+        public static int LeerPorcentaje(string texto)
+        {
+            texto = (texto ?? "").Trim().TrimEnd('%').Trim().Replace(',', '.');
+            if (!double.TryParse(texto, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double valor)) return 0;
+            if (valor > 0 && valor <= 1) valor *= 100;
+            if (valor < 0 || valor > 100) return -1;
+            return (int)Math.Round(valor, MidpointRounding.AwayFromZero);
         }
 
         // GetFileName evita que un nombre con "..\" salga de la carpeta de planes
@@ -135,7 +149,8 @@ namespace PlaneaUV_Economia.Services
                         Creditos = creditos,
                         Tipo = ws.Cell(fila, 4).GetString().Trim(),
                         Prerrequisitos = ws.Cell(fila, 5).GetString().Trim(),
-                        Area = ws.Cell(fila, 6).GetString().Trim()
+                        Area = ws.Cell(fila, 6).GetString().Trim(),
+                        PorcentajeCreditos = LeerPorcentaje(ws.Cell(fila, 7).GetString())
                     });
                 }
 
