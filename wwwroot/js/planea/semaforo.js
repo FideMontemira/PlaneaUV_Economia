@@ -17,6 +17,20 @@ function pastillaSemaforo(color) {
 
 const TEXTO_VALORACION = { confirma: 'confirmó el semáforo', eleva: 'indicó que el riesgo es mayor', descarta: 'descartó el riesgo' };
 
+// Dirección del reporte de seguimiento: un periodo o el historial de todos los periodos
+function urlReportePeriodo(matricula, periodo, historial) {
+    return `/Home/ReportePeriodo?matricula=${encodeURIComponent(matricula)}&periodo=${encodeURIComponent(periodo || '')}${historial ? '&historial=true' : ''}`;
+}
+
+// Abre una página en otra pestaña en el mismo clic (si no, el navegador puede bloquearla) y la carga cuando
+// termine lo que haya que esperar (p. ej. el guardado en curso). Si el navegador la bloquea, se abre aquí mismo.
+function abrirEnPestana(url, esperar) {
+    const pestana = window.open('', '_blank');
+    if (!pestana) { (esperar || Promise.resolve()).then(() => { window.location.href = url; }); return; }
+    pestana.document.write('<p style="font-family:sans-serif;color:#555;padding:20px">Preparando el reporte...</p>');
+    (esperar || Promise.resolve()).then(() => { pestana.location.href = url; });
+}
+
 // Dirección de la pantalla de tutoría de un alumno en un periodo
 function urlTutoria(matricula, periodo) {
     return `/Home/Tutoria?matricula=${encodeURIComponent(matricula)}&periodo=${encodeURIComponent(periodo || '')}`;

@@ -58,7 +58,7 @@ namespace PlaneaUV_Economia.Services
                 if (new[] { t.Periodo, t.Fecha, t.Asistencia, t.Modalidad, t.OtraCanalizacion, t.MateriaDificultad, t.FechaRevision, t.EstadoCaso, t.ValoracionRiesgo, t.SemaforoSistema }
                         .Any(x => Largo(x) > MaxTextoCorto))
                     return "Un dato de la tutoría tiene un texto demasiado largo.";
-                foreach (var lista in new[] { t.Temas, t.Situaciones, t.Canalizaciones })
+                foreach (var lista in new[] { t.Temas, t.Situaciones, t.Canalizaciones, t.AcudioCanalizaciones })
                     if ((lista?.Count ?? 0) > MaxElementosLista || (lista ?? new List<string>()).Any(x => Largo(x) > MaxTextoCorto))
                         return "Una lista de la tutoría no es válida.";
             }
@@ -66,5 +66,47 @@ namespace PlaneaUV_Economia.Services
         }
 
         private static int Largo(string? texto) => texto?.Length ?? 0;
+
+        // ---------- Limpieza de una sesión de tutoría antes de guardarla ----------
+        // La pantalla solo manda valores válidos, pero el servidor no confía en lo que recibe: un valor desconocido
+        // se descarta (p. ej. un estado de caso inventado contaría como caso abierto). También se quita la barra "|",
+        // que en el Excel separa los elementos de una lista y partiría el texto en dos.
+        private static readonly HashSet<string> Asistencias = new() { "pendiente", "citado", "asistio", "falto", "justificado", "reprogramada" };
+        private static readonly HashSet<string> EstadosCaso = new() { "Abierto", "En atención", "Cerrado" };
+        private static readonly HashSet<string> Valoraciones = new() { "confirma", "eleva", "descarta" };
+        private static readonly HashSet<string> Colores = new() { "rojo", "amarillo", "verde" };
+        private static readonly HashSet<string> RespuestasAcudio = new() { "si", "no", "concluida" };
+
+        public static string SinSeparador(string? texto) => (texto ?? "").Replace("|", "/").Trim();
+
+        public static void Normalizar(TutoriaRecord t)
+        {
+            t.Asistencia = Asistencias.Contains(t.Asistencia ?? "") ? t.Asistencia : "pendiente";
+            t.EstadoCaso = EstadosCaso.Contains(t.EstadoCaso ?? "") ? t.EstadoCaso : "";
+            t.RequiereSeguimiento = t.EstadoCaso == "Abierto" || t.EstadoCaso == "En atención";
+            t.ValoracionRiesgo = Valoraciones.Contains(t.ValoracionRiesgo ?? "") ? t.ValoracionRiesgo : "";
+            t.SemaforoSistema = Colores.Contains(t.SemaforoSistema ?? "") ? t.SemaforoSistema : "";
+            t.Fecha = FechaValida(t.Fecha);
+            t.FechaRevision = FechaValida(t.FechaRevision);
+            t.OtraCanalizacion = SinSeparador(t.OtraCanalizacion);
+
+            static List<string> Limpia(List<string>? lista) =>
+                (lista ?? new List<string>()).Select(SinSeparador).Where(x => x != "").Distinct().ToList();
+            t.Temas = Limpia(t.Temas);
+            t.Situaciones = Limpia(t.Situaciones);
+            t.Canalizaciones = Limpia(t.Canalizaciones);
+
+            // "Área=si|no|concluida" con un área no vacía; lo demás se descarta
+            t.AcudioCanalizaciones = Limpia(t.AcudioCanalizaciones).Where(r =>
+            {
+                int i = r.LastIndexOf('=');
+                return i > 0 && r[..i].Trim() != "" && RespuestasAcudio.Contains(r[(i + 1)..].Trim().ToLowerInvariant());
+            }).ToList();
+        }
+
+        // Las fechas se guardan como yyyy-MM-dd; un texto que no lo es se descarta
+        private static string FechaValida(string? fecha) =>
+            System.DateTime.TryParseExact((fecha ?? "").Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out _) ? fecha!.Trim() : "";
     }
 }

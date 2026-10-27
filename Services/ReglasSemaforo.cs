@@ -34,9 +34,11 @@ namespace PlaneaUV_Economia.Services
             var delPeriodo = tutorias.Where(t => !string.IsNullOrEmpty(periodo) && t.Periodo == periodo).OrderBy(t => t.Sesion).ToList();
 
             // ---------- Seguimiento del caso (también se muestra a los alumnos de baja) ----------
-            var ultimaConEstado = delPeriodo.LastOrDefault(t => !string.IsNullOrWhiteSpace(t.EstadoCaso) || t.RequiereSeguimiento);
-            resultado.EstadoCaso = ultimaConEstado == null ? null
-                : string.IsNullOrWhiteSpace(ultimaConEstado.EstadoCaso) ? "Abierto" : ultimaConEstado.EstadoCaso;
+            // El caso abierto en un periodo anterior sigue vigente hasta que se cierre (ReglasCaso)
+            var caso = ReglasCaso.Vigente(alumno, periodo);
+            resultado.EstadoCaso = caso?.Estado;
+            resultado.CasoDesde = caso != null && caso.Abierto && caso.Desde != periodo ? caso.Desde : null;
+            resultado.CanalizacionesCaso = caso?.Canalizaciones ?? new List<CanalizacionCaso>();
 
             var contactos = tutorias.Where(t => t.Asistencia == "asistio").Select(t => Fecha(t.Fecha)).Where(f => f.HasValue).Select(f => f!.Value).ToList();
             if (contactos.Count > 0)
@@ -46,8 +48,10 @@ namespace PlaneaUV_Economia.Services
                 resultado.DiasSinContacto = Math.Max(0, (hoy.Date - ultimo).Days);
             }
 
-            var conAcuerdo = delPeriodo.LastOrDefault(t => !string.IsNullOrWhiteSpace(t.Acuerdos));
-            if (conAcuerdo != null && resultado.EstadoCaso != "Cerrado")
+            // Acuerdo pendiente: el último del caso abierto (aunque sea de un periodo anterior); sin caso, el último del periodo
+            var conAcuerdo = caso != null ? (caso.Abierto ? caso.UltimoAcuerdo : null)
+                                          : delPeriodo.LastOrDefault(t => !string.IsNullOrWhiteSpace(t.Acuerdos));
+            if (conAcuerdo != null)
             {
                 resultado.AcuerdoPendiente = conAcuerdo.Acuerdos!.Trim();
                 resultado.FechaRevision = string.IsNullOrWhiteSpace(conAcuerdo.FechaRevision) ? null : conAcuerdo.FechaRevision;
@@ -97,6 +101,8 @@ namespace PlaneaUV_Economia.Services
                 senales.Add(new SenalRiesgo { Texto = $"{p} (registrado por su tutor)", Fuente = "Reporte de tutoría", Informativa = true });
             if (problematicas.Any(CatalogoTutorias.EsPrivada))
                 senales.Add(new SenalRiesgo { Texto = "Situación personal o de salud registrada (confidencial)", Fuente = "Reporte de tutoría", Informativa = true });
+            foreach (var c in resultado.CanalizacionesCaso.Where(c => c.Acudio == "no"))
+                senales.Add(new SenalRiesgo { Texto = $"No acudió a {c.Area} (canalizado en {c.Periodo})", Fuente = "Reporte de tutoría", Informativa = true });
 
             // Cursa una materia con alta reprobación
             var criticasQueCursa = new List<MateriaCritica>();
@@ -186,6 +192,14 @@ namespace PlaneaUV_Economia.Services
             Si(Registro("Traslape de horarios o no encontró cupo"), "Revisar con la coordinación del programa opciones de horario o cupo para el siguiente periodo.");
             Si(Registro("Duda vocacional o cambio de carrera"), "Conversar sobre su proyecto vocacional y, si lo considera, el procedimiento de cambio de programa.");
             Si(problematicas.Any(CatalogoTutorias.EsPrivada), "Dar seguimiento, con discreción, a la situación personal registrada y a su canalización.");
+            // Seguimiento de las canalizaciones del caso
+            Si(s.EstadoCaso != null && s.EstadoCaso != "Cerrado" && s.CanalizacionesCaso.Count > 0 && ReglasCaso.Activas(s.CanalizacionesCaso).Count == 0,
+               "Todas las canalizaciones concluyeron: valorar si ya se puede cerrar el caso.");
+            foreach (var c in s.CanalizacionesCaso)
+            {
+                Si(c.Acudio == "no", $"Preguntar por qué no acudió a {c.Area} y valorar volver a canalizarlo o buscar otra opción.");
+                Si(c.Acudio == "pendiente", $"Confirmar si ya acudió a {c.Area} (canalizado en {c.Periodo}).");
+            }
             Si(Hay("Requiere seguimiento"), "Revisar cómo va la canalización y los acuerdos de la sesión anterior.");
             Si(s.AcuerdoPendiente != null, $"Revisar el acuerdo: «{s.AcuerdoPendiente}»" + (s.FechaRevision != null ? $" (revisión: {FechaCorta(s.FechaRevision)})." : "."));
             Si(temas.Count == 0, "Seguimiento habitual: cómo va en sus materias, servicio social o prácticas, y sus planes para el siguiente periodo.");

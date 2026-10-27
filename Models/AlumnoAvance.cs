@@ -41,6 +41,9 @@ namespace PlaneaUV_Economia.Models
         public string? ValoracionRiesgo { get; set; }      // "", confirma, eleva, descarta
         public string? MotivoValoracion { get; set; }      // obligatorio para descartar
         public string? SemaforoSistema { get; set; }       // rojo, amarillo, verde
+
+        // Seguimiento de canalizaciones anteriores: si el alumno acudió. Cada elemento es "Área=si" o "Área=no".
+        public List<string> AcudioCanalizaciones { get; set; } = new List<string>();
     }
 
     public class MateriaCursada

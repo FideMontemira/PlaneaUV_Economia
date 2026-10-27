@@ -24,6 +24,7 @@ builder.Services.AddSingleton<PlaneaUV_Economia.Services.IRepositorioPlanes, Pla
 // Reglas de negocio (no dependen de dónde estén guardados los datos)
 builder.Services.AddSingleton<PlaneaUV_Economia.Services.ServicioAlertas>();
 builder.Services.AddSingleton<PlaneaUV_Economia.Services.ServicioReportes>();
+builder.Services.AddSingleton<PlaneaUV_Economia.Services.ServicioReportePeriodo>();
 
 var app = builder.Build();
 

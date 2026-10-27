@@ -200,7 +200,8 @@ namespace PlaneaUV_Economia.Services
                     EstadoCaso = ws.Cell(fila, 24).IsEmpty() && seguimiento ? "Abierto" : ws.Cell(fila, 24).GetString(),
                     ValoracionRiesgo = ws.Cell(fila, 25).GetString(),
                     MotivoValoracion = ws.Cell(fila, 26).GetString(),
-                    SemaforoSistema = ws.Cell(fila, 27).GetString()
+                    SemaforoSistema = ws.Cell(fila, 27).GetString(),
+                    AcudioCanalizaciones = Lista(ws.Cell(fila, 28).GetString())
                 });
             }
             return alumno;
@@ -244,9 +245,10 @@ namespace PlaneaUV_Economia.Services
 
             string[] encabezadoTutorias = { "Periodo Tutoria", "Sesión", "Fecha", "Asistencia", "Comentarios",
                                             "Modalidad", "Temas", "Situaciones", "Canalizaciones", "Otra canalización", "Acuerdos", "Seguimiento",
-                                            "Materia con dificultad", "Fecha de revisión", "Estado del caso", "Valoración del riesgo", "Motivo de la valoración", "Semáforo del sistema" };
+                                            "Materia con dificultad", "Fecha de revisión", "Estado del caso", "Valoración del riesgo", "Motivo de la valoración", "Semáforo del sistema",
+                                            "¿Acudió a la canalización?" };
             for (int i = 0; i < encabezadoTutorias.Length; i++) ws.Cell(5, i + 10).Value = encabezadoTutorias[i];
-            var rangoT = ws.Range("J5:AA5");
+            var rangoT = ws.Range("J5:AB5");
             rangoT.Style.Font.Bold = true;
             rangoT.Style.Fill.BackgroundColor = XLColor.LightCyan;
 
@@ -259,10 +261,10 @@ namespace PlaneaUV_Economia.Services
                 ws.Cell(fila, 13).Value = t.Asistencia;
                 ws.Cell(fila, 14).Value = t.Comentarios;
                 ws.Cell(fila, 15).Value = t.Modalidad;
-                ws.Cell(fila, 16).Value = string.Join(" | ", t.Temas ?? new List<string>());
-                ws.Cell(fila, 17).Value = string.Join(" | ", t.Situaciones ?? new List<string>());
-                ws.Cell(fila, 18).Value = string.Join(" | ", t.Canalizaciones ?? new List<string>());
-                ws.Cell(fila, 19).Value = t.OtraCanalizacion;
+                ws.Cell(fila, 16).Value = Unir(t.Temas);
+                ws.Cell(fila, 17).Value = Unir(t.Situaciones);
+                ws.Cell(fila, 18).Value = Unir(t.Canalizaciones);
+                ws.Cell(fila, 19).Value = ValidacionAlumno.SinSeparador(t.OtraCanalizacion);
                 ws.Cell(fila, 20).Value = t.Acuerdos;
                 ws.Cell(fila, 21).Value = t.RequiereSeguimiento.ToString();
                 ws.Cell(fila, 22).Value = t.MateriaDificultad;
@@ -271,6 +273,7 @@ namespace PlaneaUV_Economia.Services
                 ws.Cell(fila, 25).Value = t.ValoracionRiesgo;
                 ws.Cell(fila, 26).Value = t.MotivoValoracion;
                 ws.Cell(fila, 27).Value = t.SemaforoSistema;
+                ws.Cell(fila, 28).Value = Unir(t.AcudioCanalizaciones);
                 fila++;
             }
 
@@ -287,6 +290,10 @@ namespace PlaneaUV_Economia.Services
             if (File.Exists(_ruta)) File.Replace(temporal, _ruta, RutaHermana("AvanceAlumnos.respaldo.xlsx"));
             else File.Move(temporal, _ruta);
         }
+
+        // Varios valores en una celda, separados por " | " (un "|" dentro de un valor lo partiría: se cambia por "/")
+        private static string Unir(List<string>? valores) =>
+            string.Join(" | ", (valores ?? new List<string>()).Select(ValidacionAlumno.SinSeparador).Where(v => v != ""));
 
         // Celda con varios valores separados por "|" (temas, situaciones, canalizaciones)
         private static List<string> Lista(string texto) =>

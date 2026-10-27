@@ -185,7 +185,9 @@ table {{ width: 100%; border-collapse: collapse; }} td {{ padding: 4px 2px; bord
             var canalizaciones = alumno.Tutorias.SelectMany(t => (t.Canalizaciones ?? new List<string>())
                 .Concat(string.IsNullOrWhiteSpace(t.OtraCanalizacion) ? Array.Empty<string>() : new[] { t.OtraCanalizacion!.Trim() })).Distinct().ToList();
             if (canalizaciones.Count > 0) html.Append($"<li>Canalizado a: {E(string.Join(", ", canalizaciones))}</li>");
-            html.Append($"<li>Caso actual: {(sem.EstadoCaso == null ? "sin caso abierto" : E(sem.EstadoCaso.ToLowerInvariant()))}</li>");
+            html.Append($"<li>Caso actual: {(sem.EstadoCaso == null ? "sin caso abierto" : E(sem.EstadoCaso.ToLowerInvariant()))}{(sem.CasoDesde != null ? $" (desde {E(sem.CasoDesde)})" : "")}</li>");
+            foreach (var canal in sem.CanalizacionesCaso)
+                html.Append($"<li>{E(canal.Area)}: <b>{ReglasCaso.TextoAcudio(canal.Acudio)}</b> <span class='suave'>(canalizado en {E(canal.Periodo)})</span></li>");
             if (sem.AcuerdoPendiente != null)
                 html.Append($"<li>Acuerdo pendiente: {E(sem.AcuerdoPendiente)}{(sem.FechaRevision != null ? $" (revisar el {FechaCorta(sem.FechaRevision)}{(sem.RevisionVencida ? ", vencido" : "")})" : "")}</li>");
             html.Append("</ul></div></div>");

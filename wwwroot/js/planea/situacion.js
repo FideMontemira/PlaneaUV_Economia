@@ -142,6 +142,15 @@ function aplicarSituacionAlumno() {
 // ===================== SEMÁFORO DE RIESGO =====================
 // Colores y textos en semaforo.js. El color lo calcula el servidor y llega junto con la situación del alumno.
 
+// Reporte de seguimiento del alumno en pantalla: el del Periodo de Trabajo o el historial completo
+function abrirReportePeriodo(historial) {
+    const inputMat = $('inputMatricula');
+    const matricula = inputMat ? inputMat.value.trim() : '';
+    if (!matricula || alumnoCargado !== matricula) { alert("Selecciona un alumno primero."); return; }
+    const selP = $('selectPeriodoGlobal');
+    abrirEnPestana(urlReportePeriodo(matricula, selP ? selP.value : '', historial), esperarGuardadoEnCurso());
+}
+
 // Abre la pantalla de tutoría del alumno en pantalla (después de guardar lo pendiente del mapa)
 function irATutorias() {
     const inputMat = $('inputMatricula');

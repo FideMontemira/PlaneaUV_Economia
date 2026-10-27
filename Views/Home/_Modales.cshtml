@@ -25,7 +25,7 @@
                         <div class="alert alert-success small py-2 mb-3"><i class="bi bi-info-circle-fill me-1"></i> Registra la matrícula y nombre para crear el expediente.</div>
                         <div class="mb-2">
                             <label class="form-label fw-bold small">Matrícula</label>
-                            <input type="text" class="form-control border-success fw-bold" id="inputNuevaMatricula" placeholder="Ej. zS22014022">
+                            <input type="text" class="form-control border-success fw-bold" id="inputNuevaMatricula" placeholder="Ej. S22014022">
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold small">Nombre Completo</label>
@@ -312,6 +312,9 @@
                         <label class="form-check-label small" for="soloActivosPanelGrupo">Solo activos</label>
                     </div>
                     <span class="small text-muted ms-auto" id="resumenPanelGrupo"></span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="abrirReportesDelGrupo()" title="Reporte del periodo de cada alumno activo, para imprimir o guardar en PDF">
+                        <i class="bi bi-printer me-1"></i>Reportes del periodo (todos)
+                    </button>
                 </div>
                 <div class="table-responsive bg-white rounded shadow-sm">
                     <table class="table table-sm table-hover align-middle mb-0" id="tablaPanelGrupo">

@@ -121,6 +121,15 @@ namespace PlaneaUV_Economia.Models
         public List<AlumnoDeReporte> EnRiesgo { get; set; } = new List<AlumnoDeReporte>();
     }
 
+    // Una canalización del caso de tutoría y si el alumno acudió
+    public class CanalizacionCaso
+    {
+        public string Area { get; set; } = "";
+        public string Periodo { get; set; } = "";        // periodo en que se canalizó
+        public string Acudio { get; set; } = "pendiente"; // si, no, concluida, pendiente
+        public string? ConcluidaEn { get; set; }          // periodo en que se marcó como concluida
+    }
+
     // Una señal que explica el color del semáforo, con su fuente
     public class SenalRiesgo
     {
@@ -144,6 +153,8 @@ namespace PlaneaUV_Economia.Models
         public bool ValoracionDesactualizada { get; set; }
 
         public string? EstadoCaso { get; set; }          // Abierto, En atención, Cerrado
+        public string? CasoDesde { get; set; }           // periodo en que se abrió, si viene de un periodo anterior
+        public List<CanalizacionCaso> CanalizacionesCaso { get; set; } = new List<CanalizacionCaso>();
         public string? UltimoContacto { get; set; }      // última sesión a la que asistió (yyyy-MM-dd)
         public int? DiasSinContacto { get; set; }
         public string? AcuerdoPendiente { get; set; }
@@ -157,5 +168,65 @@ namespace PlaneaUV_Economia.Models
         public string? Matricula { get; set; }
         public string? Periodo { get; set; }
         public List<TutoriaRecord> Sesiones { get; set; } = new List<TutoriaRecord>();
+    }
+
+    // ===================== REPORTE DEL PERIODO (historial de seguimiento) =====================
+    // Cómo estaba el alumno AL CIERRE de un periodo: se calcula solo con lo registrado hasta ese periodo.
+    public class ResumenPeriodo
+    {
+        public string Periodo { get; set; } = "";
+        public bool EnPausa { get; set; }                       // periodo marcado sin inscripción
+        public bool Concluido { get; set; }                     // el periodo ya terminó (según la fecha)
+        public int? PeriodoQueCursa { get; set; }
+
+        public List<MateriaDelPeriodo> Materias { get; set; } = new List<MateriaDelPeriodo>();
+        public int Aprobadas { get; set; }
+        public int Reprobadas { get; set; }
+        public int SinResultado { get; set; }
+
+        public int CreditosAlInicio { get; set; }
+        public int CreditosGanados { get; set; }
+        public int CreditosAlCierre { get; set; }
+        public int CreditosTotales { get; set; }
+        public int CreditosEstandar { get; set; }
+        public int CreditosLarga { get; set; }
+        public string? Trayectoria { get; set; }                // estandar, debajo-estandar, debajo-minimo
+
+        public List<string> Rezago { get; set; } = new List<string>();
+        public List<string> SeriadasPendientes { get; set; } = new List<string>();
+        public SemaforoAlumno Semaforo { get; set; } = new SemaforoAlumno();
+
+        public ResumenTutoriaPeriodo Tutoria { get; set; } = new ResumenTutoriaPeriodo();
+        public List<MateriaPendiente> SiguientePeriodo { get; set; } = new List<MateriaPendiente>();
+    }
+
+    public class MateriaDelPeriodo
+    {
+        public string Nombre { get; set; } = "";
+        public int Creditos { get; set; }
+        public string Inscripcion { get; set; } = "";           // primera / segunda
+        public string Examen { get; set; } = "";                // ordinario, extraordinario, título, última
+        public string Resultado { get; set; } = "";             // aprobada, reprobada, cursando, sin-resultado
+        public bool EnRiesgo { get; set; }
+    }
+
+    public class MateriaPendiente
+    {
+        public string Nombre { get; set; } = "";
+        public int Semestre { get; set; }
+        public int Creditos { get; set; }
+        public string Motivo { get; set; } = "";                // "Atrasada · candado", "Atrasada", "Del siguiente periodo"
+    }
+
+    // Solo el resumen: el detalle de cada sesión está en el reporte de tutoría
+    public class ResumenTutoriaPeriodo
+    {
+        public int Sesiones { get; set; }
+        public int Asistio { get; set; }
+        public int NoAsistio { get; set; }
+        public int Justificadas { get; set; }
+        public List<string> Problematicas { get; set; } = new List<string>();   // lo confidencial, sin detalle
+        public List<string> Canalizaciones { get; set; } = new List<string>();
+        public string? EstadoCaso { get; set; }
     }
 }

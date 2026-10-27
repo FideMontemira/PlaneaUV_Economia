@@ -38,6 +38,25 @@ namespace PlaneaUV_Economia.Services
         public static bool EsPeriodoValido(string? periodo) =>
             periodo != null && Regex.IsMatch(periodo, @"^(Agosto - Enero|Febrero - Julio) (19|20)\d{2}$");
 
+        // Número para ordenar periodos en el tiempo: "Febrero - Julio 2026" < "Agosto - Enero 2027" < "Febrero - Julio 2027".
+        // Null si el texto no trae año.
+        public static int? ClavePeriodo(string? periodo)
+        {
+            var m = Regex.Match(periodo ?? "", @"(\d{4})");
+            if (!m.Success) return null;
+            int anio = int.Parse(m.Groups[1].Value);
+            return periodo!.TrimStart().StartsWith("ago", StringComparison.OrdinalIgnoreCase) ? (anio - 1) * 2 + 1 : anio * 2;
+        }
+
+        // Último día del periodo (31 de enero o 31 de julio del año del texto)
+        public static DateTime? FinDePeriodo(string? periodo)
+        {
+            var m = Regex.Match(periodo ?? "", @"(\d{4})");
+            if (!m.Success) return null;
+            int anio = int.Parse(m.Groups[1].Value);
+            return periodo!.TrimStart().StartsWith("ago", StringComparison.OrdinalIgnoreCase) ? new DateTime(anio, 1, 31) : new DateTime(anio, 7, 31);
+        }
+
         // Nombre del periodo número i (1, 2, 3...) de un alumno que ingresó en 'anioIngreso'
         public static string NombreDePeriodo(int anioIngreso, int i)
         {

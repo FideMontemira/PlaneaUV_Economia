@@ -63,6 +63,16 @@
             <button type="button" class="btn btn-success fw-bold" onclick="abrirSugerenciaCarga()" title="Materias que le conviene inscribir al alumno">
                 <i class="bi bi-lightbulb-fill me-1"></i>Sugerir carga
             </button>
+            <!-- Seguimiento por periodo: el cierre del Periodo de Trabajo o el historial de todos sus periodos -->
+            <div class="dropdown">
+                <button class="btn btn-outline-primary fw-bold dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Reporte de seguimiento del alumno por periodo">
+                    <i class="bi bi-clipboard-data me-1"></i>Seguimiento
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow">
+                    <li><a class="dropdown-item" href="#" onclick="abrirReportePeriodo(false); return false;"><i class="bi bi-calendar-check me-2"></i>Reporte del periodo de trabajo</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="abrirReportePeriodo(true); return false;"><i class="bi bi-clock-history me-2"></i>Historial completo (todos los periodos)</a></li>
+                </ul>
+            </div>
         </div>
     </div>
 </div>

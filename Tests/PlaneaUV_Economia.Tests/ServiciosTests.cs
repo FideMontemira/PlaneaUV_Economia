@@ -186,12 +186,12 @@ namespace PlaneaUV_Economia.Tests
             const string periodo = "Agosto - Enero 2027";
             var alumno = Datos.Alumno("PRUEBA10");
             alumno.Tutorias.Add(new TutoriaRecord { Periodo = periodo, Sesion = 1, Asistencia = "asistio", Situaciones = { "Económica" }, Canalizaciones = { "Becas y apoyos económicos" }, RequiereSeguimiento = true });
-            alumno.Tutorias.Add(new TutoriaRecord { Periodo = "Febrero - Julio 2026", Sesion = 1, RequiereSeguimiento = true });   // otro periodo: no cuenta
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = "Febrero - Julio 2026", Sesion = 1, RequiereSeguimiento = true });   // el caso venía abierto del periodo anterior
 
             var alerta = Assert.Single(new ServicioAlertas(PlanesEnMemoria.ConPlanCorto()).Calcular(new[] { alumno }, periodo));
             Assert.Equal("Requiere seguimiento de tutoría", alerta.Mensaje);
             Assert.Equal("Canalizado a", alerta.Etiqueta);
-            Assert.Equal("Becas y apoyos económicos", alerta.Materia);
+            Assert.Equal("Becas y apoyos económicos · caso abierto desde Febrero - Julio 2026", alerta.Materia);   // una sola alerta, con su origen
 
             // Si en una sesión posterior el tutor cierra el caso, la alerta desaparece
             alumno.Tutorias.Add(new TutoriaRecord { Periodo = periodo, Sesion = 2, Asistencia = "asistio", EstadoCaso = "Cerrado" });

@@ -20,13 +20,15 @@ namespace PlaneaUV_Economia.Controllers
         private readonly IRepositorioPlanes _planes;
         private readonly ServicioAlertas _alertas;
         private readonly ServicioReportes _reportes;
+        private readonly ServicioReportePeriodo _reportePeriodo;
 
-        public HomeController(IRepositorioAlumnos alumnos, IRepositorioPlanes planes, ServicioAlertas alertas, ServicioReportes reportes)
+        public HomeController(IRepositorioAlumnos alumnos, IRepositorioPlanes planes, ServicioAlertas alertas, ServicioReportes reportes, ServicioReportePeriodo reportePeriodo)
         {
             _alumnos = alumnos;
             _planes = planes;
             _alertas = alertas;
             _reportes = reportes;
+            _reportePeriodo = reportePeriodo;
         }
 
         public IActionResult Index() { return View(); }
@@ -82,8 +84,8 @@ namespace PlaneaUV_Economia.Controllers
             if (solicitud == null || string.IsNullOrWhiteSpace(solicitud.Matricula)) return BadRequest(new { success = false, message = "Datos incompletos." });
             if (!ReglasTrayectoria.EsPeriodoValido(solicitud.Periodo)) return BadRequest(new { success = false, message = "El periodo no es válido." });
             var sesiones = (solicitud.Sesiones ?? new List<TutoriaRecord>())
+                .Select(t => { t.Periodo = solicitud.Periodo; ValidacionAlumno.Normalizar(t); return t; })   // valores desconocidos fuera
                 .Where(GeneradorDocumentoTutorias.TieneInformacion)
-                .Select(t => { t.Periodo = solicitud.Periodo; return t; })
                 .ToList();
             if (sesiones.Select(t => t.Sesion).Distinct().Count() != sesiones.Count || sesiones.Any(t => t.Sesion < 1 || t.Sesion > 10))
                 return BadRequest(new { success = false, message = "Las sesiones no son válidas." });
@@ -151,6 +153,47 @@ namespace PlaneaUV_Economia.Controllers
             string html = GeneradorFichaTutoria.Generar(alumno, plan, SituacionCompleta(alumno, periodo), periodo ?? "", DateTime.Today);
             return Content(html, "text/html; charset=utf-8");
         });
+
+        // Reporte de seguimiento del alumno: el cierre de un periodo o, con historial=true, todos sus periodos
+        // hasta el indicado (para conservar el seguimiento semestre por semestre)
+        [HttpGet]
+        public IActionResult ReportePeriodo(string matricula, string? periodo, bool historial = false) => ConDatosDeAlumnos(() =>
+        {
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("Matrícula requerida.");
+            if (!ReglasTrayectoria.EsPeriodoValido(periodo)) return BadRequest("El periodo no es válido.");
+            var alumno = _alumnos.Buscar(matricula);
+            if (alumno == null) return NotFound("Alumno no encontrado.");
+
+            var periodos = historial ? _reportePeriodo.PeriodosDelHistorial(alumno, periodo!) : new List<string> { periodo! };
+            if (periodos.Count == 0) periodos.Add(periodo!);
+            var entrada = EntradaDeReporte(alumno, periodos);
+            string titulo = (historial ? "Historial de seguimiento · " : "Reporte del periodo · ") + alumno.Nombre;
+            return Content(GeneradorReportePeriodo.Generar(new[] { entrada }, titulo, historial, DateTime.Today), "text/html; charset=utf-8");
+        });
+
+        // Cierre de periodo del grupo: el reporte del periodo de cada alumno activo, cada uno en hoja aparte
+        [HttpGet]
+        public IActionResult ReportesDelPeriodo(string? periodo) => ConDatosDeAlumnos(() =>
+        {
+            if (!ReglasTrayectoria.EsPeriodoValido(periodo)) return BadRequest("El periodo no es válido.");
+            var entradas = _alumnos.ObtenerTodos()
+                .Where(a => string.IsNullOrEmpty(a.Situacion) || a.Situacion == "Activo")
+                .OrderBy(a => a.Nombre, StringComparer.CurrentCultureIgnoreCase)
+                .Select(a => EntradaDeReporte(a, new List<string> { periodo! }))
+                .ToList();
+            return Content(GeneradorReportePeriodo.Generar(entradas, "Reportes del periodo " + periodo, false, DateTime.Today), "text/html; charset=utf-8");
+        });
+
+        private GeneradorReportePeriodo.Entrada EntradaDeReporte(AlumnoAvance alumno, List<string> periodos)
+        {
+            string plan = (alumno.PlanEstudio ?? "").Trim();
+            return new GeneradorReportePeriodo.Entrada
+            {
+                Alumno = alumno,
+                Programa = ObtenerPlanSeguro(plan)?.Programa ?? plan.Replace('_', ' '),
+                Periodos = periodos.Select(p => _reportePeriodo.Resumir(alumno, p, DateTime.Today)).ToList()
+            };
+        }
 
         [HttpGet]
         public IActionResult DescargarWordTutorias(string matricula) => ConDatosDeAlumnos(() =>

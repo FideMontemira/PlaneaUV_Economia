@@ -137,6 +137,8 @@ function armarFormularioTutorias() {
 
                 <div class="paso-tutoria mb-0">
                     ${tituloPaso(4, 'Canalización y acuerdos')}
+                    <!-- Canalizaciones de sesiones anteriores (o de un caso que viene de otro periodo): ¿acudió? -->
+                    <div id="seguimientoCanalizaciones${n}" class="d-none mb-3"></div>
                     <div class="app-etiqueta mb-1"><i class="bi bi-signpost-split me-1"></i>¿A dónde se orientó al estudiante?</div>
                     ${casillasTutoria(n, 'canalizaciones', catalogoTutorias.canalizaciones)}
                     <input type="text" class="form-control form-control-sm mt-2" id="otraCanalizacionTutoria${n}" placeholder="Otra área o departamento (opcional)" onchange="marcarCambios()">
@@ -155,6 +157,7 @@ function armarFormularioTutorias() {
                                 <option value="">Sin caso</option>
                                 ${catalogoTutorias.estadosCaso.map(e => `<option value="${escapeHTML(e)}">${escapeHTML(e)}</option>`).join('')}
                             </select>
+                            <div class="small text-success mt-1 d-none" id="avisoCasoAbierto${n}"><i class="bi bi-info-circle me-1"></i>Se abrió el caso porque canalizaste al estudiante. Ciérralo cuando ya no necesite seguimiento.</div>
                         </div>
                         <div class="col-12">
                             <label class="app-etiqueta" for="tutoria${n}">Comentario (solo lo que no cubren las casillas)</label>
@@ -167,7 +170,68 @@ function armarFormularioTutorias() {
 
     // Al cambiar algo, se actualizan la marca de la pestaña y los avisos
     contenido.addEventListener('change', actualizarEstadoPestanasTutoria);
+
+    // Canalizar al estudiante abre el caso (si estaba "Sin caso"), para que el seguimiento no se olvide; si se quita
+    // esa canalización y la sesión se queda sin ninguna, el caso vuelve a "Sin caso" (solo si lo abrió el sistema).
+    // También se actualiza el "¿acudió?" de las sesiones, que depende de las canalizaciones anteriores.
+    contenido.addEventListener('change', e => {
+        const panel = e.target.closest('[id^="panelTutoria"]');
+        if (!panel) return;
+        const n = parseInt(panel.id.replace('panelTutoria', ''));
+        const estado = $('estadoCasoTutoria' + n);
+        const esCasilla = e.target.getAttribute('data-grupo') === 'canalizaciones';
+        const esOtra = e.target.id === 'otraCanalizacionTutoria' + n;
+
+        if ((esCasilla && e.target.checked) || (esOtra && e.target.value.trim())) {
+            if (!estado.value) {
+                estado.value = 'Abierto';
+                casoAbiertoAutomatico[n] = true;
+                mostrarAvisoCaso(n, 'ok', 'Se abrió el caso porque canalizaste al estudiante. Ciérralo cuando ya no necesite seguimiento.');
+                actualizarEstadoPestanasTutoria();
+                marcarCambios();
+            }
+        } else if ((esCasilla || esOtra) && !tieneCanalizaciones(n)) {
+            if (casoAbiertoAutomatico[n] && estado.value === 'Abierto') {
+                estado.value = '';
+                delete casoAbiertoAutomatico[n];
+                mostrarAvisoCaso(n);
+                actualizarEstadoPestanasTutoria();
+                marcarCambios();
+            } else if (estado.value === 'Abierto' || estado.value === 'En atención') {
+                mostrarAvisoCaso(n, 'info', 'Esta sesión ya no tiene canalizaciones. Si el caso ya no requiere seguimiento, cambia su estado.');
+            }
+        }
+        if (e.target === estado) { delete casoAbiertoAutomatico[n]; mostrarAvisoCaso(n); }
+
+        // El seguimiento de esta sesión y de las siguientes depende de lo canalizado y de lo que ya concluyó
+        if (esCasilla || esOtra) for (let k = n + 1; k <= SESIONES_POR_PERIODO; k++) pintarSeguimientoCanalizaciones(k);
+        if (e.target.matches('select[data-area]') || e.target === estado)
+            for (let k = n; k <= SESIONES_POR_PERIODO; k++) pintarSeguimientoCanalizaciones(k);
+    });
     formularioTutoriasListo = true;
+}
+
+// Sesiones cuyo caso abrió el sistema al canalizar (para poder regresarlo a "Sin caso" si se quita la canalización)
+let casoAbiertoAutomatico = {};
+
+const tieneCanalizaciones = n => valoresMarcados(n, 'canalizaciones').length > 0 || !!$('otraCanalizacionTutoria' + n).value.trim();
+
+// Aviso bajo "Estado del caso": tipo 'ok' (verde) o 'info' (gris); sin texto lo oculta
+function mostrarAvisoCaso(n, tipo, texto) {
+    const aviso = $('avisoCasoAbierto' + n);
+    if (!aviso) return;
+    aviso.className = `small mt-1 ${tipo === 'info' ? 'text-secondary' : 'text-success'} ${texto ? '' : 'd-none'}`;
+    aviso.innerHTML = texto ? `<i class="bi bi-info-circle me-1"></i>${escapeHTML(texto)}` : '';
+}
+
+// Cierra el caso desde el aviso "Todas las canalizaciones concluyeron"
+function cerrarCasoTutoria(n) {
+    $('estadoCasoTutoria' + n).value = 'Cerrado';
+    delete casoAbiertoAutomatico[n];
+    mostrarAvisoCaso(n);
+    actualizarEstadoPestanasTutoria();
+    marcarCambios();
+    for (let k = n; k <= SESIONES_POR_PERIODO; k++) pintarSeguimientoCanalizaciones(k);
 }
 
 const valoresMarcados = (n, grupo) =>
@@ -210,7 +274,9 @@ function leerSesionTutoria(n, periodo) {
         RequiereSeguimiento: estado === 'Abierto' || estado === 'En atención',
         ValoracionRiesgo: valoracion,
         MotivoValoracion: $('motivoValoracionTutoria' + n).value.trim(),
-        SemaforoSistema: valoracion ? (semaforoAlValorar[n] || '') : ''
+        SemaforoSistema: valoracion ? (semaforoAlValorar[n] || '') : '',
+        AcudioCanalizaciones: [...document.querySelectorAll(`#seguimientoCanalizaciones${n} select[data-area]`)]
+            .filter(s => s.value).map(s => `${s.getAttribute('data-area')}=${s.value}`)
     };
 }
 
@@ -218,7 +284,7 @@ function leerSesionTutoria(n, periodo) {
 function sesionTieneInformacion(t) {
     return !!(t.Fecha || (t.Asistencia && t.Asistencia !== 'pendiente') || t.Modalidad || t.Temas.length || t.Situaciones.length
         || t.Canalizaciones.length || t.OtraCanalizacion || (t.Acuerdos || '').trim() || (t.Comentarios || '').trim() || t.RequiereSeguimiento
-        || t.MateriaDificultad || t.FechaRevision || t.EstadoCaso || t.ValoracionRiesgo);
+        || t.MateriaDificultad || t.FechaRevision || t.EstadoCaso || t.ValoracionRiesgo || (t.AcudioCanalizaciones || []).length);
 }
 
 // Pasa lo que hay en el formulario (periodo de trabajo actual) a tutoriasGlobal. Lo llama el guardado automático.
@@ -254,6 +320,7 @@ function cargarTutoriasALaVista() {
 
     let tuts = tutoriasGlobal.filter(t => t.Periodo === periodoActual);
     semaforoAlValorar = {};
+    casoAbiertoAutomatico = {};
     for (let n = 1; n <= SESIONES_POR_PERIODO; n++) {
         const t = tuts.find(x => x.Sesion === n) || {};
         $('fechaTutoria' + n).value = t.Fecha || '';
@@ -275,8 +342,78 @@ function cargarTutoriasALaVista() {
         $('motivoValoracionTutoria' + n).value = t.MotivoValoracion || '';
         semaforoAlValorar[n] = t.SemaforoSistema || '';
         validarMotivoValoracion(n);
+        mostrarAvisoCaso(n);
+    }
+    // El "¿acudió?" depende de las canalizaciones de las sesiones anteriores: se pinta con todas ya cargadas
+    for (let n = 1; n <= SESIONES_POR_PERIODO; n++) {
+        const t = tuts.find(x => x.Sesion === n) || {};
+        pintarSeguimientoCanalizaciones(n, t.AcudioCanalizaciones || []);
     }
     pintarSenalesTutoria();
+}
+
+// Áreas a las que se canalizó ANTES de la sesión n: en sesiones anteriores de este periodo y, si el caso viene
+// de un periodo anterior, las de ese caso (las da el servidor)
+// Las que ya concluyeron (antes de esta sesión) no se vuelven a preguntar.
+function canalizacionesAnteriores(n) {
+    let areas = [];
+    const agregar = a => { if (a && !areas.includes(a)) areas.push(a); };
+    const s = situacionActual();
+    const periodo = $('selectPeriodoGlobal') ? $('selectPeriodoGlobal').value : '';
+    if (s && s.semaforo) (s.semaforo.canalizacionesCaso || [])
+        .filter(c => c.periodo !== periodo && !(c.acudio === 'concluida' && c.concluidaEn !== periodo))
+        .forEach(c => agregar(c.area));
+    for (let k = 1; k < n; k++) {
+        // En la sesión k: primero se quitan las que concluyeron y luego se agregan las que se canalizaron
+        document.querySelectorAll(`#seguimientoCanalizaciones${k} select[data-area]`).forEach(sel => {
+            if (sel.value === 'concluida') areas = areas.filter(a => a !== sel.getAttribute('data-area'));
+        });
+        valoresMarcados(k, 'canalizaciones').forEach(agregar);
+        agregar($('otraCanalizacionTutoria' + k).value.trim());
+    }
+    return areas;
+}
+
+// "¿Acudió?" de cada canalización anterior en la sesión n. Conserva lo que ya estaba elegido en pantalla;
+// 'guardados' (["Área=si", ...]) se usa al cargar las sesiones.
+function pintarSeguimientoCanalizaciones(n, guardados) {
+    const caja = $('seguimientoCanalizaciones' + n);
+    if (!caja) return;
+    const elegidos = {};
+    (guardados || []).forEach(r => { const i = r.lastIndexOf('='); if (i > 0) elegidos[r.slice(0, i)] = r.slice(i + 1); });
+    if (!guardados) caja.querySelectorAll('select[data-area]').forEach(s => { elegidos[s.getAttribute('data-area')] = s.value; });
+
+    const areas = canalizacionesAnteriores(n);
+    Object.keys(elegidos).forEach(a => { if (elegidos[a] && !areas.includes(a)) areas.push(a); });   // no perder lo guardado
+    if (areas.length === 0) { caja.classList.add('d-none'); caja.innerHTML = ''; return; }
+
+    caja.classList.remove('d-none');
+    caja.innerHTML = `
+        <div class="border rounded p-2 bg-white">
+            <div class="app-etiqueta mb-1"><i class="bi bi-arrow-repeat me-1"></i>¿Acudió a la canalización anterior?</div>
+            ${areas.map((a, i) => `
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-1 ${i ? 'border-top' : ''}">
+                    <span class="small">${escapeHTML(a)}</span>
+                    <select class="form-select form-select-sm w-auto" data-area="${escapeHTML(a)}" onchange="marcarCambios()">
+                        <option value="">Pendiente de confirmar</option>
+                        <option value="si" ${elegidos[a] === 'si' ? 'selected' : ''}>Acudió, sigue en atención</option>
+                        <option value="no" ${elegidos[a] === 'no' ? 'selected' : ''}>No acudió</option>
+                        <option value="concluida" ${elegidos[a] === 'concluida' ? 'selected' : ''}>Concluyó</option>
+                    </select>
+                </div>`).join('')}
+            <div class="small text-muted mt-1">Marca «Concluyó» cuando esa atención terminó: ya no se volverá a preguntar. El caso sigue abierto mientras quede alguna canalización activa.</div>
+            ${todasConcluidas(n, areas, elegidos)
+                ? `<div class="alert alert-success py-2 px-2 small mt-2 mb-0 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                       <span><i class="bi bi-check2-circle me-1"></i>Todas las canalizaciones concluyeron.</span>
+                       <button type="button" class="btn btn-sm btn-success" onclick="cerrarCasoTutoria(${n})">Cerrar el caso</button>
+                   </div>` : ''}
+        </div>`;
+}
+
+// ¿Ya concluyeron todas las canalizaciones del caso en la sesión n (y no hay nuevas en ella)?
+function todasConcluidas(n, areas, elegidos) {
+    const estado = $('estadoCasoTutoria' + n) ? $('estadoCasoTutoria' + n).value : '';
+    return areas.length > 0 && estado !== 'Cerrado' && !tieneCanalizaciones(n) && areas.every(a => elegidos[a] === 'concluida');
 }
 
 // Marca en cada pestaña si la sesión ya tiene información y el estado del caso; muestra los avisos de cada paso
@@ -334,7 +471,9 @@ function pintarSenalesTutoria() {
         : `<ul class="small mb-0 ps-3">${sem.temasSugeridos.map(t => `<li>${escapeHTML(t)}</li>`).join('')}</ul>`;
 
     const seguimiento = [];
-    if (sem.estadoCaso) seguimiento.push(`Caso: <strong>${escapeHTML(sem.estadoCaso)}</strong>`);
+    if (sem.estadoCaso) seguimiento.push(`Caso: <strong>${escapeHTML(sem.estadoCaso)}</strong>${sem.casoDesde ? ` (desde ${escapeHTML(sem.casoDesde)})` : ''}`);
+    (sem.canalizacionesCaso || []).forEach(c => seguimiento.push(
+        `${escapeHTML(c.area)}: <strong class="${c.acudio === 'no' ? 'text-danger' : c.acudio === 'si' ? 'text-success' : c.acudio === 'concluida' ? 'text-secondary' : ''}">${{ si: 'acudió, sigue en atención', no: 'no acudió', concluida: 'concluyó' }[c.acudio] || 'pendiente de confirmar'}</strong>`));
     seguimiento.push(sem.diasSinContacto === null || sem.diasSinContacto === undefined
         ? 'Sin tutorías con asistencia registradas'
         : `Último contacto: <strong>${fecha(sem.ultimoContacto)}</strong> (hace ${sem.diasSinContacto} día${sem.diasSinContacto === 1 ? '' : 's'})`);
@@ -376,7 +515,8 @@ function tutoriaDesdeServidor(t) {
         Modalidad: t.modalidad || '', Temas: t.temas || [], Situaciones: t.situaciones || [], Canalizaciones: t.canalizaciones || [],
         OtraCanalizacion: t.otraCanalizacion || '', Acuerdos: t.acuerdos || '', RequiereSeguimiento: !!t.requiereSeguimiento,
         MateriaDificultad: t.materiaDificultad || '', FechaRevision: t.fechaRevision || '', EstadoCaso: t.estadoCaso || '',
-        ValoracionRiesgo: t.valoracionRiesgo || '', MotivoValoracion: t.motivoValoracion || '', SemaforoSistema: t.semaforoSistema || ''
+        ValoracionRiesgo: t.valoracionRiesgo || '', MotivoValoracion: t.motivoValoracion || '', SemaforoSistema: t.semaforoSistema || '',
+        AcudioCanalizaciones: t.acudioCanalizaciones || []
     };
 }
 

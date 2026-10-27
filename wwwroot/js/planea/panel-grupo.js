@@ -7,6 +7,12 @@ let datosPanelGrupo = [];
 
 let ordenPanelGrupo = { columna: 'nivelSemaforo', ascendente: false };
 
+// Cierre de periodo: el reporte del periodo de todos los alumnos activos, cada uno en hoja aparte
+function abrirReportesDelGrupo() {
+    const selP = $('selectPeriodoGlobal');
+    abrirEnPestana(`/Home/ReportesDelPeriodo?periodo=${encodeURIComponent(selP ? selP.value : '')}`, esperarGuardadoEnCurso());
+}
+
 function abrirPanelGrupo() {
     const selP = $('selectPeriodoGlobal');
     const periodo = selP ? selP.value : '';

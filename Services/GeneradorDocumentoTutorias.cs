@@ -102,6 +102,9 @@ table.casillas td {{ border: none; padding: 1pt 4pt; width: 50%; }}
                     html.Append(Casillas(CatalogoTutorias.Canalizaciones, s.Canalizaciones));
                     if (!string.IsNullOrWhiteSpace(s.OtraCanalizacion))
                         html.Append($"<p>{Marcada} Otra: {E(s.OtraCanalizacion)}</p>");
+                    var respuestas = ReglasCaso.Respuestas(s).ToList();
+                    if (respuestas.Count > 0)
+                        html.Append($"<p><b>Seguimiento de canalizaciones:</b> {string.Join(" · ", respuestas.Select(r => E(r.area) + ": " + ReglasCaso.TextoAcudio(r.acudio)))}</p>");
 
                     html.Append("<p class='etiqueta'>Acuerdo principal</p>");
                     html.Append($"<div class='caja'>{Parrafos(s.Acuerdos)}</div>");
@@ -127,7 +130,8 @@ table.casillas td {{ border: none; padding: 1pt 4pt; width: 50%; }}
             || !string.IsNullOrWhiteSpace(t.Modalidad) || (t.Temas?.Count ?? 0) > 0 || (t.Situaciones?.Count ?? 0) > 0
             || (t.Canalizaciones?.Count ?? 0) > 0 || !string.IsNullOrWhiteSpace(t.OtraCanalizacion)
             || !string.IsNullOrWhiteSpace(t.Acuerdos) || t.RequiereSeguimiento || !string.IsNullOrWhiteSpace(t.MateriaDificultad)
-            || !string.IsNullOrWhiteSpace(t.FechaRevision) || !string.IsNullOrWhiteSpace(t.EstadoCaso) || !string.IsNullOrWhiteSpace(t.ValoracionRiesgo);
+            || !string.IsNullOrWhiteSpace(t.FechaRevision) || !string.IsNullOrWhiteSpace(t.EstadoCaso) || !string.IsNullOrWhiteSpace(t.ValoracionRiesgo)
+            || (t.AcudioCanalizaciones?.Count ?? 0) > 0;
 
         // Estado del caso según la última sesión que lo indica (los registros anteriores solo tenían "requiere seguimiento")
         private static string? EstadoDelCaso(List<TutoriaRecord> sesiones)

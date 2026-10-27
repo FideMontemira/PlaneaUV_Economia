@@ -105,6 +105,7 @@ function cargarSituacionTutoria() {
         .then(res => {
             if (numero !== cargarSituacionTutoria.ultima || !res.success) return;
             situacionTutoria = Object.assign({ matricula, periodo }, res.data);
+            if (formularioTutoriasListo) for (let n = 1; n <= SESIONES_POR_PERIODO; n++) pintarSeguimientoCanalizaciones(n);
             pintarSenalesTutoria();
             pintarEncabezadoTutoria();
         })

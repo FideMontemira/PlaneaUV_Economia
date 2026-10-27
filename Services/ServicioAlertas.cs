@@ -101,21 +101,17 @@ namespace PlaneaUV_Economia.Services
                     if (faltas > 0)
                         alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Periodo", Materia = periodo, Resaltar = "", Mensaje = $"Faltó a {faltas} tutoría(s)", Badge = "bg-warning text-dark", Score = 45, Fuente = Tutoria });
 
-                    // Caso de tutoría abierto o en atención: se avisa a qué se canalizó (o qué situación detectó).
-                    // Cuenta el estado de la última sesión que lo indica; si el tutor lo cerró, ya no se alerta.
-                    var delPeriodo = alumno.Tutorias.Where(t => t.Periodo == periodo).OrderBy(t => t.Sesion).ToList();
-                    var ultimaConEstado = delPeriodo.LastOrDefault(t => !string.IsNullOrWhiteSpace(t.EstadoCaso) || t.RequiereSeguimiento);
-                    bool casoAbierto = ultimaConEstado != null && (string.IsNullOrWhiteSpace(ultimaConEstado.EstadoCaso)
-                        ? ultimaConEstado.RequiereSeguimiento : ultimaConEstado.EstadoCaso != "Cerrado");
-                    var conSeguimiento = casoAbierto ? delPeriodo.Where(t => t.RequiereSeguimiento || (!string.IsNullOrWhiteSpace(t.EstadoCaso) && t.EstadoCaso != "Cerrado")).ToList() : new List<TutoriaRecord>();
-                    if (conSeguimiento.Count > 0)
+                    // Caso de tutoría abierto o en atención (aunque se haya abierto en un periodo anterior): se avisa a qué
+                    // se canalizó y si acudió. Si el tutor lo cerró, ya no se alerta. La regla está en ReglasCaso.
+                    var caso = ReglasCaso.Vigente(alumno, periodo);
+                    if (caso != null && caso.Abierto)
                     {
-                        var canalizado = conSeguimiento.SelectMany(t => (t.Canalizaciones ?? new List<string>())
-                            .Concat(string.IsNullOrWhiteSpace(t.OtraCanalizacion) ? Array.Empty<string>() : new[] { t.OtraCanalizacion!.Trim() })).Distinct().ToList();
-                        var situaciones = conSeguimiento.SelectMany(t => t.Situaciones ?? new List<string>()).Distinct().ToList();
+                        var canalizado = ReglasCaso.Activas(caso.Canalizaciones).Select(c => c.Acudio == "no" ? $"{c.Area} (no acudió)" : c.Area).ToList();
                         string detalle = canalizado.Count > 0 ? string.Join(", ", canalizado)
-                                       : situaciones.Count > 0 ? "Situación: " + string.Join(", ", situaciones)
+                                       : caso.Canalizaciones.Count > 0 ? "Todas las canalizaciones concluyeron (falta cerrar el caso)"
+                                       : caso.Situaciones.Count > 0 ? "Situación: " + string.Join(", ", caso.Situaciones.Select(x => CatalogoTutorias.EsPrivada(x) ? "personal (confidencial)" : x).Distinct())
                                        : "Sin canalización registrada";
+                        if (caso.Desde != periodo && caso.Desde != "") detalle += $" · caso abierto desde {caso.Desde}";
                         alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = canalizado.Count > 0 ? "Canalizado a" : "Detalle", Materia = detalle, Resaltar = "", Mensaje = "Requiere seguimiento de tutoría", Badge = "bg-warning text-dark", Score = 55, Fuente = Tutoria });
                     }
                 }

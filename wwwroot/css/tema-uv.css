@@ -253,3 +253,19 @@ h1, h2, h3, h4, h5, h6, .h4, .h5 { color: var(--uv-azul-oscuro); }
 .paso-tutoria { border-radius: 12px; border-color: var(--uv-borde); }
 .paso-numero { background-color: var(--uv-azul); }
 .paso-tutoria-titulo { color: var(--uv-azul-oscuro); }
+
+/* ---------- Materia aprobada: palomita como marca de agua ---------- */
+/* Ocupa todo el cuadro de la experiencia, translúcida y detrás del texto (no tapa la información ni los clics) */
+.materia-card.estado-aprobada::after {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2328ad56' d='M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z'/%3E%3C/svg%3E") center / contain no-repeat;
+    opacity: 0.16;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* El contenido de la tarjeta queda por encima de la marca de agua */
+.materia-card.estado-aprobada > *:not(.btn-quitar-afel) { position: relative; z-index: 1; }
+.materia-card.estado-aprobada > .btn-quitar-afel { z-index: 2; }   /* el botón × de las AFEL conserva su posición */
