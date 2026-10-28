@@ -109,8 +109,7 @@ function calcularSugerenciaCarga() {
             <td class="fw-bold">${escapeHTML(c.nombre)}${c.reprobada ? ' <span class="badge bg-warning text-dark">Recursa</span>' : ''}</td>
             <td class="text-center">${c.semestre}°</td>
             <td class="text-center">${c.creditos}</td>
-            <td><span class="badge ${c.color}">${escapeHTML(c.motivo)}</span>${c.abre > 0
-                ? `<div class="small text-muted mt-1"><i class="bi bi-unlock me-1"></i>Al aprobarla se abren ${c.abre} materia(s) · ${c.abreLista.reduce((s, d) => s + d.creditos, 0)} créditos</div>` : ''}</td>
+            <td><span class="badge ${c.color}">${escapeHTML(c.motivo)}</span></td>
         </tr>${c.abreLista.map(d => filaDesbloqueada(d, c.nombre)).join('')}`;
     const tabla = (lista) => `<div class="table-responsive bg-white rounded shadow-sm mb-3"><table class="table table-sm align-middle mb-0">
             <thead class="table-light"><tr><th>Materia</th><th class="text-center">Periodo del plan</th><th class="text-center">Créditos</th><th>Motivo</th></tr></thead>
