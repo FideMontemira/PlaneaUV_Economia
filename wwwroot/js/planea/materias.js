@@ -139,9 +139,14 @@ function manejadorClickTarjeta(e) {
         if ($('checkRiesgo')) $('checkRiesgo').checked = intentoActual.EnRiesgo;
         if ($('checkRezago')) $('checkRezago').checked = intentoActual.EnRezago;
     } else if (ultimoIntento) {
-        if ($('selectInscripcion')) $('selectInscripcion').value = ultimoIntento.TipoInscripcion;
-        actualizarOpcionesExamen(ultimoIntento.TipoInscripcion);
-        if ($('selectExamen')) $('selectExamen').value = ultimoIntento.UltimoExamen;
+        // Periodo sin registro: se propone lo que le toca (p. ej. 2.ª inscripción tras reprobar la 1.ª),
+        // no se copia el intento anterior, que llevaría a registrar de nuevo la misma inscripción
+        const siguiente = siguienteOportunidad(historialArray, periodoActual);
+        const insc = siguiente && siguiente.inscripcion ? siguiente.inscripcion : ultimoIntento.TipoInscripcion;
+        const exam = siguiente && siguiente.inscripcion ? siguiente.examen : 'ordinario';
+        if ($('selectInscripcion')) $('selectInscripcion').value = insc;
+        actualizarOpcionesExamen(insc);
+        if ($('selectExamen')) $('selectExamen').value = exam;
         if ($('selectAprobacion')) $('selectAprobacion').value = 'ninguno';
         if ($('checkRiesgo')) $('checkRiesgo').checked = ultimoIntento.EnRiesgo;
         if ($('checkRezago')) $('checkRezago').checked = ultimoIntento.EnRezago;
@@ -156,6 +161,14 @@ function manejadorClickTarjeta(e) {
 
     evaluarLogicaInscripcion();
     renderizarHistorialUI(historialArray, false);
+
+    // Periodo sin registro y sin más oportunidades: se avisa desde que se abre
+    const siguiente = intentoActual ? null : siguienteOportunidad(historialArray, periodoActual);
+    const alerta = $('alertaEstatus');
+    if (siguiente && siguiente.mensaje && alerta) {
+        alerta.className = 'alert alert-danger mt-3 py-2 small';
+        alerta.innerHTML = siguiente.mensaje;
+    }
     if (modalBootstrapInstance) modalBootstrapInstance.show();
 }
 
@@ -248,49 +261,62 @@ function renderizarHistorialUI(historialArray, isLocked) {
 
     let periodoSelect = $('selectPeriodoGlobal');
     let periodoActual = periodoSelect ? periodoSelect.value : '';
-    let ultimoIntento = historialArray.length > 0 ? historialArray[historialArray.length - 1] : null;
-    let tieneIntentoEstePeriodo = historialArray.some(x => x.Periodo === periodoActual);
+    const siguiente = siguienteOportunidad(historialArray, periodoActual);
+    btnSiguiente.classList.toggle('d-none', !(siguiente && siguiente.inscripcion));
+}
 
-    if (ultimoIntento && ultimoIntento.Estado === 'reprobada' && !tieneIntentoEstePeriodo) {
-        btnSiguiente.classList.remove('d-none');
-    } else {
-        btnSiguiente.classList.add('d-none');
+// Qué le toca al alumno después de reprobar, según la última vez que cursó la materia:
+//  - En el MISMO periodo sigue el examen siguiente de la misma inscripción:
+//      1.ª: ordinario → extraordinario → título    2.ª: ordinario → extraordinario → última oportunidad
+//  - En un periodo POSTERIOR: si reprobó la 1.ª inscripción (con cualquier examen) va a 2.ª inscripción,
+//    ordinario. Si ya reprobó la 2.ª, no le quedan inscripciones.
+// Devuelve { inscripcion, examen } con lo que sigue, { mensaje } si no hay siguiente oportunidad en este
+// periodo, o null si no aplica (sin intentos, el último no está reprobado o es un periodo anterior).
+function siguienteOportunidad(historialArray, periodoActual) {
+    const intentos = ordenarIntentos(historialArray);
+    const ultimo = intentos[intentos.length - 1];
+    if (!ultimo || ultimo.Estado !== 'reprobada') return null;
+
+    const ordenActual = ordenPeriodo(periodoActual), ordenUltimo = ordenPeriodo(ultimo.Periodo);
+    const segunda = ultimo.TipoInscripcion === 'segunda';
+    const baja = { baja: true, mensaje: '<strong>Candidato a baja.</strong> Ya reprobó la 2.ª inscripción: no le quedan oportunidades en esta materia.' };
+
+    if (ultimo.Periodo === periodoActual) {
+        const cadena = segunda ? ['ordinario', 'extraordinario', 'ultima'] : ['ordinario', 'extraordinario', 'titulo'];
+        const pos = cadena.indexOf(ultimo.UltimoExamen);
+        if (pos >= 0 && pos < cadena.length - 1) return { inscripcion: ultimo.TipoInscripcion, examen: cadena[pos + 1] };
+        if (segunda) return baja;
+        return { mensaje: 'Reprobó la 1.ª inscripción. La <strong>2.ª inscripción</strong> se registra en el periodo en que la vuelva a cursar: cambia el "Periodo de trabajo".' };
     }
+
+    if (ordenActual === null || ordenUltimo === null || ordenActual < ordenUltimo) return null;
+    return segunda ? baja : { inscripcion: 'segunda', examen: 'ordinario' };
 }
 
 function prepararSiguienteOportunidad() {
-    let historialJSON = tarjetaActual.getAttribute('data-historial');
-    let historialArray = historialJSON ? JSON.parse(historialJSON) : [];
-    let ultimo = historialArray[historialArray.length - 1];
+    if (!tarjetaActual) return;
+    const historialArray = JSON.parse(tarjetaActual.getAttribute('data-historial') || '[]');
+    const periodoActual = $('selectPeriodoGlobal') ? $('selectPeriodoGlobal').value : '';
+    const siguiente = siguienteOportunidad(historialArray, periodoActual);
+    if (!siguiente || !siguiente.inscripcion) return;
 
-    if (!ultimo) return;
-
-    let nextInsc = ultimo.TipoInscripcion;
-    let nextExam = 'ordinario';
-
-    if (ultimo.TipoInscripcion === 'primera') {
-        if (ultimo.UltimoExamen === 'ordinario') nextExam = 'extraordinario';
-        else if (ultimo.UltimoExamen === 'extraordinario') nextExam = 'titulo';
-        else if (ultimo.UltimoExamen === 'titulo') {
-            nextInsc = 'segunda';
-            nextExam = 'ordinario';
-        }
-    } else if (ultimo.TipoInscripcion === 'segunda') {
-        if (ultimo.UltimoExamen === 'ordinario') nextExam = 'extraordinario';
-        else if (ultimo.UltimoExamen === 'extraordinario') nextExam = 'ultima';
-        else if (ultimo.UltimoExamen === 'ultima') {
-            alert('Ya agotó sus oportunidades. Candidato a baja.');
-            return;
-        }
-    }
-
-    if ($('selectInscripcion')) $('selectInscripcion').value = nextInsc;
-    actualizarOpcionesExamen(nextInsc);
-
-    if ($('selectExamen')) $('selectExamen').value = nextExam;
+    if ($('selectInscripcion')) $('selectInscripcion').value = siguiente.inscripcion;
+    actualizarOpcionesExamen(siguiente.inscripcion);
+    if ($('selectExamen')) $('selectExamen').value = siguiente.examen;
     if ($('selectAprobacion')) $('selectAprobacion').value = 'ninguno';
-
     evaluarLogicaInscripcion();
+
+    // Ya quedó preparado: el botón se oculta para no avanzar dos veces
+    if ($('btnSiguienteOp')) $('btnSiguienteOp').classList.add('d-none');
+    const alerta = $('alertaEstatus');
+    if (alerta) {
+        alerta.className = 'alert alert-info mt-3 py-2 small';
+        alerta.innerHTML = `Listo para registrar: <strong>${siguiente.inscripcion === 'segunda' ? '2.ª' : '1.ª'} inscripción, ${textoExamen(siguiente.examen)}</strong> en ${escapeHTML(periodoActual)}. Elige el resultado y guarda.`;
+    }
+}
+
+function textoExamen(examen) {
+    return { ordinario: 'ordinario', extraordinario: 'extraordinario', titulo: 'título de suficiencia', ultima: 'última oportunidad' }[examen] || examen;
 }
 
 function actualizarOpcionesExamen(tipoInscripcion) {
@@ -447,6 +473,17 @@ function guardarAvance() {
 function motivoInscripcionInvalida(historialArray, indiceActual, periodoActual, tipoInscripcion) {
     const orden = ordenPeriodo(periodoActual);
     const otros = historialArray.filter((_, i) => i !== indiceActual);
+
+    // Cada inscripción ocupa un solo periodo (ahí se presentan todos sus exámenes) y solo hay dos.
+    // Solo se revisa al crear el registro o cambiarle la inscripción, para que los datos capturados
+    // antes de esta regla se puedan seguir corrigiendo.
+    const cambiaInscripcion = indiceActual === -1 || historialArray[indiceActual].TipoInscripcion !== tipoInscripcion;
+    const misma = cambiaInscripcion ? otros.find(x => x.TipoInscripcion === tipoInscripcion) : null;
+    if (misma) {
+        return tipoInscripcion === 'primera'
+            ? `La 1.ª inscripción ya está registrada en ${misma.Periodo}. Si la volvió a cursar en ${periodoActual}, regístrala como 2.ª inscripción.`
+            : `La 2.ª inscripción ya está registrada en ${misma.Periodo}. Solo hay dos inscripciones por materia.`;
+    }
 
     if (tipoInscripcion === 'segunda') {
         const actual = indiceActual !== -1 ? historialArray[indiceActual] : null;
