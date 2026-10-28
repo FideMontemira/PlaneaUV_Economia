@@ -36,14 +36,27 @@ function calcularSugerenciaCarga() {
     const n = s && s.periodosCorridos >= 1 ? s.periodoQueCursa : null;
     const maximo = parseInt($('inputMaxCreditos') ? $('inputMaxCreditos').value : '0') || 0;
 
-    // Qué materias desbloquea cada una (aparece como prerrequisito de otras); solo cuentan las que aún no aprueba
+    // Qué materias desbloquea cada una (aparece como prerrequisito de otras); solo cuentan las que aún no aprueba.
+    // De cada una se guarda lo necesario para mostrarla como fila de carga: periodo, créditos y qué más le falta.
+    const aprobadas = new Set([...document.querySelectorAll('.materia-card[data-estado="aprobada"]')].map(t => t.getAttribute('data-nombre')));
     const desbloquea = {};
     document.querySelectorAll('.materia-card[data-prerequisito]').forEach(t => {
         if (t.getAttribute('data-estado') === 'aprobada') return;
-        const nombre = t.getAttribute('data-nombre-personalizado') || t.getAttribute('data-nombre');
-        t.getAttribute('data-prerequisito').split(',').map(p => p.trim()).filter(p => p).forEach(p => {
+        const columna = t.closest('.periodo-columna');
+        const requisitos = t.getAttribute('data-prerequisito').split(',').map(p => p.trim()).filter(p => p);
+        const minimos = parseInt(t.getAttribute('data-creditos-minimos')) || 0;
+        requisitos.forEach(p => {
             if (!desbloquea[p]) desbloquea[p] = [];
-            if (!desbloquea[p].includes(nombre)) desbloquea[p].push(nombre);
+            if (desbloquea[p].some(d => d.tarjeta === t)) return;
+            desbloquea[p].push({
+                tarjeta: t,
+                nombre: t.getAttribute('data-nombre-personalizado') || t.getAttribute('data-nombre'),
+                semestre: columna ? parseInt(columna.getAttribute('data-semestre')) : null,
+                creditos: parseInt(t.getAttribute('data-creditos')) || 0,
+                // Otros prerrequisitos que tampoco ha aprobado (además de la materia que la desbloquea)
+                otrosFaltantes: requisitos.filter(r => r !== p && !aprobadas.has(r)),
+                porcentaje: minimos
+            });
         });
     });
 
@@ -59,7 +72,7 @@ function calcularSugerenciaCarga() {
 
         const semestre = parseInt(t.closest('.periodo-columna').getAttribute('data-semestre'));
         const nombreBase = t.getAttribute('data-nombre');
-        const abreLista = desbloquea[nombreBase] || [];
+        const abreLista = (desbloquea[nombreBase] || []).slice().sort((a, b) => (a.semestre || 0) - (b.semestre || 0));
         const abre = abreLista.length;
         let prioridad, motivo, color;
         if (n !== null && semestre < n && abre > 0) { prioridad = 1; motivo = `Atrasada · desbloquea ${abre}`; color = 'bg-danger'; }
@@ -80,13 +93,25 @@ function calcularSugerenciaCarga() {
         if (usados + c.creditos <= disponible) { sugeridas.push(c); usados += c.creditos; } else fuera.push(c);
     });
 
+    // Debajo de cada materia seriada van, como filas de carga, las que se abren al aprobarla (no suman al total)
+    const filaDesbloqueada = (d, requisito) => {
+        let cuando = `Podrá inscribirla al aprobar ${requisito}`;
+        if (d.otrosFaltantes.length > 0) cuando += ` y ${d.otrosFaltantes.join(', ')}`;
+        if (d.porcentaje > 0) cuando += ` (y cubrir el ${d.porcentaje} % de créditos)`;
+        return `<tr class="table-light small text-muted">
+            <td class="ps-4"><i class="bi bi-arrow-return-right me-1"></i><i class="bi bi-lock-fill me-1"></i>${escapeHTML(d.nombre)}</td>
+            <td class="text-center">${d.semestre ? d.semestre + '°' : '—'}</td>
+            <td class="text-center">${d.creditos}</td>
+            <td>${escapeHTML(cuando)}</td>
+        </tr>`;
+    };
     const fila = c => `<tr>
             <td class="fw-bold">${escapeHTML(c.nombre)}${c.reprobada ? ' <span class="badge bg-warning text-dark">Recursa</span>' : ''}</td>
             <td class="text-center">${c.semestre}°</td>
             <td class="text-center">${c.creditos}</td>
             <td><span class="badge ${c.color}">${escapeHTML(c.motivo)}</span>${c.abre > 0
-                ? `<div class="small text-muted mt-1"><i class="bi bi-unlock me-1"></i>Desbloquea: ${c.abreLista.map(escapeHTML).join(', ')}</div>` : ''}</td>
-        </tr>`;
+                ? `<div class="small text-muted mt-1"><i class="bi bi-unlock me-1"></i>Al aprobarla se abren ${c.abre} materia(s) · ${c.abreLista.reduce((s, d) => s + d.creditos, 0)} créditos</div>` : ''}</td>
+        </tr>${c.abreLista.map(d => filaDesbloqueada(d, c.nombre)).join('')}`;
     const tabla = (lista) => `<div class="table-responsive bg-white rounded shadow-sm mb-3"><table class="table table-sm align-middle mb-0">
             <thead class="table-light"><tr><th>Materia</th><th class="text-center">Periodo del plan</th><th class="text-center">Créditos</th><th>Motivo</th></tr></thead>
             <tbody>${lista.map(fila).join('')}</tbody></table></div>`;
