@@ -331,7 +331,7 @@ function evaluarLogicaInscripcion() {
         if (inscripcion === 'primera') {
             if (examen === 'ordinario') { alerta.classList.add('alert-warning'); alerta.innerHTML = 'Reprobó Ordinario. <strong>Sigue Extra.</strong>'; }
             else if (examen === 'extraordinario') { alerta.classList.add('alert-warning'); alerta.innerHTML = 'Reprobó Extra. <strong>Sigue Título.</strong>'; }
-            else if (examen === 'titulo') { alerta.classList.add('alert-danger'); alerta.innerHTML = 'Reprobó Título. <strong>Pasa a 2da Inscripción.</strong>'; }
+            else if (examen === 'titulo') { alerta.classList.add('alert-danger'); alerta.innerHTML = 'Reprobó Título. <strong>Pasa a 2da Inscripción</strong>, que se registra en el periodo en que la vuelva a cursar.'; }
         } else {
             if (examen === 'ordinario') { alerta.classList.add('alert-warning'); alerta.innerHTML = 'Reprobó Ord. de 2da. <strong>Sigue Extra.</strong>'; }
             else if (examen === 'extraordinario') { alerta.classList.add('alert-warning'); alerta.innerHTML = 'Reprobó Extra de 2da. <strong>Sigue Última Op.</strong>'; }
@@ -405,6 +405,14 @@ function guardarAvance() {
     let valExam = selExam ? selExam.value : 'ordinario';
     let estadoGuardar = selectAEstado(aprobacion);
 
+    // Cada periodo guarda un solo registro por materia. La 2.ª inscripción se cursa en un periodo
+    // posterior al de la 1.ª: si se registrara en el mismo, sobrescribiría el intento reprobado y se perdería.
+    const motivo = motivoInscripcionInvalida(historialArray, index, periodoActual, valInsc);
+    if (motivo) {
+        alert(motivo);
+        return;
+    }
+
     if (index === -1) {
         historialArray.push({
             Nombre: nuevoNombre,
@@ -425,12 +433,43 @@ function guardarAvance() {
         historialArray[index].EnRezago = enRezago;
     }
 
+    historialArray = ordenarIntentos(historialArray);
     tarjetaActual.setAttribute('data-historial', JSON.stringify(historialArray));
     actualizarTarjetaVisual(tarjetaActual, historialArray);
 
     if (modalBootstrapInstance) modalBootstrapInstance.hide();
     actualizarProgreso();
     marcarCambios();
+}
+
+// Revisa que la inscripción elegida tenga sentido con los otros intentos de la materia.
+// Devuelve el mensaje para el tutor, o null si se puede guardar.
+function motivoInscripcionInvalida(historialArray, indiceActual, periodoActual, tipoInscripcion) {
+    const orden = ordenPeriodo(periodoActual);
+    const otros = historialArray.filter((_, i) => i !== indiceActual);
+
+    if (tipoInscripcion === 'segunda') {
+        const actual = indiceActual !== -1 ? historialArray[indiceActual] : null;
+        if (actual && actual.TipoInscripcion === 'primera' && actual.Estado === 'reprobada') {
+            return `En ${periodoActual} ya está registrada la 1.ª inscripción como reprobada.\n\n`
+                + 'La 2.ª inscripción se cursa en otro periodo: cambia el "Periodo de trabajo" al periodo en que la volvió '
+                + 'a inscribir y regístrala ahí. Así se conservan los dos intentos.';
+        }
+        const primeraPosterior = otros.find(x => x.TipoInscripcion === 'primera' && orden !== null
+            && ordenPeriodo(x.Periodo) !== null && ordenPeriodo(x.Periodo) >= orden);
+        if (primeraPosterior) {
+            return `La 1.ª inscripción está registrada en ${primeraPosterior.Periodo}. `
+                + 'La 2.ª inscripción tiene que ser en un periodo posterior.';
+        }
+    } else if (tipoInscripcion === 'primera') {
+        const segundaAnterior = otros.find(x => x.TipoInscripcion === 'segunda' && orden !== null
+            && ordenPeriodo(x.Periodo) !== null && ordenPeriodo(x.Periodo) <= orden);
+        if (segundaAnterior) {
+            return `La 2.ª inscripción está registrada en ${segundaAnterior.Periodo}. `
+                + 'La 1.ª inscripción tiene que ser en un periodo anterior.';
+        }
+    }
+    return null;
 }
 
 function actualizarTarjetaVisual(tarjeta, historialArray) {

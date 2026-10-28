@@ -45,6 +45,22 @@ namespace PlaneaUV_Economia.Tests
         }
 
         [Fact]
+        public void ConservaLaPrimeraInscripcionReprobadaAlAprobarEnSegunda()
+        {
+            var alumno = Datos.Alumno("S24000001",
+                Datos.Materia("A", "reprobada", periodo: "Agosto - Enero 2025", inscripcion: "primera", examen: "titulo"),
+                Datos.Materia("A", "aprobada", periodo: "Febrero - Julio 2025", inscripcion: "segunda", examen: "ordinario"));
+            _repo.Guardar(alumno);
+
+            var intentos = _repo.Buscar("S24000001")!.Materias;
+            Assert.Equal(2, intentos.Count);
+            Assert.Equal(("Agosto - Enero 2025", "primera", "titulo", "reprobada"),
+                (intentos[0].Periodo, intentos[0].TipoInscripcion, intentos[0].UltimoExamen, intentos[0].Estado));
+            Assert.Equal(("Febrero - Julio 2025", "segunda", "ordinario", "aprobada"),
+                (intentos[1].Periodo, intentos[1].TipoInscripcion, intentos[1].UltimoExamen, intentos[1].Estado));
+        }
+
+        [Fact]
         public void GuardaYLeeElFormatoGuiadoDeTutoria()
         {
             var alumno = Datos.Alumno("S24000001");

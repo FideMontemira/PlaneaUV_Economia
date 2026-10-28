@@ -48,6 +48,8 @@ function buscarAlumno(materiaAResaltar = null) {
                     if (!materiasAgrupadas[matParseada.Nombre]) materiasAgrupadas[matParseada.Nombre] = [];
                     materiasAgrupadas[matParseada.Nombre].push(matParseada);
                 });
+                // Del intento más antiguo al más reciente: el último es el que define el estado de la tarjeta
+                for (let k in materiasAgrupadas) materiasAgrupadas[k] = ordenarIntentos(materiasAgrupadas[k]);
 
                 document.querySelectorAll(".afel-extra").forEach(t => t.remove());
 
