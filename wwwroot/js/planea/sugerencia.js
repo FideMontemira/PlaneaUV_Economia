@@ -36,10 +36,15 @@ function calcularSugerenciaCarga() {
     const n = s && s.periodosCorridos >= 1 ? s.periodoQueCursa : null;
     const maximo = parseInt($('inputMaxCreditos') ? $('inputMaxCreditos').value : '0') || 0;
 
-    // Cuántas materias desbloquea cada una (aparece como prerrequisito de otras)
+    // Qué materias desbloquea cada una (aparece como prerrequisito de otras); solo cuentan las que aún no aprueba
     const desbloquea = {};
     document.querySelectorAll('.materia-card[data-prerequisito]').forEach(t => {
-        t.getAttribute('data-prerequisito').split(',').map(p => p.trim()).filter(p => p).forEach(p => { desbloquea[p] = (desbloquea[p] || 0) + 1; });
+        if (t.getAttribute('data-estado') === 'aprobada') return;
+        const nombre = t.getAttribute('data-nombre-personalizado') || t.getAttribute('data-nombre');
+        t.getAttribute('data-prerequisito').split(',').map(p => p.trim()).filter(p => p).forEach(p => {
+            if (!desbloquea[p]) desbloquea[p] = [];
+            if (!desbloquea[p].includes(nombre)) desbloquea[p].push(nombre);
+        });
     });
 
     let creditosEnCurso = 0, enCurso = 0, bloqueadas = 0;
@@ -54,14 +59,15 @@ function calcularSugerenciaCarga() {
 
         const semestre = parseInt(t.closest('.periodo-columna').getAttribute('data-semestre'));
         const nombreBase = t.getAttribute('data-nombre');
-        const abre = desbloquea[nombreBase] || 0;
+        const abreLista = desbloquea[nombreBase] || [];
+        const abre = abreLista.length;
         let prioridad, motivo, color;
         if (n !== null && semestre < n && abre > 0) { prioridad = 1; motivo = `Atrasada · desbloquea ${abre}`; color = 'bg-danger'; }
         else if (n !== null && semestre < n) { prioridad = 2; motivo = 'Atrasada'; color = 'bg-secondary'; }
         else if (n === null || semestre === n) { prioridad = 3; motivo = n === null ? 'Disponible' : 'De su periodo'; color = 'bg-primary'; }
         else { prioridad = 4; motivo = 'Adelantar'; color = 'bg-info text-dark'; }
 
-        candidatas.push({ nombre: t.getAttribute('data-nombre-personalizado') || nombreBase, semestre, creditos, prioridad, motivo, color, abre, reprobada: estado === 'reprobada' });
+        candidatas.push({ nombre: t.getAttribute('data-nombre-personalizado') || nombreBase, semestre, creditos, prioridad, motivo, color, abre, abreLista, reprobada: estado === 'reprobada' });
     });
 
     candidatas.sort((a, b) => a.prioridad - b.prioridad || a.semestre - b.semestre || b.abre - a.abre);
@@ -78,7 +84,8 @@ function calcularSugerenciaCarga() {
             <td class="fw-bold">${escapeHTML(c.nombre)}${c.reprobada ? ' <span class="badge bg-warning text-dark">Recursa</span>' : ''}</td>
             <td class="text-center">${c.semestre}°</td>
             <td class="text-center">${c.creditos}</td>
-            <td><span class="badge ${c.color}">${escapeHTML(c.motivo)}</span></td>
+            <td><span class="badge ${c.color}">${escapeHTML(c.motivo)}</span>${c.abre > 0
+                ? `<div class="small text-muted mt-1"><i class="bi bi-unlock me-1"></i>Desbloquea: ${c.abreLista.map(escapeHTML).join(', ')}</div>` : ''}</td>
         </tr>`;
     const tabla = (lista) => `<div class="table-responsive bg-white rounded shadow-sm mb-3"><table class="table table-sm align-middle mb-0">
             <thead class="table-light"><tr><th>Materia</th><th class="text-center">Periodo del plan</th><th class="text-center">Créditos</th><th>Motivo</th></tr></thead>
