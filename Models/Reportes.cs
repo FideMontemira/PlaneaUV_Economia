@@ -101,6 +101,8 @@ namespace PlaneaUV_Economia.Models
         public List<MateriaCritica> MateriasCriticas { get; set; } = new List<MateriaCritica>();
 
         // Materias que piden un porcentaje de créditos (servicio social, experiencia recepcional, prácticas...)
+        // Materias de varios periodos (p. ej. servicio social) que sigue cursando desde un periodo anterior
+        public List<string> EnCursoDesdeAntes { get; set; } = new List<string>();
         public List<RequisitoCreditos> RequisitosCreditos { get; set; } = new List<RequisitoCreditos>();
     }
 

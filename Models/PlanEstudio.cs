@@ -36,6 +36,9 @@ namespace PlaneaUV_Economia.Models
         // Porcentaje de los créditos totales que el alumno debe tener aprobados para inscribirla
         // (p. ej. 70 en servicio social, experiencia recepcional y prácticas profesionales). 0 = sin requisito.
         public int PorcentajeCreditos { get; set; }
+        // Periodos que dura la materia (columna H; p. ej. servicio social: 2). Mientras siga "cursando" dentro de
+        // ese plazo, en los periodos siguientes se toma como en curso, no como rezago. 1 = un solo periodo.
+        public int PeriodosDuracion { get; set; } = 1;
 
         [System.Text.Json.Serialization.JsonIgnore]
         public bool EsAfel => Tipo.Equals("afel", System.StringComparison.OrdinalIgnoreCase);

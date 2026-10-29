@@ -49,7 +49,11 @@ namespace PlaneaUV_Economia.Services
                 if (periodoQueCursa >= 1 && plan != null && plan.Materias.Count > 0)
                 {
                     int duracionPlan = ReglasTrayectoria.DuracionPlan(plan);
-                    var rezago = ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value, aprobadas);
+                    // Lo que sigue cursando desde un periodo anterior (p. ej. servicio social) no es rezago y cuenta como registrado
+                    var continuan = ReglasTrayectoria.EnCursoDesdePeriodoAnterior(plan, alumno, periodo);
+                    var noRezago = new HashSet<string>(aprobadas.Concat(continuan));
+                    if (continuan.Count > 0) tieneRegistroEnPeriodo = true;
+                    var rezago = ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value, noRezago);
                     // Pendientes de todo el plan (no solo de periodos anteriores): si no le falta nada, ya terminó
                     bool leFaltanMaterias = ReglasTrayectoria.MateriasEnRezago(plan, int.MaxValue, aprobadas).Count > 0;
 
@@ -83,9 +87,9 @@ namespace PlaneaUV_Economia.Services
                     // Inscribió menos materias de las que le quedan pendientes de SU periodo (si adelantó alguna, no se le pide)
                     if (tieneRegistroEnPeriodo && !enPausaEstePeriodo && periodoQueCursa <= duracionPlan)
                     {
-                        int registradas = alumno.Materias.Where(m => m.Periodo == periodo).Select(m => m.Nombre ?? "").Distinct().Count();
+                        int registradas = alumno.Materias.Where(m => m.Periodo == periodo).Select(m => m.Nombre ?? "").Concat(continuan).Distinct().Count();
                         // Pendientes hasta su periodo menos pendientes de periodos anteriores = pendientes de su periodo
-                        int esperadas = ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value + 1, aprobadas).Count - rezago.Count;
+                        int esperadas = ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value + 1, noRezago).Count - rezago.Count + continuan.Count;
                         if (registradas < esperadas)
                             alertas.Add(new Alerta { Matricula = matricula, Nombre = nombre, Etiqueta = "Inscripción", Materia = $"Registró {registradas} de las {esperadas} materias de su {periodoQueCursa}° periodo.", Resaltar = "", Mensaje = "Carga menor a la del plan", Badge = "bg-warning text-dark", Score = 48, Fuente = Inscripcion });
                     }

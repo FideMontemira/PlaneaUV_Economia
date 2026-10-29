@@ -235,6 +235,7 @@ ul {{ margin: 0; padding-left: 18px; }} li {{ margin: 2px 0; }}
             "aprobada" => "<span class='pastilla p-verde'>Aprobada</span>",
             "reprobada" => "<span class='pastilla p-rojo'>Reprobada</span>",
             "cursando" => "<span class='pastilla p-azul'>Cursando</span>",
+            "continua" => "<span class='pastilla p-azul'>Continúa el siguiente periodo</span>",
             _ => "<span class='pastilla p-gris'>Sin resultado registrado</span>"
         };
 

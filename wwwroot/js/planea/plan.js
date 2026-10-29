@@ -290,6 +290,9 @@ function renderizarMapaVisual() {
                 card.setAttribute('data-creditos-minimos', porcentajeMat);
                 prerreqHtml += `<span class="prerequisito-text requisito-creditos-text">Req: ${porcentajeMat} % de créditos</span>`;
             }
+            // Periodos que dura (columna H): p. ej. servicio social se cursa hasta en 2 periodos
+            const duracionMat = parseInt(mat.periodosDuracion || mat.PeriodosDuracion) || 1;
+            if (duracionMat > 1) card.setAttribute('data-periodos-duracion', duracionMat);
 
             card.innerHTML = `<strong>${escapeHTML(nombreMat)}</strong><br/>(${creditosMat} Cr.)${prerreqHtml}`;
             card.addEventListener('click', manejadorClickTarjeta);

@@ -52,7 +52,7 @@ namespace PlaneaUV_Economia.Services
                 int? periodoQueCursa = ReglasTrayectoria.PeriodoQueCursa(alumno.Matricula, periodo, alumno.PeriodosSinInscripcion ?? new List<string>());
                 if (periodoQueCursa >= 1 && plan != null)
                 {
-                    foreach (var m in ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value, ReglasTrayectoria.MateriasAprobadas(alumno)))
+                    foreach (var m in ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value, ReglasTrayectoria.NoCuentanComoRezago(plan, alumno, periodo)))
                     {
                         if (enRezago.Add(m.Nombre)) rezagos.Add((m.Nombre, quien));
                         if (candados.Contains(m.Nombre) && enSeriadas.Add(m.Nombre)) seriadas.Add((m.Nombre, quien));
@@ -91,7 +91,10 @@ namespace PlaneaUV_Economia.Services
                 int creditosAprobados = aprobadas.Values.Sum();
                 int creditosTotales = plan?.CreditosTotales ?? 0;
                 int? periodoQueCursa = ReglasTrayectoria.PeriodoQueCursa(matricula, periodo, alumno.PeriodosSinInscripcion ?? new List<string>());
-                int rezago = (plan != null && periodoQueCursa >= 1) ? ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value, new HashSet<string>(aprobadas.Keys)).Count : 0;
+                // Lo que sigue cursando desde un periodo anterior (p. ej. servicio social) cuenta como en curso, no como rezago
+                var continuan = ReglasTrayectoria.EnCursoDesdePeriodoAnterior(plan, alumno, periodo);
+                enCurso += continuan.Count(n => !alumno.Materias.Any(m => m.Periodo == periodo && m.Nombre == n));
+                int rezago = (plan != null && periodoQueCursa >= 1) ? ReglasTrayectoria.MateriasEnRezago(plan, periodoQueCursa.Value, new HashSet<string>(aprobadas.Keys.Concat(continuan))).Count : 0;
 
                 // Créditos que ya debería llevar según las trayectorias estándar y larga
                 int estandar = 0, larga = 0;

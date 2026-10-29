@@ -92,6 +92,9 @@ namespace PlaneaUV_Economia.Services
                 var malPorcentaje = plan.Materias.FirstOrDefault(m => m.PorcentajeCreditos < 0);
                 if (malPorcentaje != null)
                     throw new ArgumentException($"El porcentaje de créditos de \"{malPorcentaje.Nombre}\" debe estar entre 0 y 100 (columna G).");
+                var malaDuracion = plan.Materias.FirstOrDefault(m => m.PeriodosDuracion < 1);
+                if (malaDuracion != null)
+                    throw new ArgumentException($"Los periodos que dura \"{malaDuracion.Nombre}\" deben ser un número entero de 1 a {MaxPeriodosDuracion} (columna H).");
 
                 File.Move(temporal, ruta, overwrite: true);
                 _cache.TryRemove(ruta, out _);
@@ -126,6 +129,17 @@ namespace PlaneaUV_Economia.Services
             return (int)Math.Round(valor, MidpointRounding.AwayFromZero);
         }
 
+        // Columna H: periodos que dura la materia. Vacía o no numérica = 1; de 1 a 4 es válido; otro número = -1
+        // (la plantilla se rechaza al subirla).
+        public const int MaxPeriodosDuracion = 4;
+        public static int LeerDuracion(string texto)
+        {
+            texto = (texto ?? "").Trim();
+            if (!double.TryParse(texto, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double valor)) return 1;
+            if (valor != Math.Floor(valor) || valor < 1 || valor > MaxPeriodosDuracion) return -1;
+            return (int)valor;
+        }
+
         // GetFileName evita que un nombre con "..\" salga de la carpeta de planes
         private string Ruta(string planNombre) => Path.Combine(_carpeta, Path.GetFileName(planNombre) + ".xlsx");
 
@@ -150,7 +164,8 @@ namespace PlaneaUV_Economia.Services
                         Tipo = ws.Cell(fila, 4).GetString().Trim(),
                         Prerrequisitos = ws.Cell(fila, 5).GetString().Trim(),
                         Area = ws.Cell(fila, 6).GetString().Trim(),
-                        PorcentajeCreditos = LeerPorcentaje(ws.Cell(fila, 7).GetString())
+                        PorcentajeCreditos = LeerPorcentaje(ws.Cell(fila, 7).GetString()),
+                        PeriodosDuracion = LeerDuracion(ws.Cell(fila, 8).GetString())
                     });
                 }
 

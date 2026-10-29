@@ -171,6 +171,13 @@ function manejadorClickTarjeta(e) {
         alerta.className = 'alert alert-danger mt-3 py-2 small';
         alerta.innerHTML = siguiente.mensaje;
     }
+    // Materia de varios periodos que sigue en curso desde un periodo anterior (p. ej. servicio social)
+    const duracion = duracionDeTarjeta(this);
+    if (!intentoActual && ultimoIntento && alerta && continuaEnEstePeriodo(ultimoIntento, ordenPeriodo(periodoActual), duracion)) {
+        alerta.className = 'alert alert-info mt-3 py-2 small';
+        alerta.innerHTML = `<strong>Sigue en curso.</strong> Esta materia dura hasta ${duracion} periodos y la cursa desde ${escapeHTML(ultimoIntento.Periodo)}: `
+            + 'no cuenta como rezago. Cuando tenga su resultado, regístralo aquí.';
+    }
     if (modalBootstrapInstance) modalBootstrapInstance.show();
 }
 
@@ -437,7 +444,7 @@ function guardarAvance() {
 
     // Cada periodo guarda un solo registro por materia. La 2.ª inscripción se cursa en un periodo
     // posterior al de la 1.ª: si se registrara en el mismo, sobrescribiría el intento reprobado y se perdería.
-    const motivo = motivoInscripcionInvalida(historialArray, index, periodoActual, valInsc);
+    const motivo = motivoInscripcionInvalida(historialArray, index, periodoActual, valInsc, duracionDeTarjeta(tarjetaActual));
     if (motivo) {
         avisar(motivo, { tipo: 'advertencia', titulo: 'Revisa la inscripción' });
         return;
@@ -474,9 +481,11 @@ function guardarAvance() {
 
 // Revisa que la inscripción elegida tenga sentido con los otros intentos de la materia.
 // Devuelve el mensaje para el tutor, o null si se puede guardar.
-function motivoInscripcionInvalida(historialArray, indiceActual, periodoActual, tipoInscripcion) {
+function motivoInscripcionInvalida(historialArray, indiceActual, periodoActual, tipoInscripcion, duracion = 1) {
     const orden = ordenPeriodo(periodoActual);
-    const otros = historialArray.filter((_, i) => i !== indiceActual);
+    // En una materia de varios periodos (p. ej. servicio social), el registro "cursando" de un periodo anterior
+    // dentro de su duración es la misma inscripción que continúa: no cuenta como inscripción repetida
+    const otros = historialArray.filter((x, i) => i !== indiceActual && !continuaEnEstePeriodo(x, orden, duracion));
 
     // Cada inscripción ocupa un solo periodo (ahí se presentan todos sus exámenes) y solo hay dos.
     // Solo se revisa al crear el registro o cambiarle la inscripción, para que los datos capturados
@@ -511,6 +520,18 @@ function motivoInscripcionInvalida(historialArray, indiceActual, periodoActual, 
         }
     }
     return null;
+}
+
+// ===================== MATERIAS DE VARIOS PERIODOS =====================
+// Periodos que dura la materia de la tarjeta (columna H de la plantilla; 1 si no se indica)
+function duracionDeTarjeta(tarjeta) {
+    return parseInt(tarjeta && tarjeta.getAttribute('data-periodos-duracion')) || 1;
+}
+
+// ¿El intento x (de un periodo anterior) sigue en curso en el periodo con orden 'orden'?
+function continuaEnEstePeriodo(x, orden, duracion) {
+    const inicio = ordenPeriodo(x.Periodo);
+    return duracion > 1 && x.Estado === 'cursando' && orden !== null && inicio !== null && orden > inicio && orden - inicio < duracion;
 }
 
 function actualizarTarjetaVisual(tarjeta, historialArray) {

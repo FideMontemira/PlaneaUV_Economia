@@ -87,6 +87,54 @@ namespace PlaneaUV_Economia.Services
         }
 
         public static bool EstaAprobada(MateriaCursada m) => string.Equals(m.Estado, "aprobada", StringComparison.OrdinalIgnoreCase);
+        public static bool EstaCursando(MateriaCursada m) => string.Equals(m.Estado, "cursando", StringComparison.OrdinalIgnoreCase);
+
+        // ---------- MATERIAS DE VARIOS PERIODOS ----------
+        // Algunas materias duran más de un periodo (columna H de la plantilla; p. ej. servicio social: 2).
+        // Si se inscribió en un periodo anterior y su último registro sigue "cursando" dentro de su duración,
+        // en 'periodo' la sigue cursando aunque no tenga un registro nuevo: no es rezago ni falta de inscripción.
+        public static HashSet<string> EnCursoDesdePeriodoAnterior(PlanInfo? plan, AlumnoAvance alumno, string? periodo)
+        {
+            var resultado = new HashSet<string>();
+            int? clave = ClavePeriodo(periodo);
+            if (plan == null || clave == null) return resultado;
+            foreach (var m in plan.Materias.Where(m => m.PeriodosDuracion > 1))
+            {
+                int? inicio = InicioDelCursoAbierto(alumno, m.Nombre, clave.Value);
+                if (inicio != null && inicio < clave && clave - inicio < m.PeriodosDuracion) resultado.Add(m.Nombre);
+            }
+            return resultado;
+        }
+
+        // Periodo (clave) en que empezó el curso que sigue abierto en 'clave': los registros "cursando" seguidos,
+        // del más reciente hacia atrás, hasta ese periodo. Null si el último registro hasta 'clave' no es "cursando".
+        private static int? InicioDelCursoAbierto(AlumnoAvance alumno, string nombre, int clave)
+        {
+            var registros = alumno.Materias
+                .Where(r => r.Nombre == nombre && ClavePeriodo(r.Periodo) is int k && k <= clave)
+                .OrderBy(r => ClavePeriodo(r.Periodo)).ToList();
+            int? inicio = null;
+            for (int i = registros.Count - 1; i >= 0; i--)
+            {
+                if (!EstaCursando(registros[i])) break;
+                int k = ClavePeriodo(registros[i].Periodo)!.Value;
+                if (inicio != null && inicio - k > 1) break;   // hay un periodo de por medio: es otro curso
+                inicio = k;
+            }
+            return inicio;
+        }
+
+        // Lo que no se cuenta como rezago: lo aprobado y lo que sigue cursando desde un periodo anterior
+        public static HashSet<string> NoCuentanComoRezago(PlanInfo plan, AlumnoAvance alumno, string? periodo)
+        {
+            var nombres = MateriasAprobadas(alumno);
+            nombres.UnionWith(EnCursoDesdePeriodoAnterior(plan, alumno, periodo));
+            return nombres;
+        }
+
+        // Nombre del periodo con esa clave (la inversa de ClavePeriodo)
+        public static string PeriodoDeClave(int clave) =>
+            clave % 2 == 1 ? $"Agosto - Enero {(clave - 1) / 2 + 1}" : $"Febrero - Julio {clave / 2}";
 
         // REZAGO AUTOMÁTICO: materias de periodos ANTERIORES al que cursa que todavía no aprueba.
         // Las AFEL no cuentan. Las optativas se cuentan por número: cada optativa aprobada (con el nombre
@@ -180,7 +228,8 @@ namespace PlaneaUV_Economia.Services
                 for (int i = 1; i <= corridos; i++) situacion.PeriodosDesdeIngreso.Add(NombreDePeriodo(ingreso.Value, i));
 
             if (plan != null && cursa >= 1)
-                situacion.MateriasEnRezago = MateriasEnRezago(plan, cursa.Value, MateriasAprobadas(alumno)).Select(m => m.Nombre).ToList();
+                situacion.MateriasEnRezago = MateriasEnRezago(plan, cursa.Value, NoCuentanComoRezago(plan, alumno, periodo)).Select(m => m.Nombre).ToList();
+            if (plan != null) situacion.EnCursoDesdeAntes = EnCursoDesdePeriodoAnterior(plan, alumno, periodo).OrderBy(n => n).ToList();
 
             situacion.CreditosAprobados = CreditosAprobados(alumno);
             if (plan != null)

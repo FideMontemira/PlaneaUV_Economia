@@ -62,10 +62,21 @@ namespace PlaneaUV_Economia.Services
             // ---------- Materias del periodo (el último registro de cada una en ese periodo) ----------
             var delPeriodo = new Dictionary<string, MateriaCursada>();
             foreach (var m in alumno.Materias.Where(m => m.Periodo == periodo)) delPeriodo[m.Nombre ?? ""] = m;
+            var planDelAlumno = ObtenerPlan(alumno.PlanEstudio);
+            // Materias de varios periodos (p. ej. servicio social): la que viene cursando desde antes también es
+            // de este periodo, y si al cerrarlo todavía le quedan periodos, "continúa" (no se queda sin resultado)
+            var continuan = ReglasTrayectoria.EnCursoDesdePeriodoAnterior(planDelAlumno, alCierre, periodo);
+            foreach (var nombre in continuan.Where(n => !delPeriodo.ContainsKey(n)))
+                delPeriodo[nombre] = alCierre.Materias.Where(m => m.Nombre == nombre).OrderBy(m => ReglasTrayectoria.ClavePeriodo(m.Periodo)).Last();
+            var siguenEnElSiguiente = ReglasTrayectoria.ClavePeriodo(periodo) is int c
+                ? ReglasTrayectoria.EnCursoDesdePeriodoAnterior(planDelAlumno, alCierre, ReglasTrayectoria.PeriodoDeClave(c + 1))
+                : new HashSet<string>();
             foreach (var m in delPeriodo.Values)
             {
                 string estado = (m.Estado ?? "").ToLowerInvariant();
-                string resultado = estado == "aprobada" || estado == "reprobada" ? estado : (r.Concluido ? "sin-resultado" : "cursando");
+                string resultado = estado == "aprobada" || estado == "reprobada" ? estado
+                    : !r.Concluido ? "cursando"
+                    : siguenEnElSiguiente.Contains(m.Nombre ?? "") ? "continua" : "sin-resultado";
                 r.Materias.Add(new MateriaDelPeriodo
                 {
                     Nombre = m.Nombre ?? "", Creditos = m.Creditos, Inscripcion = m.TipoInscripcion ?? "", Examen = m.UltimoExamen ?? "",
@@ -91,7 +102,7 @@ namespace PlaneaUV_Economia.Services
                     r.Trayectoria = ReglasTrayectoria.EstadoTrayectoria(r.CreditosAlCierre, r.CreditosEstandar, r.CreditosLarga, concluidos);
 
                     var aprobadas = ReglasTrayectoria.MateriasAprobadas(alCierre);
-                    var rezago = ReglasTrayectoria.MateriasEnRezago(plan, concluidos + 1, aprobadas);
+                    var rezago = ReglasTrayectoria.MateriasEnRezago(plan, concluidos + 1, new HashSet<string>(aprobadas.Concat(continuan).Concat(siguenEnElSiguiente)));
                     r.Rezago = rezago.Select(m => m.Nombre).ToList();
                     r.SeriadasPendientes = rezago.Where(m => plan.Seriadas.Contains(m.Nombre)).Select(m => m.Nombre).ToList();
 
@@ -100,8 +111,8 @@ namespace PlaneaUV_Economia.Services
                     // 'actual' es el último periodo del plan que ya pasó o que está pasando. Si el periodo sigue en curso,
                     // no se proponen las materias que está cursando ahora.
                     int actual = r.EnPausa ? concluidos : r.PeriodoQueCursa.Value;
-                    var cursandoAhora = new HashSet<string>(r.Concluido ? new string[0]
-                        : r.Materias.Where(m => m.Resultado == "cursando").Select(m => m.Nombre));
+                    var cursandoAhora = new HashSet<string>((r.Concluido ? new string[0]
+                        : r.Materias.Where(m => m.Resultado == "cursando").Select(m => m.Nombre)).Concat(siguenEnElSiguiente));
                     var siguientes = ReglasTrayectoria.MateriasEnRezago(plan, actual + 2, aprobadas).Where(m => !cursandoAhora.Contains(m.Nombre));
                     // Las que piden un porcentaje de créditos que aún no cubre van al final, con lo que le falta
                     r.SiguientePeriodo = siguientes
