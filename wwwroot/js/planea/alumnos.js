@@ -24,7 +24,7 @@ function buscarAlumno(materiaAResaltar = null) {
         .then(leerRespuesta)
         .then(res => {
             if (!res.success) {
-                alert(res.message);
+                avisar(res.message, { tipo: 'advertencia' });
                 // Sin alumno en pantalla (p. ej. se volvió de la tutoría de un alumno que ya no existe): se ofrece elegir otro
                 if (!document.querySelector('#contenedor-mapa-dinamico .materia-card') && modalInicioInstance) modalInicioInstance.show();
                 return;
@@ -182,8 +182,10 @@ function abrirModalNuevoAlumno(e) {
 // Ícono de bote de basura en SVG (el proyecto no carga Bootstrap Icons, así que los <i class="bi ..."> no se ven)
 const ICONO_ELIMINAR = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5M8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5m3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0"/></svg>';
 
-function eliminarAlumno(matricula, nombre) {
-    if (!confirm(`¿Seguro que deseas eliminar al alumno ${matricula} - ${nombre}?\n\nSe borrará todo su avance y tutorías. Esta acción no se puede deshacer.`)) return;
+async function eliminarAlumno(matricula, nombre) {
+    const ok = await confirmar(`Se borrará todo el avance y las tutorías de ${matricula} - ${nombre}. Esta acción no se puede deshacer.`,
+        { titulo: '¿Eliminar al alumno?', textoAceptar: 'Eliminar', peligro: true });
+    if (!ok) return;
 
     // Se descartan sus guardados pendientes y se espera el que esté en curso, para que no lo vuelva a crear
     alumnosEliminados.add(matricula);
@@ -193,7 +195,7 @@ function eliminarAlumno(matricula, nombre) {
         .then(() => fetch(`/Home/EliminarAlumno?matricula=${encodeURIComponent(matricula)}`, { method: 'POST' }))
         .then(leerRespuesta)
         .then(data => {
-            if (!data.success) { alumnosEliminados.delete(matricula); alert("No se pudo eliminar: " + (data.message || "error desconocido.")); return; }
+            if (!data.success) { alumnosEliminados.delete(matricula); avisar(data.message || "Error desconocido.", { tipo: 'error', titulo: 'No se pudo eliminar' }); return; }
 
             let inputMat = $('inputMatricula');
             if (inputMat && inputMat.value.trim().toLowerCase() === matricula.toLowerCase()) {
@@ -206,7 +208,7 @@ function eliminarAlumno(matricula, nombre) {
             cargarListaAlumnosInicio();
             cargarAlertas();
         })
-        .catch(e => { console.error(e); alumnosEliminados.delete(matricula); alert("No se pudo eliminar el alumno. " + (e.message || "")); });
+        .catch(e => { console.error(e); alumnosEliminados.delete(matricula); avisar(e.message || "Error de comunicación con el servidor.", { tipo: 'error', titulo: 'No se pudo eliminar' }); });
 }
 
 // Deja la pantalla sin alumno seleccionado (se usa al eliminar al alumno que estaba abierto)
@@ -241,11 +243,11 @@ function crearNuevoAlumno() {
     const plan = selPlan.value;
 
     if (!mat || !nom || !plan) {
-        alert("Faltan datos o no has seleccionado el Plan de Estudios.");
+        avisar("Faltan datos o no has seleccionado el plan de estudios.", { tipo: 'advertencia' });
         return;
     }
     if (!FORMATO_MATRICULA.test(mat)) {
-        alert("La matrícula solo puede tener letras y números (de 3 a 20 caracteres), por ejemplo S21012345.");
+        avisar("La matrícula solo puede tener letras y números (de 3 a 20 caracteres), por ejemplo S21012345.", { tipo: 'advertencia' });
         return;
     }
 
@@ -256,7 +258,7 @@ function crearNuevoAlumno() {
         .then(alumnos => {
             // BLINDAJE 1: (a.matricula || "") evita que crashee si hay una fila vacía en Excel
             if (alumnos.some(a => (a.matricula || "").toLowerCase() === mat.toLowerCase())) {
-                alert("Matrícula ya registrada.");
+                avisar("Esa matrícula ya está registrada.", { tipo: 'advertencia' });
                 return;
             }
 

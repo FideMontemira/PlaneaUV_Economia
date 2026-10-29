@@ -524,14 +524,14 @@ function tutoriaDesdeServidor(t) {
 function abrirFichaTutoria() {
     const inputMat = $('inputMatricula');
     const matricula = inputMat ? inputMat.value.trim() : '';
-    if (!matricula) { alert("Selecciona un alumno primero."); return; }
+    if (!matricula) { avisar("Selecciona un alumno primero.", { tipo: 'advertencia' }); return; }
     const selP = $('selectPeriodoGlobal');
     const periodo = selP ? selP.value : '';
     const url = `/Home/FichaTutoria?matricula=${encodeURIComponent(matricula)}&periodo=${encodeURIComponent(periodo)}`;
     // La pestaña se abre en el mismo clic (si se abre después, el navegador puede bloquearla como ventana emergente)
     // y se carga cuando termine el guardado en curso, para que la ficha incluya lo último que se capturó.
     const pestana = window.open('', '_blank');
-    if (!pestana) { window.location.href = url; return; }
+    if (!pestana) { esperarGuardadoEnCurso().then(() => { window.location.href = url; }); return; }
     pestana.document.write('<p style="font-family:sans-serif;color:#555;padding:20px">Preparando la ficha...</p>');
     esperarGuardadoEnCurso().then(() => { pestana.location.href = url; });
 }
@@ -539,7 +539,7 @@ function abrirFichaTutoria() {
 function descargarWordTutorias() {
     let inputMat = $('inputMatricula');
     var matricula = inputMat ? inputMat.value.trim() : '';
-    if (!matricula) { alert("Selecciona un alumno primero."); return; }
+    if (!matricula) { avisar("Selecciona un alumno primero.", { tipo: 'advertencia' }); return; }
     // Se espera a que se guarde lo último que se capturó para que salga en el Word
     esperarGuardadoEnCurso().then(() => { window.location.href = `/Home/DescargarWordTutorias?matricula=${encodeURIComponent(matricula)}`; });
 }

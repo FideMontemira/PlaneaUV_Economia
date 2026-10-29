@@ -269,3 +269,31 @@ h1, h2, h3, h4, h5, h6, .h4, .h5 { color: var(--uv-azul-oscuro); }
 /* El contenido de la tarjeta queda por encima de la marca de agua */
 .materia-card.estado-aprobada > *:not(.btn-quitar-afel) { position: relative; z-index: 1; }
 .materia-card.estado-aprobada > .btn-quitar-afel { z-index: 2; }   /* el botón × de las AFEL conserva su posición */
+
+/* ===== Diálogos del sistema (reemplazan alert/confirm del navegador; ver nucleo.js) ===== */
+.dialogo-sistema {
+    position: fixed; inset: 0; z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; background: rgba(15, 44, 85, .45);
+    animation: dialogo-aparecer .12s ease-out;
+}
+.dialogo-caja {
+    width: 100%; max-width: 440px; background: #fff; border-radius: 12px;
+    box-shadow: 0 18px 48px rgba(15, 44, 85, .3); overflow: hidden;
+    border-top: 5px solid var(--uv-azul);
+}
+.dialogo-encabezado {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px 4px; font-weight: 700; font-size: 1.05rem; color: var(--uv-texto);
+}
+.dialogo-encabezado .bi { font-size: 1.35rem; color: var(--uv-azul); }
+.dialogo-mensaje { padding: 6px 20px 18px 52px; color: var(--uv-texto-suave); white-space: pre-line; line-height: 1.5; }
+.dialogo-botones { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: var(--uv-fondo); border-top: 1px solid var(--uv-borde); }
+.dialogo-botones .btn { min-width: 96px; font-weight: 600; }
+.dialogo-exito       { border-top-color: var(--uv-verde); }
+.dialogo-exito .bi   { color: var(--uv-verde); }
+.dialogo-advertencia { border-top-color: var(--uv-ambar); }
+.dialogo-advertencia .bi { color: var(--uv-ambar); }
+.dialogo-error       { border-top-color: var(--uv-rojo); }
+.dialogo-error .bi   { color: var(--uv-rojo); }
+@keyframes dialogo-aparecer { from { opacity: 0; } to { opacity: 1; } }

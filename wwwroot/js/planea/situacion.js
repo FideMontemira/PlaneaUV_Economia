@@ -47,11 +47,11 @@ function cargarSituacionAlumno() {
 function abrirModalPausas() {
     const inputMat = $('inputMatricula');
     const matricula = inputMat ? inputMat.value.trim() : '';
-    if (!matricula || alumnoCargado !== matricula) { alert("Selecciona un alumno primero."); return; }
+    if (!matricula || alumnoCargado !== matricula) { avisar("Selecciona un alumno primero.", { tipo: 'advertencia' }); return; }
 
     const s = situacionActual();
-    if (!s) { alert("Se está calculando el periodo del alumno. Intenta de nuevo en un momento."); return; }
-    if (!s.anioIngreso) { alert("La matrícula no trae el año de ingreso (ej. S21...), así que no se puede calcular su periodo."); return; }
+    if (!s) { avisar("Se está calculando el periodo del alumno. Intenta de nuevo en un momento."); return; }
+    if (!s.anioIngreso) { avisar("La matrícula no trae el año de ingreso (ej. S21...), así que no se puede calcular su periodo.", { tipo: 'advertencia' }); return; }
 
     // Periodos desde su ingreso hasta el Periodo de Trabajo (los da el servidor)
     const lista = $('listaPausas');
@@ -146,7 +146,7 @@ function aplicarSituacionAlumno() {
 function abrirReportePeriodo(historial) {
     const inputMat = $('inputMatricula');
     const matricula = inputMat ? inputMat.value.trim() : '';
-    if (!matricula || alumnoCargado !== matricula) { alert("Selecciona un alumno primero."); return; }
+    if (!matricula || alumnoCargado !== matricula) { avisar("Selecciona un alumno primero.", { tipo: 'advertencia' }); return; }
     const selP = $('selectPeriodoGlobal');
     abrirEnPestana(urlReportePeriodo(matricula, selP ? selP.value : '', historial), esperarGuardadoEnCurso());
 }
@@ -155,7 +155,7 @@ function abrirReportePeriodo(historial) {
 function irATutorias() {
     const inputMat = $('inputMatricula');
     const matricula = inputMat ? inputMat.value.trim() : '';
-    if (!matricula || alumnoCargado !== matricula) { alert("Selecciona un alumno primero."); return; }
+    if (!matricula || alumnoCargado !== matricula) { avisar("Selecciona un alumno primero.", { tipo: 'advertencia' }); return; }
     const selP = $('selectPeriodoGlobal');
     esperarGuardadoEnCurso().then(() => { window.location.href = urlTutoria(matricula, selP ? selP.value : ''); });
 }

@@ -10,7 +10,7 @@ function abrirSugerenciaCarga() {
     const inputMat = $('inputMatricula');
     const matricula = inputMat ? inputMat.value.trim() : '';
     if (!matricula || alumnoCargado !== matricula || !document.querySelector('#contenedor-mapa-dinamico .materia-card')) {
-        alert("Selecciona un alumno con plan de estudios primero.");
+        avisar("Selecciona un alumno con plan de estudios primero.", { tipo: 'advertencia' });
         return;
     }
 

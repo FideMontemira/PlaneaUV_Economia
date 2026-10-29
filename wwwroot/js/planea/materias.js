@@ -34,14 +34,15 @@ function agregarAfelExtra(nombrePers = "", creditosPers = 0) {
 // Botón "×" de las AFEL agregadas con "+ Agregar AFEL" (las del plan no lo llevan: son lugares del plan)
 const BOTON_QUITAR_AFEL = '<button type="button" class="btn-quitar-afel" title="Quitar este AFEL" aria-label="Quitar este AFEL" onclick="quitarAfelExtra(event, this)"><i class="bi bi-x-lg"></i></button>';
 
-function quitarAfelExtra(e, boton) {
+async function quitarAfelExtra(e, boton) {
     e.stopPropagation();   // que no abra la ventana de la materia
     const tarjeta = boton.closest('.materia-card');
     if (!tarjeta) return;
 
     const historial = JSON.parse(tarjeta.getAttribute('data-historial') || '[]');
     const nombre = tarjeta.getAttribute('data-nombre-personalizado') || tarjeta.getAttribute('data-nombre');
-    if (historial.length > 0 && !confirm(`"${nombre}" tiene ${historial.length} registro(s). Si lo quitas se borrarán. ¿Continuar?`)) return;
+    if (historial.length > 0 && !(await confirmar(`"${nombre}" tiene ${historial.length} registro(s). Si la quitas se borrarán.`,
+        { titulo: '¿Quitar la materia?', textoAceptar: 'Quitar', peligro: true }))) return;
 
     tarjeta.remove();
     actualizarProgreso();
@@ -50,7 +51,8 @@ function quitarAfelExtra(e, boton) {
 
 function manejadorClickTarjeta(e) {
     if (this.classList.contains('estado-bloqueada')) {
-        alert('Materia bloqueada. ' + (this.getAttribute('data-motivo-bloqueo') || `Debes aprobar primero: "${this.getAttribute('data-prerequisito')}".`));
+        avisar(this.getAttribute('data-motivo-bloqueo') || `Debes aprobar primero: "${this.getAttribute('data-prerequisito')}".`,
+            { tipo: 'advertencia', titulo: 'Materia bloqueada' });
         return;
     }
 
@@ -172,7 +174,7 @@ function manejadorClickTarjeta(e) {
     if (modalBootstrapInstance) modalBootstrapInstance.show();
 }
 
-function limpiarEstadoMateria() {
+async function limpiarEstadoMateria() {
     if (!tarjetaActual) return;
 
     let historialJSON = tarjetaActual.getAttribute('data-historial');
@@ -183,9 +185,11 @@ function limpiarEstadoMateria() {
     let periodoActual = selPeriodo ? selPeriodo.value : '';
 
     if (intentoAprobado && intentoAprobado.Periodo !== periodoActual) {
-        if (!confirm(`Esta materia fue aprobada en ${intentoAprobado.Periodo}. ¿Seguro que deseas borrarla?`)) return;
+        if (!(await confirmar(`Esta materia fue aprobada en ${intentoAprobado.Periodo}. Se borrará todo su historial.`,
+            { titulo: '¿Borrar la materia aprobada?', textoAceptar: 'Borrar', peligro: true }))) return;
     } else {
-        if (!confirm("¿Seguro que deseas reiniciar esta materia? Se borrará TODO el historial.")) return;
+        if (!(await confirmar("Se borrará todo el historial de intentos de esta materia.",
+            { titulo: '¿Reiniciar la materia?', textoAceptar: 'Reiniciar', peligro: true }))) return;
     }
 
     tarjetaActual.removeAttribute('data-historial');
@@ -407,7 +411,7 @@ function guardarAvance() {
     var enRezago = chkZ ? chkZ.checked : false;
 
     if (aprobacion === 'ninguno' && !enRiesgo && !enRezago) {
-        alert("Seleccione un estado o marque riesgo/rezago.");
+        avisar("Selecciona un resultado o marca riesgo o rezago.", { tipo: 'advertencia' });
         return;
     }
 
@@ -419,7 +423,7 @@ function guardarAvance() {
 
     let intentoAprobado = historialArray.find(x => x.Estado === 'aprobada');
     if (intentoAprobado && intentoAprobado.Periodo !== periodoActual) {
-        alert("No se puede modificar: La materia ya fue aprobada en otro periodo.");
+        avisar("La materia ya fue aprobada en otro periodo.", { tipo: 'advertencia', titulo: 'No se puede modificar' });
         return;
     }
 
@@ -435,7 +439,7 @@ function guardarAvance() {
     // posterior al de la 1.ª: si se registrara en el mismo, sobrescribiría el intento reprobado y se perdería.
     const motivo = motivoInscripcionInvalida(historialArray, index, periodoActual, valInsc);
     if (motivo) {
-        alert(motivo);
+        avisar(motivo, { tipo: 'advertencia', titulo: 'Revisa la inscripción' });
         return;
     }
 

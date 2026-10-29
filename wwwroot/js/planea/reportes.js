@@ -146,7 +146,7 @@ function imprimirReporteGlobal() {
         { titulo: 'Reprobación por materia', color: '#212529', id: 'contenedorReporteCriticas' }
     ];
 
-    if (document.querySelector('#modalReporteGlobal .spinner-border')) { alert("El reporte aún se está cargando. Intenta de nuevo en un momento."); return; }
+    if (document.querySelector('#modalReporteGlobal .spinner-border')) { avisar("El reporte aún se está cargando. Intenta de nuevo en un momento."); return; }
 
     const fecha = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
     const selP = $('selectPeriodoGlobal');

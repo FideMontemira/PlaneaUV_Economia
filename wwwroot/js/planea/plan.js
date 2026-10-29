@@ -56,13 +56,13 @@ function abrirGestorPlanes() {
 function subirPlanEstudio() {
     const input = document.getElementById("inputFilePlan");
     if (!input || input.files.length === 0) {
-        alert("Por favor selecciona un archivo Excel (.xlsx) primero.");
+        avisar("Selecciona un archivo Excel (.xlsx) primero.", { tipo: 'advertencia' });
         return;
     }
 
     const archivo = input.files[0];
     if (!archivo.name.endsWith('.xlsx')) {
-        alert("El archivo debe tener formato .xlsx obligatoriamente.");
+        avisar("El archivo debe tener formato .xlsx.", { tipo: 'advertencia' });
         return;
     }
 
@@ -86,18 +86,18 @@ function subirPlanEstudio() {
             btn.disabled = false;
 
             if (data.success) {
-                alert(data.message);
+                avisar(data.message, { tipo: 'exito', titulo: 'Plan de estudios guardado' });
                 input.value = ""; // Limpiamos el input
                 if (modalGestorPlanesInstance) modalGestorPlanesInstance.hide();
             } else {
-                alert("Error: " + data.message);
+                avisar(data.message, { tipo: 'error', titulo: 'No se pudo guardar el plan' });
             }
         })
         .catch(e => {
             console.error(e);
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
-            alert("Error de comunicación al subir el plan de estudios.");
+            avisar("No hubo comunicación con el servidor al subir el plan de estudios.", { tipo: 'error' });
         });
 }
 
@@ -148,7 +148,7 @@ function asignarPlanAlumno() {
     const plan = sel ? sel.value : '';
     const inputMat = $('inputMatricula');
     const matricula = inputMat ? inputMat.value.trim() : '';
-    if (!plan || !matricula) { alert("Selecciona un plan de estudios."); return; }
+    if (!plan || !matricula) { avisar("Selecciona un plan de estudios.", { tipo: 'advertencia' }); return; }
 
     // El registro se reescribe a partir de lo guardado en el Excel (no de la pantalla, que no tiene mapa),
     // así no se pierden materias ni tutorías
@@ -196,7 +196,7 @@ function cargarMapaCurricular(planNombre, callback) {
                 renderizarMapaVisual();
             } catch (errRender) {
                 console.error("Error al dibujar las tarjetas:", errRender);
-                alert("Error al dibujar el mapa. Verifica los datos.");
+                avisar("No se pudo dibujar el mapa. Verifica los datos del plan.", { tipo: 'error' });
             }
 
             planDibujadoActual = planNombre;
