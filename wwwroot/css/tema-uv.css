@@ -297,3 +297,9 @@ h1, h2, h3, h4, h5, h6, .h4, .h5 { color: var(--uv-azul-oscuro); }
 .dialogo-error       { border-top-color: var(--uv-rojo); }
 .dialogo-error .bi   { color: var(--uv-rojo); }
 @keyframes dialogo-aparecer { from { opacity: 0; } to { opacity: 1; } }
+
+/* Barra de acciones al final de cada sesión de tutoría (Limpiar / Guardar) */
+.acciones-sesion {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+    margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--uv-borde);
+}

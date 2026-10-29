@@ -165,6 +165,18 @@ function armarFormularioTutorias() {
                         </div>
                     </div>
                 </div>
+
+                <div class="acciones-sesion">
+                    <span class="small text-muted"><i class="bi bi-cloud-check me-1"></i>Los cambios se guardan solos; usa «Guardar sesión» para confirmarlo.</span>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="limpiarSesionTutoria(${n})">
+                            <i class="bi bi-eraser me-1"></i>Limpiar sesión
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" id="btnGuardarSesion${n}" onclick="guardarSesionTutoria(${n})">
+                            <i class="bi bi-save me-1"></i>Guardar sesión
+                        </button>
+                    </div>
+                </div>
             </div>`);
     }
 
@@ -298,6 +310,75 @@ function guardarTutoriasEnMemoria() {
         const sesion = leerSesionTutoria(n, periodoActual);
         if (sesionTieneInformacion(sesion)) tutoriasGlobal.push(sesion);
     }
+}
+
+// ===================== BOTONES DE CADA SESIÓN =====================
+// Deja la sesión n en blanco (como si nunca se hubiera capturado) y guarda el cambio
+async function limpiarSesionTutoria(n) {
+    if (!formularioTutoriasListo) return;
+    if (!sesionTieneInformacion(leerSesionTutoria(n, ''))) {
+        avisar(`La ${NOMBRES_SESION[n - 1].toLowerCase()} no tiene nada capturado.`);
+        return;
+    }
+    const ok = await confirmar(`Se borrará todo lo capturado en la ${NOMBRES_SESION[n - 1].toLowerCase()} de ${periodoTutoria()}: fecha, asistencia, valoración, temas, problemáticas, canalizaciones y acuerdos.`,
+        { titulo: '¿Limpiar la sesión?', textoAceptar: 'Limpiar', peligro: true });
+    if (!ok) return;
+
+    $('fechaTutoria' + n).value = '';
+    $('asistenciaTutoria' + n).value = 'pendiente';
+    $('modalidadTutoria' + n).value = '';
+    document.querySelectorAll(`#panelTutoria${n} input[data-grupo]`).forEach(c => c.checked = false);
+    $('otraCanalizacionTutoria' + n).value = '';
+    $('acuerdosTutoria' + n).value = '';
+    $('tutoria' + n).value = '';
+    opcionesMateriaDificultad($('materiaDificultadTutoria' + n), '');
+    $('fechaRevisionTutoria' + n).value = '';
+    $('estadoCasoTutoria' + n).value = '';
+    $(`valoracion${n}-`).checked = true;
+    $('motivoValoracionTutoria' + n).value = '';
+    semaforoAlValorar[n] = '';
+    delete casoAbiertoAutomatico[n];
+    validarMotivoValoracion(n);
+    mostrarAvisoCaso(n);
+    // El "¿acudió?" de esta sesión se borra; el de las siguientes depende de lo que se canalizó en esta
+    pintarSeguimientoCanalizaciones(n, []);
+    for (let k = n + 1; k <= SESIONES_POR_PERIODO; k++) pintarSeguimientoCanalizaciones(k);
+
+    actualizarEstadoPestanasTutoria();
+    marcarCambios();
+    const guardado = await guardarAhoraTutorias();
+    if (guardado) avisar(`La ${NOMBRES_SESION[n - 1].toLowerCase()} quedó en blanco.`, { tipo: 'exito', titulo: 'Sesión limpiada' });
+}
+
+// Guarda ya lo capturado (sin esperar al guardado automático) y confirma al tutor
+async function guardarSesionTutoria(n) {
+    if (!formularioTutoriasListo) return;
+    const sesion = leerSesionTutoria(n, '');
+    if (sesion.ValoracionRiesgo === 'descarta' && !sesion.MotivoValoracion) {
+        avisar('Escribe el motivo de la valoración «No hay riesgo»: sin él no se toma en cuenta.', { tipo: 'advertencia', titulo: 'Falta el motivo' });
+        $('motivoValoracionTutoria' + n).focus();
+        return;
+    }
+    const boton = $('btnGuardarSesion' + n);
+    if (boton) boton.disabled = true;
+    marcarCambios();
+    const guardado = await guardarAhoraTutorias();
+    if (boton) boton.disabled = false;
+    if (guardado) {
+        avisar(sesionTieneInformacion(sesion)
+            ? `La ${NOMBRES_SESION[n - 1].toLowerCase()} de ${periodoTutoria()} quedó guardada.`
+            : `La ${NOMBRES_SESION[n - 1].toLowerCase()} no tiene nada capturado; no hay nada que guardar.`,
+            { tipo: sesionTieneInformacion(sesion) ? 'exito' : 'info', titulo: sesionTieneInformacion(sesion) ? 'Sesión guardada' : 'Sesión vacía' });
+    }
+}
+
+// Manda lo pendiente y espera la respuesta. Devuelve true si quedó guardado; si no, avisa el motivo.
+async function guardarAhoraTutorias() {
+    await esperarGuardadoEnCurso();
+    if (!hayGuardadosPendientes() && !ultimoGuardadoFallo) return true;
+    avisar('No se pudo guardar. Revisa el aviso en la parte superior (por ejemplo, si el Excel está abierto) e intenta de nuevo.',
+        { tipo: 'error', titulo: 'No se guardó' });
+    return false;
 }
 
 // Materias del alumno para "Materia con dificultad": las de su plan y las que tiene registradas
