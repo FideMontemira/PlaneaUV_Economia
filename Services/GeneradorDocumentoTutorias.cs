@@ -110,11 +110,13 @@ table.casillas td {{ border: none; padding: 1pt 4pt; width: 50%; }}
                     html.Append($"<div class='caja'>{Parrafos(s.Acuerdos)}</div>");
                     if (!string.IsNullOrWhiteSpace(s.FechaRevision))
                         html.Append($"<p><b>Revisar el:</b> {E(FormatoFecha(s.FechaRevision))}</p>");
-                    html.Append("<p class='etiqueta'>Observaciones del tutor</p>");
-                    html.Append($"<div class='caja'>{Parrafos(s.Comentarios)}</div>");
                     string estado = string.IsNullOrWhiteSpace(s.EstadoCaso) ? (s.RequiereSeguimiento ? "Abierto" : "") : s.EstadoCaso!;
                     html.Append($"<p><b>Estado del caso:</b> {string.Join(" &nbsp; ", CatalogoTutorias.EstadosCaso.Select(e => Opcion(estado, e, e)))}</p>");
                 }
+
+                // ---------- Notas adicionales de todas las sesiones del periodo, en un solo recuadro ----------
+                html.Append("<h3>Notas adicionales del periodo</h3>");
+                html.Append($"<div class='caja'>{NotasDelPeriodo(sesiones)}</div>");
             }
 
             html.Append("<p class='suave' style='font-size:9pt'>" + LeyendaPrivacidad + "</p>");
@@ -166,6 +168,18 @@ table.casillas td {{ border: none; padding: 1pt 4pt; width: 50%; }}
                 sb.Append("</tr>");
             }
             return sb.Append("</table>").ToString();
+        }
+
+        // Junta los comentarios de las sesiones del periodo: cada uno con su sesión (y fecha, si la tiene)
+        public static string NotasDelPeriodo(IEnumerable<TutoriaRecord> sesiones)
+        {
+            var notas = sesiones.Where(s => !string.IsNullOrWhiteSpace(s.Comentarios)).OrderBy(s => s.Sesion).ToList();
+            if (notas.Count == 0) return "<span class='suave'>Sin notas adicionales.</span>";
+            return string.Join("<br/><br/>", notas.Select(s =>
+            {
+                string fecha = string.IsNullOrWhiteSpace(s.Fecha) ? "" : $" ({E(FormatoFecha(s.Fecha))})";
+                return $"<b>Sesión {s.Sesion}{fecha}:</b> {Parrafos(s.Comentarios)}";
+            }));
         }
 
         private static string Parrafos(string? texto) =>

@@ -176,6 +176,27 @@ namespace PlaneaUV_Economia.Tests
             Assert.Contains("Personales y de salud</b> (confidencial", html);              // categoría privada
             Assert.Contains("&#9746; Abierto", html);                                     // estado del caso
         }
+
+        [Fact]
+        public void JuntaLasNotasAdicionalesDeLasSesionesEnUnSoloRecuadroPorPeriodo()
+        {
+            const string P = "Agosto - Enero 2027";
+            var alumno = Datos.Alumno("S24000001");
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = P, Sesion = 3, Asistencia = "asistio", Comentarios = "Mejoró su asistencia." });
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = P, Sesion = 1, Fecha = "2026-09-10", Asistencia = "asistio", Comentarios = "Llegó tarde." });
+            alumno.Tutorias.Add(new TutoriaRecord { Periodo = P, Sesion = 2, Asistencia = "falto" });   // sin nota
+
+            string html = GeneradorDocumentoTutorias.Generar(alumno, "Economía");
+
+            Assert.DoesNotContain("Observaciones del tutor", html);                       // ya no va una por sesión
+            Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "Notas adicionales del periodo"));
+            int s1 = html.IndexOf("<b>Sesión 1 (10/09/2026):</b> Llegó tarde.");
+            int s3 = html.IndexOf("<b>Sesión 3:</b> Mejoró su asistencia.");
+            Assert.True(s1 > 0 && s3 > s1);                                               // en orden de sesión
+            Assert.DoesNotContain("<b>Sesión 2", html);                                   // la que no tiene nota no aparece
+
+            Assert.Contains("Sin notas adicionales.", GeneradorDocumentoTutorias.NotasDelPeriodo(new[] { new TutoriaRecord { Sesion = 1 } }));
+        }
     }
 
     public class TutoriasEnAlertasTests
