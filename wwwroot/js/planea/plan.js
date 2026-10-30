@@ -225,7 +225,9 @@ function renderizarMapaVisual() {
 
     // 1er, 2do... 10mo; del 11 en adelante "11°", "12°"... (planes de más de 10 semestres)
     const ordinal = n => n > 10 ? n + '°' : n + (n === 1 || n === 3 ? 'er' : n === 2 ? 'do' : n === 7 || n === 10 ? 'mo' : n === 8 ? 'vo' : n === 9 ? 'no' : 'to');
-    const clasesArea = { general: 'bg-general', 'básica': 'bg-basica', basica: 'bg-basica', disciplinar: 'bg-disciplinar', terminal: 'bg-terminal' };
+    // En el plan el área puede venir con el nombre corto o el oficial de la UV (AFBG, Iniciación a la disciplina)
+    const clasesArea = { general: 'bg-general', afbg: 'bg-general', 'básica': 'bg-basica', basica: 'bg-basica',
+        'iniciación a la disciplina': 'bg-basica', 'iniciacion a la disciplina': 'bg-basica', disciplinar: 'bg-disciplinar', terminal: 'bg-terminal' };
     const tipoDe = m => ((m.tipo || m.Tipo) || '').toLowerCase();
 
     // Las AFEL no pertenecen a un periodo: van SIEMPRE juntas en su propia columna al final,

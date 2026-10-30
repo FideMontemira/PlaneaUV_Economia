@@ -6,8 +6,8 @@
 // El área de cada tarjeta es su clase de color (sale de las columnas Tipo y Area de la plantilla).
 const AREAS_DEL_PLAN = [
     // Mismos tonos que las tarjetas del mapa (wwwroot/css/tema-uv.css)
-    { clase: 'bg-general', nombre: 'General', color: '#8a97a8' },
-    { clase: 'bg-basica', nombre: 'Básica', color: '#e0a800' },
+    { clase: 'bg-general', nombre: 'AFBG', color: '#8a97a8' },
+    { clase: 'bg-basica', nombre: 'Iniciación a la disciplina', color: '#e0a800' },
     { clase: 'bg-disciplinar', nombre: 'Disciplinar', color: '#28ad56' },
     { clase: 'bg-terminal', nombre: 'Terminal', color: '#d9534f' },
     { clase: 'bg-optativa', nombre: 'Optativas', color: '#2a6cc0' },

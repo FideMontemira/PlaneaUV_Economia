@@ -374,6 +374,7 @@ body {
 .area-grafica {
     text-align: center;
     min-width: 92px;
+    max-width: 120px;   /* nombres largos ("Iniciación a la disciplina") pasan a dos renglones */
 }
 
 .area-circulo {
