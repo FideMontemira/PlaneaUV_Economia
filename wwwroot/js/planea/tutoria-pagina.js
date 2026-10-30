@@ -1,4 +1,4 @@
-// PlaneaUV · Pantalla de tutoría (Views/Home/Tutoria.cshtml): carga al alumno, guarda solo y cambia de periodo.
+// SITRA-UV · Pantalla de tutoría (Views/Home/Tutoria.cshtml): carga al alumno, guarda solo y cambia de periodo.
 // El formulario y el recuadro de señales los arma tutorias.js; este archivo le da lo que necesita:
 // situacionActual(), marcarCambios(), esperarGuardadoEnCurso() y hayGuardadosPendientes().
 //
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
             datosAlumnoTutoria = res.data;
             // La matrícula tal como está guardada (por si en la dirección venía en minúsculas)
             if (res.data.matricula && $('inputMatricula')) { $('inputMatricula').value = res.data.matricula; actualizarEnlaceVolver(); }
-            document.title = `Tutoría · ${res.data.nombre} - PlaneaUV`;
+            document.title = `Tutoría · ${res.data.nombre} - SITRA-UV`;
             $('tutoriaNombre').innerText = res.data.nombre || matricula;
             tutoriasGlobal = (res.data.tutorias || []).map(tutoriaDesdeServidor);
 

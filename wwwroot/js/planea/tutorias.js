@@ -1,4 +1,4 @@
-// PlaneaUV · Tutorías: reporte guiado por sesión en 4 pasos y reporte en Word.
+// SITRA-UV · Tutorías: reporte guiado por sesión en 4 pasos y reporte en Word.
 // Se usa en la pantalla de tutoría (Views/Home/Tutoria.cshtml, junto con tutoria-pagina.js, que carga al alumno
 // y guarda). Es un script clásico: comparte el ámbito global con los demás archivos de esta carpeta.
 //

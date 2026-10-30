@@ -53,7 +53,7 @@ namespace PlaneaUV_Economia.Controllers
             catch (Exception ex)
             {
                 Console.Error.WriteLine("Error con los datos de los alumnos: " + ex);
-                return StatusCode(500, new { success = false, message = "No se pudieron procesar los datos de los alumnos. Si continúa, cierra y vuelve a abrir PlaneaUV." });
+                return StatusCode(500, new { success = false, message = "No se pudieron procesar los datos de los alumnos. Si continúa, cierra y vuelve a abrir SITRA-UV." });
             }
         }
 

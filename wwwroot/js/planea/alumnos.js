@@ -1,4 +1,4 @@
-// PlaneaUV · Alumnos: buscar, crear, eliminar y listas de alumnos registrados.
+// SITRA-UV · Alumnos: buscar, crear, eliminar y listas de alumnos registrados.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 let modalInicioInstance = null;

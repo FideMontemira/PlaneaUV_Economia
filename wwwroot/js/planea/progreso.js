@@ -1,4 +1,4 @@
-// PlaneaUV · Indicadores: avance en créditos, contadores, gráficas por área y bloqueo por prerrequisitos.
+// SITRA-UV · Indicadores: avance en créditos, contadores, gráficas por área y bloqueo por prerrequisitos.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 // ===================== GRÁFICAS POR ÁREA =====================

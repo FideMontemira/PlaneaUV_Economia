@@ -1,4 +1,4 @@
-// PlaneaUV · Periodos escolares: genera el selector de Periodo de Trabajo según la fecha.
+// SITRA-UV · Periodos escolares: genera el selector de Periodo de Trabajo según la fecha.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 // Periodo que corresponde a una fecha (por defecto, hoy)

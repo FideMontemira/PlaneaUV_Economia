@@ -1,4 +1,4 @@
-// PlaneaUV · Guardado automático: cola de guardado por alumno, reintentos y estado del guardado.
+// SITRA-UV · Guardado automático: cola de guardado por alumno, reintentos y estado del guardado.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 let huboCambios = false;

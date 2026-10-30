@@ -1,4 +1,4 @@
-// PlaneaUV · Utilidades compartidas: escape de HTML, acceso a elementos, respuestas del servidor y avisos.
+// SITRA-UV · Utilidades compartidas: escape de HTML, acceso a elementos, respuestas del servidor y avisos.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 function escapeHTML(str) {
@@ -60,7 +60,7 @@ function ocultarAviso() {
 }
 
 // ===================== DIÁLOGOS DEL SISTEMA =====================
-// Reemplazan a alert() y confirm() del navegador con ventanas propias de PlaneaUV.
+// Reemplazan a alert() y confirm() del navegador con ventanas propias de SITRA-UV.
 //   avisar(mensaje, { tipo, titulo })                       → Promise que se resuelve al cerrar
 //   confirmar(mensaje, { titulo, textoAceptar, peligro })   → Promise<boolean>
 // tipo: 'info' (predeterminado), 'exito', 'advertencia' o 'error'.

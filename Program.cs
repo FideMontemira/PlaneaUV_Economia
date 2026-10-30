@@ -35,16 +35,16 @@ if (!app.Environment.IsDevelopment())
     {
         contexto.Response.StatusCode = 500;
         contexto.Response.ContentType = "application/json; charset=utf-8";
-        await contexto.Response.WriteAsync("{\"success\":false,\"message\":\"Ocurrió un error inesperado. Si continúa, cierra y vuelve a abrir PlaneaUV.\"}");
+        await contexto.Response.WriteAsync("{\"success\":false,\"message\":\"Ocurrió un error inesperado. Si continúa, cierra y vuelve a abrir SITRA-UV.\"}");
     }));
 }
 
 // ---------- Seguridad ----------
-// PlaneaUV corre en la computadora del usuario (localhost) y no tiene inicio de sesión, así que hay que evitar
+// SITRA-UV corre en la computadora del usuario (localhost) y no tiene inicio de sesión, así que hay que evitar
 // que una página web cualquiera, abierta en el mismo navegador, use el sistema a escondidas:
 //   1. Solo se aceptan peticiones dirigidas a localhost (evita el ataque de "DNS rebinding", que permitiría
 //      a otra página leer los datos de los alumnos).
-//   2. Las peticiones que modifican datos (POST) deben venir de la propia página de PlaneaUV; si el navegador
+//   2. Las peticiones que modifican datos (POST) deben venir de la propia página de SITRA-UV; si el navegador
 //      indica que vienen de otro sitio, se rechazan (evita que otra página borre o cambie alumnos: CSRF).
 //   3. La página no se puede mostrar dentro de otra (evita engañar al usuario para que haga clic: clickjacking).
 //   4. Las respuestas con datos de alumnos no se guardan en la caché del navegador.
@@ -71,7 +71,7 @@ app.Use(async (contexto, siguiente) =>
         {
             contexto.Response.StatusCode = 403;
             contexto.Response.ContentType = "application/json; charset=utf-8";
-            await contexto.Response.WriteAsync("{\"success\":false,\"message\":\"Petición rechazada: no viene de PlaneaUV.\"}");
+            await contexto.Response.WriteAsync("{\"success\":false,\"message\":\"Petición rechazada: no viene de SITRA-UV.\"}");
             return;
         }
     }
@@ -101,7 +101,7 @@ if (!app.Environment.IsDevelopment())
     app.Urls.Add(url);
     app.Lifetime.ApplicationStarted.Register(() =>
     {
-        Console.WriteLine($"PlaneaUV corriendo en {url}");
+        Console.WriteLine($"SITRA-UV corriendo en {url}");
         Console.WriteLine("Cierra esta ventana para detener la aplicacion.");
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
     });

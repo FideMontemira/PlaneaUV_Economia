@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#18529d" />
-    <title>@ViewData["Title"] - PlaneaUV</title>
+    <title>@ViewData["Title"] - SITRA-UV</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <!-- Bootstrap Icons incluida en el proyecto (funciona sin internet); sin ella los <i class="bi ..."> salen vacíos -->
     <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
@@ -17,9 +17,9 @@
              en pantallas chicas se pliegan en el menú hamburguesa. -->
         <nav class="navbar navbar-expand-lg navbar-dark app-navbar sticky-top shadow-sm">
             <div class="container-fluid app-contenedor">
-                <a class="navbar-brand fw-bold d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index">
-                    <i class="bi bi-mortarboard-fill me-2"></i>PlaneaUV
-                    <span class="app-brand-sub d-none d-xl-inline">Universidad Veracruzana · Seguimiento de trayectorias académicas</span>
+                <a class="navbar-brand fw-bold d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index" title="SITRA-UV · Sistema de Información de Trayectorias Académicas">
+                    <i class="bi bi-mortarboard-fill me-2"></i>SITRA-UV
+                    <span class="app-brand-sub d-none d-xl-inline">Universidad Veracruzana</span>
                 </a>
                 @if (IsSectionDefined("NavItems"))
                 {
@@ -44,7 +44,7 @@
 
     <footer class="border-top footer text-muted">
         <div class="container-fluid app-contenedor small">
-            <strong>PlaneaUV</strong> · Seguimiento de trayectorias académicas · Universidad Veracruzana &copy; 2026
+            <strong>SITRA-UV</strong> · Sistema de Información de Trayectorias Académicas · Universidad Veracruzana &copy; 2026
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

@@ -1,4 +1,4 @@
-// PlaneaUV · Alertas y reporte global (incluye su impresión).
+// SITRA-UV · Alertas y reporte global (incluye su impresión).
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 let modalReporteGlobalInstance = null;

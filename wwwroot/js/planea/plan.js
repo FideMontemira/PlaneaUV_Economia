@@ -1,4 +1,4 @@
-// PlaneaUV · Plan de estudios: carga la plantilla del plan, dibuja el mapa y administra los planes.
+// SITRA-UV · Plan de estudios: carga la plantilla del plan, dibuja el mapa y administra los planes.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 let modalGestorPlanesInstance = null;

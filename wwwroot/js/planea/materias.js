@@ -1,4 +1,4 @@
-// PlaneaUV · Materias del mapa: ventana de registro de intentos, AFEL extra y dibujo de cada tarjeta.
+// SITRA-UV · Materias del mapa: ventana de registro de intentos, AFEL extra y dibujo de cada tarjeta.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 let tarjetaActual = null;

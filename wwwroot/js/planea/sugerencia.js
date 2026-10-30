@@ -1,4 +1,4 @@
-// PlaneaUV · Sugerencia de carga: materias que le conviene inscribir al alumno.
+// SITRA-UV · Sugerencia de carga: materias que le conviene inscribir al alumno.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 // ===================== SUGERENCIA DE CARGA =====================

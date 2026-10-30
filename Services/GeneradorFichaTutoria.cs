@@ -194,7 +194,7 @@ table {{ width: 100%; border-collapse: collapse; }} td {{ padding: 4px 2px; bord
 
             // ---------- Notas ----------
             html.Append("<div class='caja'><h3>Notas de la sesión</h3><div class='lineas'><div></div><div></div><div></div><div></div></div>");
-            html.Append("<p class='suave' style='margin:6px 0 0'>Después de la sesión, registra lo acordado en el reporte de tutoría de PlaneaUV: las casillas sustituyen estas notas.</p></div>");
+            html.Append("<p class='suave' style='margin:6px 0 0'>Después de la sesión, registra lo acordado en el reporte de tutoría de SITRA-UV: las casillas sustituyen estas notas.</p></div>");
             html.Append($"<p class='legal'>{E(GeneradorDocumentoTutorias.LeyendaPrivacidad)}</p>");
             html.Append("</article></body></html>");
             return html.ToString();

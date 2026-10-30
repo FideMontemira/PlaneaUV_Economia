@@ -1,4 +1,4 @@
-// PlaneaUV · Semáforo de riesgo: colores, textos y la "pastilla" que lo muestra.
+// SITRA-UV · Semáforo de riesgo: colores, textos y la "pastilla" que lo muestra.
 // Lo usan el mapa del alumno, el panel del grupo y la pantalla de tutoría.
 // El color lo calcula SOLO el servidor (Services/ReglasSemaforo.cs); aquí solo se dibuja.
 

@@ -1,4 +1,4 @@
-// PlaneaUV · Arranque de la página: crea las ventanas, llena el selector de periodos y conecta los eventos.
+// SITRA-UV · Arranque de la página: crea las ventanas, llena el selector de periodos y conecta los eventos.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 document.addEventListener('DOMContentLoaded', function () {

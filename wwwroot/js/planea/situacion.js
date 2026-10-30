@@ -1,4 +1,4 @@
-// PlaneaUV · Situación del alumno: periodo que cursa, periodos sin inscripción (pausas) y rezago.
+// SITRA-UV · Situación del alumno: periodo que cursa, periodos sin inscripción (pausas) y rezago.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 //
 // IMPORTANTE: aquí NO se calcula ninguna regla académica. El periodo que cursa, el descuento de pausas y el

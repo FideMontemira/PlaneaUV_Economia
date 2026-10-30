@@ -1,4 +1,4 @@
-// PlaneaUV · Panel del grupo: todos los alumnos en una tabla ordenable.
+// SITRA-UV · Panel del grupo: todos los alumnos en una tabla ordenable.
 // Se carga como script clásico (ver Views/Home/Index.cshtml): comparte el ámbito global con los demás archivos de esta carpeta.
 
 // ===================== PANEL DEL GRUPO =====================
