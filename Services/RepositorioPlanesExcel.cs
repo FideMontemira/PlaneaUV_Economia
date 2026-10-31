@@ -22,7 +22,9 @@ namespace PlaneaUV_Economia.Services
     }
 
     // Implementación actual: un .xlsx por plan en la carpeta PlanesEstudio.
-    //   Hoja 1 (obligatoria): Semestre | Materia | Creditos | Tipo | Prerrequisitos | Area (opcional) | Creditos minimos (%) (opcional)
+    //   Hoja 1 (obligatoria), en una de dos formas:
+    //     - mapa curricular dibujado como el de la UV (ver LectorMapaCurricular), o
+    //     - tabla: Semestre | Materia | Creditos | Tipo | Prerrequisitos | Area (opcional) | Creditos minimos (%) (opcional)
     //   Hoja "Datos" (opcional): filas "Programa" y "Creditos totales" en la columna A, su valor en la B
     //   Hoja "Optativas" (opcional): columna A = nombre de la optativa, columna B = grupo (opcional)
     //   En "Datos" también puede ir "Periodos trayectoria larga" (si no, se usa 1.5 veces la duración del plan)
@@ -86,15 +88,15 @@ namespace PlaneaUV_Economia.Services
                 try { plan = Leer(temporal, sinExtension); }
                 catch (Exception) { throw new ArgumentException("El archivo no se pudo leer como plantilla de plan de estudios. Revisa que sea un Excel (.xlsx) válido."); }
                 if (plan.Materias.Count == 0)
-                    throw new ArgumentException("La plantilla no tiene materias: la primera hoja debe tener encabezados en la fila 1 y las materias desde la fila 2 (columna B = nombre).");
+                    throw new ArgumentException("La plantilla no tiene materias. La primera hoja debe ser el mapa curricular (encabezados \"1er Periodo\", \"2do Periodo\"... y un recuadro por materia con sus créditos) o la tabla con encabezados en la fila 1 y las materias desde la fila 2 (columna B = nombre).");
                 if (plan.Materias.Any(m => m.Creditos < 0 || m.Creditos > 100))
                     throw new ArgumentException("Hay materias con créditos no válidos en la plantilla.");
                 var malPorcentaje = plan.Materias.FirstOrDefault(m => m.PorcentajeCreditos < 0);
                 if (malPorcentaje != null)
-                    throw new ArgumentException($"El porcentaje de créditos de \"{malPorcentaje.Nombre}\" debe estar entre 0 y 100 (columna G).");
+                    throw new ArgumentException($"El porcentaje de créditos de \"{malPorcentaje.Nombre}\" debe estar entre 0 y 100 (columna G o \"N % de créditos\" en el mapa).");
                 var malaDuracion = plan.Materias.FirstOrDefault(m => m.PeriodosDuracion < 1);
                 if (malaDuracion != null)
-                    throw new ArgumentException($"Los periodos que dura \"{malaDuracion.Nombre}\" deben ser un número entero de 1 a {MaxPeriodosDuracion} (columna H).");
+                    throw new ArgumentException($"Los periodos que dura \"{malaDuracion.Nombre}\" deben ser un número entero de 1 a {MaxPeriodosDuracion} (columna H o \"dura N periodos\" en el mapa).");
 
                 File.Move(temporal, ruta, overwrite: true);
                 _cache.TryRemove(ruta, out _);
@@ -151,7 +153,9 @@ namespace PlaneaUV_Economia.Services
             using (var libro = new XLWorkbook(ruta))
             {
                 var ws = libro.Worksheet(1);
-                for (int fila = 2; !ws.Cell(fila, 2).IsEmpty(); fila++)
+                // La primera hoja puede ser el mapa curricular dibujado (formato de la UV) o la tabla de materias
+                if (LectorMapaCurricular.EsMapa(ws)) plan.Materias.AddRange(LectorMapaCurricular.Leer(ws));
+                else for (int fila = 2; !ws.Cell(fila, 2).IsEmpty(); fila++)
                 {
                     // Los valores se leen siempre como texto primero (blindaje contra celdas con formato raro)
                     int.TryParse(ws.Cell(fila, 1).GetString().Trim(), out int semestre);
