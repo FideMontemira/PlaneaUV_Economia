@@ -161,6 +161,69 @@ namespace PlaneaUV_Economia.Tests
             Assert.Equal((70, 2), (servicio.PorcentajeCreditos, servicio.PeriodosDuracion));
         }
 
+        // Plantilla de captura: cada recuadro con casillas (nombre | Acred HT HP HO Cr | Área % Per | Requisitos)
+        private void CrearPlantillaLlena(string nombre)
+        {
+            using var libro = new XLWorkbook();
+            var ws = libro.Worksheets.Add("Mapa curricular");
+            ws.Cell("A1").Value = LectorMapaCurricular.MarcaPlantilla;
+            ws.Range("B6:G7").Merge().Value = "1er Periodo";
+            ws.Range("I6:N7").Merge().Value = "2do Periodo";
+            ws.Cell("B9").Value = "Acred."; ws.Cell("G9").Value = "Cr.";
+
+            void Recuadro(int fila, int col, string nombreEE, object? cr, string area, string req = "", int? pct = null, int? dura = null)
+            {
+                ws.Range(fila, col, fila + 1, col + 5).Merge().Value = nombreEE;
+                ws.Range(fila + 2, col, fila + 2, col + 1).Merge().Value = "CT";
+                if (cr != null) ws.Cell(fila + 2, col + 5).Value = XLCellValue.FromObject(cr);
+                ws.Range(fila + 3, col, fila + 3, col + 3).Merge().Value = area;
+                if (pct != null) ws.Cell(fila + 3, col + 4).Value = pct.Value;
+                if (dura != null) ws.Cell(fila + 3, col + 5).Value = dura.Value;
+                ws.Range(fila + 4, col, fila + 4, col + 5).Merge().Value = req;
+            }
+            Recuadro(13, 2, "Contabilidad I", 8, "Iniciación a la disciplina");
+            Recuadro(13, 9, "Contabilidad II", 8, "Disciplinar");
+            ws.Range("H13:H17").Merge().Value = "→";
+            Recuadro(19, 2, "Lengua I", 4, "AFBG");
+            Recuadro(19, 9, "Servicio social", 12, "Terminal", "Req: Lengua I, Lengua 3", 70, 2);
+            Recuadro(25, 2, "Optativa 1", 6, "Optativa");
+            Recuadro(25, 9, "Costos", null, "");
+            ws.Range("B32:O32").Merge().Value = "AFEL · Área de Formación de Elección Libre";
+            ws.Range("P32:U32").Merge().Value = "Número de experiencias:"; ws.Cell("V32").Value = 3;
+            ws.Range("W32:AB32").Merge().Value = "Créditos de cada una:"; ws.Cell("AC32").Value = 6;
+            ws.Range("I34:J35").Merge();                         // cuadro de la leyenda
+            ws.Range("I36:N37").Merge().Value = "Área Disciplinar";   // etiqueta que empieza en la columna de un periodo
+            libro.SaveAs(Path.Combine(_carpeta.Ruta, nombre + ".xlsx"));
+        }
+
+        [Fact]
+        public void PlantillaDeCapturaLeeLasCasillas()
+        {
+            CrearPlantillaLlena("Captura");
+            var plan = Leer("Captura");
+            var m = plan.Materias.ToDictionary(x => x.Nombre);
+
+            Assert.Equal(new[] { "Contabilidad I", "Lengua I", "Optativa 1", "Contabilidad II", "Servicio social", "Costos", "AFEL 1", "AFEL 2", "AFEL 3" },
+                         plan.Materias.Select(x => x.Nombre));
+            Assert.Equal((1, 8, "Iniciación a la disciplina"), (m["Contabilidad I"].Semestre, m["Contabilidad I"].Creditos, m["Contabilidad I"].Area));
+            Assert.Equal(("Contabilidad I", "Disciplinar"), (m["Contabilidad II"].Prerrequisitos, m["Contabilidad II"].Area));
+            Assert.Equal(("Lengua I, Lengua 3", 70, 2, "Terminal"), (m["Servicio social"].Prerrequisitos, m["Servicio social"].PorcentajeCreditos, m["Servicio social"].PeriodosDuracion, m["Servicio social"].Area));
+            Assert.Equal("Optativa", m["Optativa 1"].Tipo);
+            Assert.All(plan.Materias.Where(x => x.EsAfel), x => Assert.Equal(6, x.Creditos));
+        }
+
+        [Fact]
+        public void PlantillaDeCapturaAvisaLoQueFalta()
+        {
+            CrearPlantillaLlena("Captura");
+            var avisos = Leer("Captura").Avisos;
+
+            Assert.Contains(avisos, a => a.StartsWith("Sin área") && a.Contains("Costos"));
+            Assert.Contains(avisos, a => a.StartsWith("Sin créditos") && a.Contains("Costos"));
+            Assert.Contains(avisos, a => a.Contains("\"Lengua 3\""));
+            Assert.DoesNotContain(avisos, a => a.Contains("Área Disciplinar"));
+        }
+
         [Fact]
         public void LaTablaSigueFuncionando()
         {
