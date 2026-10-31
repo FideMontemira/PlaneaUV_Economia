@@ -1,0 +1,85 @@
+@{
+    ViewData["Title"] = "Tutoría";
+}
+
+<link rel="stylesheet" href="~/css/mapa-curricular.css" asp-append-version="true" />
+
+@* Pantalla de tutoría de un alumno. A la izquierda lo que conviene saber ANTES de la sesión (semáforo, señales,
+   temas sugeridos y seguimiento); a la derecha el reporte de cada sesión. Todo se guarda solo.
+   La dirección lleva la matrícula y el periodo, así se puede abrir en otra pestaña o desde el panel del grupo. *@
+@section NavItems {
+    <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+        <li class="nav-item">
+            <a class="nav-link" id="enlaceVolverMapa" href="/" title="Regresar al mapa curricular de este alumno"><i class="bi bi-arrow-left me-1"></i>Volver al mapa del alumno</a>
+        </li>
+    </ul>
+    <div class="d-flex flex-wrap align-items-center gap-2 gap-lg-3">
+        <span id="estadoGuardado" class="estado-guardado"></span>
+        <div class="d-flex align-items-center gap-2" title="Periodo cuyas sesiones de tutoría se registran">
+            <label for="selectPeriodoGlobal" class="app-nav-etiqueta mb-0"><i class="bi bi-calendar3 me-1"></i>Periodo de trabajo</label>
+            <select class="form-select form-select-sm fw-bold app-nav-select" id="selectPeriodoGlobal"></select>
+        </div>
+    </div>
+}
+
+<input type="hidden" id="inputMatricula" value="@ViewData["Matricula"]" />
+<input type="hidden" id="periodoInicial" value="@ViewData["Periodo"]" />
+
+<!-- Encabezado: quién es el alumno y acciones -->
+<div class="card app-card mt-3 mb-3">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <div class="alumno-avatar"><i class="bi bi-journal-text"></i></div>
+        <div class="flex-grow-1" style="min-width: 240px;">
+            <div class="app-etiqueta mb-0">Tutoría académica</div>
+            <h1 class="h4 fw-bold mb-0" id="tutoriaNombre">Cargando...</h1>
+            <div class="small text-muted" id="tutoriaDetalle"></div>
+        </div>
+        <div id="tutoriaSemaforo"></div>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-primary" onclick="abrirEnPestana(urlReportePeriodo(matriculaTutoria(), periodoTutoria(), true), esperarGuardadoEnCurso())" title="Seguimiento académico del alumno en todos sus periodos">
+                <i class="bi bi-clock-history me-1"></i>Historial
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="abrirFichaTutoria()" title="Una hoja con lo que conviene saber antes de la sesión">
+                <i class="bi bi-printer me-1"></i>Imprimir ficha
+            </button>
+            <button type="button" class="btn btn-primary" onclick="descargarWordTutorias()">
+                <i class="bi bi-file-earmark-word-fill me-1"></i>Reporte en Word
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="avisoTutoria"></div>
+
+<div class="row g-3 mb-4">
+    <!-- Antes de la sesión: lo calcula el servidor (ReglasSemaforo) y lo pinta tutorias.js -->
+    <aside class="col-lg-5 col-xl-4">
+        <div class="tutoria-lateral" id="senalesTutoria">
+            <div class="small text-muted">Cargando las señales del alumno...</div>
+        </div>
+    </aside>
+
+    <!-- Reporte de cada sesión: lo arma tutorias.js con el catálogo del servidor -->
+    <section class="col-lg-7 col-xl-8">
+        <div class="card app-card">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <h2 class="h5 fw-bold mb-0"><i class="bi bi-pencil-square me-2"></i>Reporte de tutoría</h2>
+                    <span class="small text-muted">Periodo: <strong id="periodoTutorias">—</strong> · Todo se guarda solo.</span>
+                </div>
+                <ul class="nav nav-tabs mt-3" id="tabsTutorias" role="tablist"></ul>
+                <div class="tab-content bg-light border border-top-0 rounded-bottom p-3" id="contenidoTutorias">
+                    <div class="text-center text-muted py-4">Cargando formato de tutoría...</div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/js/planea/nucleo.js" asp-append-version="true"></script>
+    <script src="~/js/planea/periodos.js" asp-append-version="true"></script>
+    <script src="~/js/planea/semaforo.js" asp-append-version="true"></script>
+    <script src="~/js/planea/tutorias.js" asp-append-version="true"></script>
+    <script src="~/js/planea/tutoria-pagina.js" asp-append-version="true"></script>
+}

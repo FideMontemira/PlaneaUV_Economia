@@ -1,103 +1,128 @@
-﻿<div class="card my-4 shadow-sm">
-    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+<!-- ============ ALUMNO ============ -->
+<div class="card app-card mt-3 mb-3">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
 
-        <!-- Buscador y Datos Básicos -->
-        <div class="d-flex gap-2 flex-grow-1 align-items-end">
-            <div class="dropdown">
-                <button class="btn btn-outline-secondary fs-5 py-1 px-2 mb-1" type="button" id="dropdownAlumnos" data-bs-toggle="dropdown" aria-expanded="false" style="border: none;" title="Ver alumnos guardados">
-                    ⋮
-                </button>
-                <ul class="dropdown-menu shadow" aria-labelledby="dropdownAlumnos" id="listaAlumnosRegistrados">
-                    <li><span class="dropdown-item-text text-muted">Cargando...</span></li>
-                </ul>
-            </div>
+        <!-- Cambiar de alumno -->
+        <div class="dropdown">
+            <button class="btn btn-outline-primary fw-bold dropdown-toggle" type="button" id="dropdownAlumnos" data-bs-toggle="dropdown" aria-expanded="false" title="Ver alumnos guardados">
+                <i class="bi bi-person-lines-fill me-1"></i>Alumnos
+            </button>
+            <ul class="dropdown-menu shadow" aria-labelledby="dropdownAlumnos" id="listaAlumnosRegistrados">
+                <li><span class="dropdown-item-text text-muted">Cargando...</span></li>
+            </ul>
+        </div>
 
-            <div style="max-width: 120px;">
-                <label class="form-label fw-bold small mb-1">Matrícula:</label>
-                <input type="text" id="inputMatricula" class="form-control form-control-sm fw-bold" placeholder="Matrícula" readonly>
-            </div>
-            <div class="flex-grow-1" style="max-width: 250px;">
-                <label class="form-label fw-bold small mb-1">Nombre del Alumno:</label>
-                <input type="text" id="inputNombreAlumno" class="form-control form-control-sm fw-bold" placeholder="Nombre completo" readonly>
-            </div>
-
-            <!-- Selector de Situación del Alumno -->
-            <div style="max-width: 150px;">
-                <label class="form-label fw-bold text-primary small mb-1">Situación Académica:</label>
-                <select class="form-select form-select-sm border-primary" id="selectSituacionAlumno" onchange="marcarCambios()">
-                    <option value="Activo">🟢 Activo</option>
-                    <option value="Baja Temporal">🟡 Baja Temporal</option>
-                    <option value="Baja Definitiva">🔴 Baja Definitiva</option>
-                </select>
+        <!-- Identidad del alumno (son inputs de solo lectura porque el JS lee y escribe su .value) -->
+        <div class="d-flex align-items-center gap-3 flex-grow-1" style="min-width: 260px;">
+            <div class="alumno-avatar"><i class="bi bi-person-fill"></i></div>
+            <div class="flex-grow-1">
+                <input type="text" id="inputNombreAlumno" class="form-control-plaintext alumno-nombre" placeholder="Sin alumno seleccionado" readonly aria-label="Nombre del alumno">
+                <div class="d-flex align-items-center gap-1 text-muted small">
+                    <i class="bi bi-person-vcard"></i>
+                    <input type="text" id="inputMatricula" class="form-control-plaintext alumno-matricula" placeholder="Matrícula" readonly aria-label="Matrícula">
+                </div>
             </div>
         </div>
 
-        <!-- Periodo Global -->
-        <div class="bg-light p-2 rounded border border-secondary" style="min-width: 180px;">
-            <label class="form-label fw-bold text-dark small mb-1"><i class="bi bi-calendar3"></i> Periodo de Trabajo:</label>
-            <select class="form-select form-select-sm fw-bold" id="selectPeriodoGlobal">
-                <option value="Agosto - Enero 2026">Agosto - Enero 2026</option>
-                <option value="Febrero - Julio 2026">Febrero - Julio 2026</option>
-                <option value="Agosto - Enero 2027" selected>Agosto - Enero 2027</option>
-                <option value="Febrero - Julio 2027">Febrero - Julio 2027</option>
+        <!-- Semáforo de riesgo: solo indicador (lo calcula Services/ReglasSemaforo.cs). Las razones salen al pasar
+             el mouse; para verlo a detalle y valorarlo se usa el botón "Tutorías". -->
+        <div>
+            <span class="app-etiqueta">Semáforo de riesgo</span>
+            <div id="semaforoAlumno" class="semaforo-boton semaforo-sin" role="status" title="Selecciona un alumno">
+                <span class="semaforo-punto"></span><span id="textoSemaforoAlumno">—</span>
+            </div>
+        </div>
+
+        <!-- Situación académica -->
+        <div>
+            <label class="app-etiqueta" for="selectSituacionAlumno">Situación académica</label>
+            <select class="form-select form-select-sm fw-bold" id="selectSituacionAlumno" onchange="marcarCambios()" style="min-width: 160px;">
+                <option value="Activo">🟢 Activo</option>
+                <option value="Baja Temporal">🟡 Baja Temporal</option>
+                <option value="Baja Definitiva">🔴 Baja Definitiva</option>
             </select>
         </div>
 
-        <!-- Gráficas de Avance -->
-        <div class="d-flex align-items-center gap-4 bg-light p-2 px-3 rounded border">
-            <div class="d-flex align-items-center gap-3">
-                <div class="progress-circle" id="graficaAvance">
-                    <div class="progress-circle-inner">
-                        <span id="textoPorcentaje" class="fw-bold fs-6 text-dark mb-0">0%</span>
-                    </div>
-                </div>
-                <div>
-                    <h6 class="mb-0 fw-bold text-muted" style="font-size: 0.75rem;">CRÉDITOS</h6>
-                    <span id="textoCreditos" class="text-primary fw-bold" style="font-size: 1rem;">0 / 441 Cr.</span>
-                </div>
-            </div>
-
-            <div class="vr bg-secondary" style="width: 2px;"></div>
-
-            <div class="d-flex align-items-center gap-2">
-                <div class="curso-circle shadow-sm" style="width: 45px; height: 45px;">
-                    <span id="textoCurso" class="text-info fw-bold mb-0" style="font-size: 1.1rem;">0</span>
-                </div>
-                <div>
-                    <h6 class="mb-0 fw-bold text-info" style="font-size: 0.75rem;">CURSANDO</h6>
-                </div>
-            </div>
-
-            <div class="vr bg-secondary" style="width: 2px;"></div>
-
-            <div class="d-flex align-items-center gap-2">
-                <div class="riesgo-circle shadow-sm" style="width: 45px; height: 45px;">
-                    <span id="textoRiesgo" class="text-danger fw-bold mb-0" style="font-size: 1.1rem;">0</span>
-                </div>
-                <div>
-                    <h6 class="mb-0 fw-bold text-danger" style="font-size: 0.75rem;">RIESGO</h6>
-                </div>
+        <!-- Periodo que cursa: se calcula con el año de ingreso de la matrícula (S21 = 2021) y el Periodo de Trabajo -->
+        <div>
+            <label class="app-etiqueta">Periodo que cursa</label>
+            <div class="d-flex gap-1">
+                <div id="infoPeriodoAlumno" class="form-control form-control-sm fw-bold bg-light text-muted" style="min-width: 150px;">—</div>
+                <!-- Periodos sin inscripción (bajas temporales): no cuentan para saber en qué periodo va -->
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="abrirModalPausas()" title="Registrar periodos sin inscripción (bajas temporales)">
+                    <i class="bi bi-pause-circle"></i>
+                </button>
             </div>
         </div>
 
-        <!-- Botones de Acción -->
-        <div class="d-flex gap-2 h-100 align-items-stretch">
-            <button type="button" class="btn btn-dark fw-bold shadow-sm" onclick="abrirGestorPlanes()">
-                <i class="bi bi-gear-fill me-1"></i> Planes
+        <!-- Acciones del alumno -->
+        <div class="d-flex gap-2 ms-lg-auto">
+            <button class="btn btn-outline-info fw-bold" type="button" onclick="irATutorias()" title="Abrir la pantalla de tutoría del alumno">
+                <i class="bi bi-journal-text me-1"></i>Tutorías
             </button>
-            <button class="btn fw-bold px-3 text-white" style="background-color: #6f42c1;" type="button" onclick="abrirReporteGlobal()">
-                <i class="bi bi-bar-chart-line-fill me-1"></i> Reportes
+            <button type="button" class="btn btn-success fw-bold" onclick="abrirSugerenciaCarga()" title="Materias que le conviene inscribir al alumno">
+                <i class="bi bi-lightbulb-fill me-1"></i>Sugerir carga
             </button>
-            <button class="btn btn-info fw-bold px-3 text-white" type="button" onclick="abrirModalTutorias()">
-                <i class="bi bi-journal-text me-1"></i> Tutorías
-            </button>
-            <button class="btn btn-warning fw-bold px-3 position-relative" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasAlertas" onclick="cargarAlertas()">
-                <i class="bi bi-bell-fill"></i> Alertas
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="contadorAlertas" style="display: none;">0</span>
-            </button>
-            <button class="btn btn-success fw-bold px-4 shadow" onclick="exportarAvance()">
-                <i class="bi bi-save me-1"></i> Guardar
-            </button>
+            <!-- Seguimiento por periodo: el cierre del Periodo de Trabajo o el historial de todos sus periodos -->
+            <div class="dropdown">
+                <button class="btn btn-outline-primary fw-bold dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Reporte de seguimiento del alumno por periodo">
+                    <i class="bi bi-clipboard-data me-1"></i>Seguimiento
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow">
+                    <li><a class="dropdown-item" href="#" onclick="abrirReportePeriodo(false); return false;"><i class="bi bi-calendar-check me-2"></i>Reporte del periodo de trabajo</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="abrirReportePeriodo(true); return false;"><i class="bi bi-clock-history me-2"></i>Historial completo (todos los periodos)</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ INDICADORES ============ -->
+<div class="row g-3 mb-3">
+
+    <!-- Avance global y contadores -->
+    <div class="col-12 col-xl-6">
+        <div class="card app-card h-100">
+            <div class="card-body d-flex flex-wrap align-items-center justify-content-around gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="progress-circle" id="graficaAvance">
+                        <div class="progress-circle-inner">
+                            <span id="textoPorcentaje" class="fw-bold fs-5 text-dark mb-0">0%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="app-etiqueta mb-0">Avance en créditos</div>
+                        <span id="textoCreditos" class="text-primary fw-bold fs-5">0 Cr.</span>
+                        <!-- Avance frente a las trayectorias estándar y larga (los créditos esperados los calcula el servidor) -->
+                        <div id="trayectoriaAlumno" class="trayectoria d-none"></div>
+                    </div>
+                </div>
+
+                <div class="indicador">
+                    <div class="indicador-numero text-info"><i class="bi bi-book-half me-1"></i><span id="textoCurso">0</span></div>
+                    <div class="app-etiqueta mb-0">Cursando</div>
+                </div>
+                <div class="indicador">
+                    <div class="indicador-numero text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i><span id="textoRiesgo">0</span></div>
+                    <div class="app-etiqueta mb-0">En riesgo</div>
+                </div>
+                <div class="indicador" title="Materias de periodos anteriores al que cursa que aún no aprueba">
+                    <div class="indicador-numero text-secondary"><i class="bi bi-hourglass-split me-1"></i><span id="textoRezago">0</span></div>
+                    <div class="app-etiqueta mb-0">En rezago</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Avance por área: una gráfica por cada tipo de materia del plan (las dibuja el JS: dibujarGraficasPorArea) -->
+    <div class="col-12 col-xl-6">
+        <div class="card app-card h-100">
+            <div class="card-body">
+                <div class="app-etiqueta mb-2"><i class="bi bi-pie-chart-fill me-1"></i>Avance por área (créditos aprobados)</div>
+                <div id="graficasAreas" class="d-flex flex-wrap justify-content-around gap-3">
+                    <span class="text-muted small">Selecciona un alumno para ver su avance por área.</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>

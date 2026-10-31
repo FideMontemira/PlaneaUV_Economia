@@ -1,451 +1,317 @@
+ï»¿using System;
+using System.Linq;
+using System.IO;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using PlaneaUV_Economia.Models;
-using ClosedXML.Excel;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using System.Text;
-using Microsoft.AspNetCore.Http;
-using System.Threading.Tasks;
+using PlaneaUV_Economia.Services;
 
 namespace PlaneaUV_Economia.Controllers
 {
+    // El controlador solo recibe las peticiones de la pantalla y responde. Los datos los maneja el
+    // repositorio (hoy Excel, maÃ±ana base de datos) y las reglas viven en ReglasTrayectoria y los servicios.
     public class HomeController : Controller
     {
-        private readonly IWebHostEnvironment _env;
-        private readonly string _excelFilePath;
-        public HomeController(IWebHostEnvironment env)
+        private const string MensajeArchivoOcupado = "No se pudo acceder a AvanceAlumnos.xlsx. Si lo tienes abierto en Excel, ciÃ©rralo; los cambios pendientes se guardarÃ¡n solos.";
+
+        private readonly IRepositorioAlumnos _alumnos;
+        private readonly IRepositorioPlanes _planes;
+        private readonly ServicioAlertas _alertas;
+        private readonly ServicioReportes _reportes;
+        private readonly ServicioReportePeriodo _reportePeriodo;
+
+        public HomeController(IRepositorioAlumnos alumnos, IRepositorioPlanes planes, ServicioAlertas alertas, ServicioReportes reportes, ServicioReportePeriodo reportePeriodo)
         {
-            _env = env;
-            _excelFilePath = Path.Combine(_env.ContentRootPath, "AvanceAlumnos.xlsx");
+            _alumnos = alumnos;
+            _planes = planes;
+            _alertas = alertas;
+            _reportes = reportes;
+            _reportePeriodo = reportePeriodo;
         }
+
         public IActionResult Index() { return View(); }
 
+        // Pantalla de tutorÃ­a de un alumno (antes era una ventana emergente dentro del mapa)
+        [HttpGet]
+        public IActionResult Tutoria(string? matricula, string? periodo)
+        {
+            ViewData["Matricula"] = matricula ?? "";
+            ViewData["Periodo"] = periodo ?? "";
+            return View();
+        }
+
+        // Convierte los errores al leer o guardar los datos (p. ej. el Excel abierto en Excel) en una
+        // respuesta 409 con un mensaje claro; la pantalla lo muestra y reintenta el guardado sola.
+        private IActionResult ConDatosDeAlumnos(Func<IActionResult> accion)
+        {
+            try { return accion(); }
+            catch (IOException) { return StatusCode(409, new { success = false, message = MensajeArchivoOcupado }); }
+            // Datos no vÃ¡lidos (matrÃ­cula repetida o con formato incorrecto): es un error del usuario, no se reintenta
+            catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException) { return BadRequest(new { success = false, message = ex.Message }); }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("Error con los datos de los alumnos: " + ex);
+                return StatusCode(500, new { success = false, message = "No se pudieron procesar los datos de los alumnos. Si continÃºa, cierra y vuelve a abrir SITRA-UV." });
+            }
+        }
+
+        // =========================================================================
+        // ALUMNOS
+        // =========================================================================
+
         [HttpPost]
-        public IActionResult ExportarExcel([FromBody] AlumnoAvance avance)
+        public IActionResult ExportarExcel([FromBody] AlumnoAvance avance) => ConDatosDeAlumnos(() =>
         {
-            if (avance == null || string.IsNullOrEmpty(avance.Matricula)) return BadRequest("Datos incompletos.");
-
-            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
-            string hojaSegura = SanitizarNombreHoja(avance.Matricula);
-
-            using (var workbook = System.IO.File.Exists(filePath) ? new XLWorkbook(filePath) : new XLWorkbook())
+            if (avance == null) return BadRequest(new { success = false, message = "Datos incompletos." });
+            var error = ValidacionAlumno.Errores(avance);
+            if (error != null) return BadRequest(new { success = false, message = error });
+            // Las tutorÃ­as ya no se editan en el mapa sino en su propia pantalla: se conservan las guardadas,
+            // asÃ­ el guardado del mapa nunca borra una sesiÃ³n capturada en la otra pantalla.
+            _alumnos.Modificar(avance.Matricula!, existente =>
             {
-                IXLWorksheet worksheet;
-                if (workbook.Worksheets.Contains(hojaSegura))
-                {
-                    worksheet = workbook.Worksheet(hojaSegura);
-                    worksheet.Clear();
-                }
-                else
-                {
-                    worksheet = workbook.Worksheets.Add(hojaSegura);
-                }
-
-                worksheet.Cell(1, 1).Value = "Matrícula:";
-                worksheet.Cell(1, 1).Style.Font.Bold = true;
-                worksheet.Cell(1, 2).Value = avance.Matricula;
-
-                worksheet.Cell(2, 1).Value = "Nombre:";
-                worksheet.Cell(2, 1).Style.Font.Bold = true;
-                worksheet.Cell(2, 2).Value = avance.Nombre;
-
-                worksheet.Cell(3, 1).Value = "Situación:";
-                worksheet.Cell(3, 1).Style.Font.Bold = true;
-                worksheet.Cell(3, 2).Value = string.IsNullOrEmpty(avance.Situacion) ? "Activo" : avance.Situacion;
-
-                worksheet.Cell(4, 1).Value = "Plan de Estudios:";
-                worksheet.Cell(4, 1).Style.Font.Bold = true;
-                worksheet.Cell(4, 2).Value = string.IsNullOrEmpty(avance.PlanEstudio) ? "Generico" : avance.PlanEstudio;
-
-                worksheet.Cell(5, 1).Value = "Materia";
-                worksheet.Cell(5, 2).Value = "Periodo";
-                worksheet.Cell(5, 3).Value = "Créditos";
-                worksheet.Cell(5, 4).Value = "Inscripción";
-                worksheet.Cell(5, 5).Value = "Examen";
-                worksheet.Cell(5, 6).Value = "Estado";
-                worksheet.Cell(5, 7).Value = "Riesgo";
-                worksheet.Cell(5, 8).Value = "Rezago";
-
-                var rangoM = worksheet.Range("A5:H5");
-                rangoM.Style.Font.Bold = true;
-                rangoM.Style.Fill.BackgroundColor = XLColor.LightGray;
-
-                int rowM = 6;
-                foreach (var m in avance.Materias)
-                {
-                    worksheet.Cell(rowM, 1).Value = m.Nombre;
-                    worksheet.Cell(rowM, 2).Value = m.Periodo;
-                    worksheet.Cell(rowM, 3).Value = m.Creditos;
-                    worksheet.Cell(rowM, 4).Value = m.TipoInscripcion;
-                    worksheet.Cell(rowM, 5).Value = m.UltimoExamen;
-                    worksheet.Cell(rowM, 6).Value = m.Estado;
-                    worksheet.Cell(rowM, 7).Value = m.EnRiesgo.ToString();
-                    worksheet.Cell(rowM, 8).Value = m.EnRezago.ToString();
-                    rowM++;
-                }
-
-                worksheet.Cell(5, 10).Value = "Periodo Tutoria";
-                worksheet.Cell(5, 11).Value = "Sesión";
-                worksheet.Cell(5, 12).Value = "Fecha";
-                worksheet.Cell(5, 13).Value = "Asistencia";
-                worksheet.Cell(5, 14).Value = "Comentarios";
-
-                var rangoT = worksheet.Range("J5:N5");
-                rangoT.Style.Font.Bold = true;
-                rangoT.Style.Fill.BackgroundColor = XLColor.LightCyan;
-
-                int rowT = 6;
-                foreach (var t in avance.Tutorias)
-                {
-                    worksheet.Cell(rowT, 10).Value = t.Periodo;
-                    worksheet.Cell(rowT, 11).Value = t.Sesion;
-                    worksheet.Cell(rowT, 12).Value = t.Fecha;
-                    worksheet.Cell(rowT, 13).Value = t.Asistencia;
-                    worksheet.Cell(rowT, 14).Value = t.Comentarios;
-                    rowT++;
-                }
-
-                worksheet.Columns().AdjustToContents();
-                workbook.SaveAs(filePath);
-            }
-            return Json(new { success = true });
-        }
-
-        [HttpGet]
-        public IActionResult BuscarAlumnoExcel(string matricula)
-        {
-            if (string.IsNullOrEmpty(matricula)) return BadRequest("Matrícula requerida.");
-            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
-            if (!System.IO.File.Exists(filePath)) return Json(new { success = false, message = "No hay registros." });
-
-            string hojaSegura = SanitizarNombreHoja(matricula);
-
-            using (var workbook = new XLWorkbook(filePath))
-            {
-                if (!workbook.Worksheets.Contains(hojaSegura)) return Json(new { success = false, message = "Alumno no encontrado." });
-
-                var ws = workbook.Worksheet(hojaSegura);
-                var avance = new AlumnoAvance
-                {
-                    Matricula = ws.Cell(1, 2).GetString(),
-                    Nombre = ws.Cell(2, 2).GetString(),
-                    Situacion = ws.Cell(3, 2).GetString(),
-                    PlanEstudio = ws.Cell(4, 2).GetString()
-                };
-
-                int rowM = 6;
-                while (!ws.Cell(rowM, 1).IsEmpty())
-                {
-                    bool.TryParse(ws.Cell(rowM, 7).GetString(), out bool riesgo);
-                    bool.TryParse(ws.Cell(rowM, 8).GetString(), out bool rezago);
-
-                    int.TryParse(ws.Cell(rowM, 3).GetString(), out int creditosParsed);
-
-                    avance.Materias.Add(new MateriaCursada
-                    {
-                        Nombre = ws.Cell(rowM, 1).GetString(),
-                        Periodo = ws.Cell(rowM, 2).GetString(),
-                        Creditos = creditosParsed,
-                        TipoInscripcion = ws.Cell(rowM, 4).GetString(),
-                        UltimoExamen = ws.Cell(rowM, 5).GetString(),
-                        Estado = ws.Cell(rowM, 6).GetString(),
-                        EnRiesgo = riesgo,
-                        EnRezago = rezago
-                    });
-                    rowM++;
-                }
-
-                int rowT = 6;
-                while (!ws.Cell(rowT, 10).IsEmpty())
-                {
-                    int.TryParse(ws.Cell(rowT, 11).GetString(), out int sesionParsed);
-
-                    avance.Tutorias.Add(new TutoriaRecord
-                    {
-                        Periodo = ws.Cell(rowT, 10).GetString(),
-                        Sesion = sesionParsed,
-                        Fecha = ws.Cell(rowT, 12).GetString(),
-                        Asistencia = ws.Cell(rowT, 13).GetString(),
-                        Comentarios = ws.Cell(rowT, 14).GetString()
-                    });
-                    rowT++;
-                }
-
-                return Json(new { success = true, data = avance });
-            }
-        }
-
-        [HttpGet]
-        public IActionResult ObtenerAlumnosRegistrados()
-        {
-            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
-            var lista = new List<object>();
-            if (System.IO.File.Exists(filePath))
-            {
-                using (var workbook = new XLWorkbook(filePath))
-                {
-                    foreach (var ws in workbook.Worksheets)
-                    {
-                        lista.Add(new
-                        {
-                            Matricula = ws.Cell(1, 2).GetString(),
-                            Nombre = ws.Cell(2, 2).GetString(),
-                            Situacion = ws.Cell(3, 2).GetString()
-                        });
-                    }
-                }
-            }
-            return Json(lista);
-        }
-
-        [HttpGet]
-        public IActionResult DescargarWordTutorias(string matricula)
-        {
-            if (string.IsNullOrEmpty(matricula)) return BadRequest("Matrícula inválida");
-            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
-            if (!System.IO.File.Exists(filePath)) return NotFound("No hay datos.");
-
-            string hojaSegura = SanitizarNombreHoja(matricula);
-            using (var workbook = new XLWorkbook(filePath))
-            {
-                if (!workbook.Worksheets.Contains(hojaSegura)) return NotFound("Alumno no encontrado.");
-                var ws = workbook.Worksheet(hojaSegura);
-
-                string html = $@"<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                <head><meta charset='utf-8'><title>Tutorías</title>
-                <style>body {{ font-family: 'Calibri'; }} table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }} th, td {{ border: 1px solid #000; padding: 5px; }} th {{ background-color: #f2f2f2; }} .periodo {{ background-color: #0dcaf0; color: #000; padding: 5px; font-weight: bold; font-size: 14pt; margin-top: 20px; }}</style>
-                </head><body><h2>Evidencia de Tutoría Académica - Economía 2024</h2>
-                <p><strong>Alumno:</strong> {ws.Cell(2, 2).GetString()}</p><p><strong>Matrícula:</strong> {ws.Cell(1, 2).GetString()}</p><hr/>";
-
-                var tutorias = new List<TutoriaRecord>();
-                int r = 6;
-                while (!ws.Cell(r, 10).IsEmpty())
-                {
-                    int.TryParse(ws.Cell(r, 11).GetString(), out int sesionParsed);
-
-                    tutorias.Add(new TutoriaRecord
-                    {
-                        Periodo = ws.Cell(r, 10).GetString(),
-                        Sesion = sesionParsed,
-                        Fecha = ws.Cell(r, 12).GetString(),
-                        Asistencia = ws.Cell(r, 13).GetString(),
-                        Comentarios = ws.Cell(r, 14).GetString()
-                    });
-                    r++;
-                }
-
-                var agrupadoporPeriodo = tutorias.GroupBy(t => t.Periodo);
-                string Asist(string val) => val == "asistio" ? "Asistió" : val == "falto" ? "Faltó" : val == "reprogramada" ? "Reprog." : "Pendiente";
-
-                foreach (var grupo in agrupadoporPeriodo)
-                {
-                    html += $"<div class='periodo'>Periodo: {grupo.Key}</div>";
-                    foreach (var sesion in grupo.OrderBy(s => s.Sesion))
-                    {
-                        html += $@"<table><tr><th style='width:15%'>Sesión {sesion.Sesion}</th><td style='width:20%'>{sesion.Fecha}</td><th style='width:15%'>Asistencia:</th><td>{Asist(sesion.Asistencia)}</td></tr>
-                                   <tr><th colspan='4'>Comentarios:</th></tr><tr><td colspan='4' style='height: 60px;'>{sesion.Comentarios}</td></tr></table>";
-                    }
-                }
-                html += "<br/><br/><table style='border: none; text-align: center; margin-top: 50px;'><tr style='border: none;'><td style='border: none; width: 50%;'>_________________________<br/>Firma Tutor</td><td style='border: none; width: 50%;'>_________________________<br/>Firma Estudiante</td></tr></table></body></html>";
-
-                return File(Encoding.UTF8.GetBytes(html), "application/msword", $"Tutorias_{matricula}.doc");
-            }
-        }
-
-        [HttpGet]
-        public IActionResult ObtenerReporteAlertas()
-        {
-            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
-            var alertas = new List<object>();
-            if (!System.IO.File.Exists(filePath)) return Json(new { success = true, data = alertas });
-
-            using (var workbook = new XLWorkbook(filePath))
-            {
-                foreach (var worksheet in workbook.Worksheets)
-                {
-                    var sit = worksheet.Cell(3, 2).GetString();
-                    if (sit != "Activo" && !string.IsNullOrEmpty(sit)) continue;
-
-                    var materiasHistorial = new Dictionary<string, MateriaCursada>();
-                    int fila = 6;
-                    while (!string.IsNullOrWhiteSpace(worksheet.Cell(fila, 1).GetString()))
-                    {
-                        var m = new MateriaCursada { Nombre = worksheet.Cell(fila, 1).GetString(), TipoInscripcion = worksheet.Cell(fila, 4).GetString()?.ToLower(), UltimoExamen = worksheet.Cell(fila, 5).GetString()?.ToLower(), Estado = worksheet.Cell(fila, 6).GetString()?.ToLower() };
-                        bool.TryParse(worksheet.Cell(fila, 7).GetString(), out bool enRiesgo);
-                        m.EnRiesgo = enRiesgo;
-
-                        materiasHistorial[m.Nombre] = m;
-                        fila++;
-                    }
-
-                    foreach (var mat in materiasHistorial.Values)
-                    {
-                        int nivelRiesgo = 0;
-                        string msg = "", badge = "";
-                        if (mat.TipoInscripcion == "segunda" && mat.UltimoExamen == "ultima" && mat.Estado == "reprobada") { nivelRiesgo = 100; msg = "Candidato a Baja"; badge = "bg-danger"; }
-                        else if (mat.TipoInscripcion == "segunda" && mat.Estado != "aprobada") { nivelRiesgo = 80; msg = "En 2da Inscripción"; badge = "bg-danger"; }
-                        else if (mat.EnRiesgo) { nivelRiesgo = 60; msg = "Riesgo Manual"; badge = "bg-warning text-dark"; }
-                        else if (mat.Estado == "reprobada" && mat.TipoInscripcion == "primera") { nivelRiesgo = 40; msg = "Reprobada 1ª Insc."; badge = "bg-warning text-dark"; }
-
-                        if (nivelRiesgo > 0) alertas.Add(new { matricula = worksheet.Cell(1, 2).GetString(), nombre = worksheet.Cell(2, 2).GetString(), materia = mat.Nombre, mensaje = msg, badge = badge, score = nivelRiesgo });
-                    }
-                }
-            }
-            return Json(new { success = true, data = alertas.OrderByDescending(a => (int)((dynamic)a).score).ToList() });
-        }
-
-        [HttpGet]
-        public IActionResult ObtenerReporteGlobal()
-        {
-            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "AvanceAlumnos.xlsx");
-            if (!System.IO.File.Exists(filePath)) return Json(new { success = false });
-
-            var listaRiesgos = new List<ReporteItem>();
-            var listaRezagos = new List<ReporteItem>();
-            var listaSeriadas = new List<ReporteItem>();
-            var candados = new List<string> { "Lengua I", "Cálculo I", "Microeconomía I", "Microeconomía II", "Microeconomía III", "Estadística", "Economía mexicana I", "Macroeconomía I", "Macroeconomía II", "Econometría I" };
-
-            using (var workbook = new XLWorkbook(filePath))
-            {
-                foreach (var worksheet in workbook.Worksheets)
-                {
-                    if (worksheet.Cell(3, 2).GetString() != "Activo") continue;
-
-                    var materiasVigentes = new Dictionary<string, MateriaCursada>();
-                    int fila = 6;
-                    while (!string.IsNullOrWhiteSpace(worksheet.Cell(fila, 1).GetString()))
-                    {
-                        bool.TryParse(worksheet.Cell(fila, 7).GetString(), out bool riesgo);
-                        bool.TryParse(worksheet.Cell(fila, 8).GetString(), out bool rezago);
-                        materiasVigentes[worksheet.Cell(fila, 1).GetString()] = new MateriaCursada { Nombre = worksheet.Cell(fila, 1).GetString(), Estado = worksheet.Cell(fila, 6).GetString()?.ToLower(), EnRiesgo = riesgo, EnRezago = rezago };
-                        fila++;
-                    }
-
-                    string mat = worksheet.Cell(1, 2).GetString(), nom = worksheet.Cell(2, 2).GetString();
-                    foreach (var m in materiasVigentes.Values)
-                    {
-                        if (m.EnRiesgo) listaRiesgos.Add(new ReporteItem { Matricula = mat, Nombre = nom, Materia = m.Nombre });
-                        if (m.EnRezago) listaRezagos.Add(new ReporteItem { Matricula = mat, Nombre = nom, Materia = m.Nombre });
-                        if (candados.Contains(m.Nombre) && (m.Estado == "reprobada" || m.EnRezago)) listaSeriadas.Add(new ReporteItem { Matricula = mat, Nombre = nom, Materia = m.Nombre });
-                    }
-                }
-            }
-
-            return Json(new
-            {
-                success = true,
-                data = new
-                {
-                    riesgos = listaRiesgos.GroupBy(x => x.Materia).Select(g => new { materia = g.Key, alumnos = g.Select(a => new { nombre = a.Nombre, matricula = a.Matricula }) }),
-                    rezagos = listaRezagos.GroupBy(x => x.Materia).Select(g => new { materia = g.Key, alumnos = g.Select(a => new { nombre = a.Nombre, matricula = a.Matricula }) }),
-                    seriadas = listaSeriadas.GroupBy(x => x.Materia).Select(g => new { materia = g.Key, alumnos = g.Select(a => new { nombre = a.Nombre, matricula = a.Matricula }) })
-                }
+                avance.Tutorias = existente?.Tutorias ?? new List<TutoriaRecord>();
+                return avance;
             });
+            return Json(new { success = true });
+        });
+
+        // Guarda SOLO las sesiones de tutorÃ­a de un periodo (las de otros periodos y las materias no se tocan)
+        [HttpPost]
+        public IActionResult GuardarTutorias([FromBody] SolicitudTutorias solicitud) => ConDatosDeAlumnos(() =>
+        {
+            if (solicitud == null || string.IsNullOrWhiteSpace(solicitud.Matricula)) return BadRequest(new { success = false, message = "Datos incompletos." });
+            if (!ReglasTrayectoria.EsPeriodoValido(solicitud.Periodo)) return BadRequest(new { success = false, message = "El periodo no es vÃ¡lido." });
+            var sesiones = (solicitud.Sesiones ?? new List<TutoriaRecord>())
+                .Select(t => { t.Periodo = solicitud.Periodo; ValidacionAlumno.Normalizar(t); return t; })   // valores desconocidos fuera
+                .Where(GeneradorDocumentoTutorias.TieneInformacion)
+                .ToList();
+            if (sesiones.Select(t => t.Sesion).Distinct().Count() != sesiones.Count || sesiones.Any(t => t.Sesion < 1 || t.Sesion > 10))
+                return BadRequest(new { success = false, message = "Las sesiones no son vÃ¡lidas." });
+
+            _alumnos.Modificar(solicitud.Matricula, alumno =>
+            {
+                if (alumno == null) throw new InvalidOperationException("El alumno ya no existe.");
+                alumno.Tutorias = alumno.Tutorias.Where(t => t.Periodo != solicitud.Periodo).Concat(sesiones).ToList();
+                var error = ValidacionAlumno.Errores(alumno);
+                if (error != null) throw new ArgumentException(error);
+                return alumno;
+            });
+            return Json(new { success = true });
+        });
+
+        [HttpGet]
+        public IActionResult BuscarAlumnoExcel(string matricula) => ConDatosDeAlumnos(() =>
+        {
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("MatrÃ­cula requerida.");
+            if (!_alumnos.HayRegistros) return Json(new { success = false, message = "No hay registros." });
+            var alumno = _alumnos.Buscar(matricula);
+            return alumno == null ? Json(new { success = false, message = "Alumno no encontrado." }) : Json(new { success = true, data = alumno });
+        });
+
+        [HttpPost]
+        public IActionResult EliminarAlumno(string matricula) => ConDatosDeAlumnos(() =>
+        {
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("MatrÃ­cula requerida.");
+            if (!_alumnos.HayRegistros) return Json(new { success = false, message = "No hay registros." });
+            return _alumnos.Eliminar(matricula) ? Json(new { success = true }) : Json(new { success = false, message = "Alumno no encontrado." });
+        });
+
+        [HttpGet]
+        public IActionResult ObtenerAlumnosRegistrados() => ConDatosDeAlumnos(() => Json(_alumnos.Listar()));
+
+        // SituaciÃ³n del alumno en el Periodo de Trabajo: periodo que cursa (descontando pausas), si estÃ¡ en pausa,
+        // duraciÃ³n del plan, materias en rezago y periodos desde su ingreso. La pantalla solo lo muestra.
+        [HttpGet]
+        public IActionResult ObtenerSituacionAlumno(string matricula, string? periodo) => ConDatosDeAlumnos(() =>
+        {
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("MatrÃ­cula requerida.");
+            var alumno = _alumnos.Buscar(matricula);
+            if (alumno == null) return Json(new { success = false, message = "Alumno no encontrado." });
+            return Json(new { success = true, data = SituacionCompleta(alumno, periodo) });
+        });
+
+        // SituaciÃ³n del alumno con su semÃ¡foro y las materias crÃ­ticas del grupo
+        private SituacionAlumno SituacionCompleta(AlumnoAvance alumno, string? periodo)
+        {
+            var criticas = ReglasMateriasCriticas.Calcular(_alumnos.ObtenerTodos(), periodo);
+            var situacion = ReglasTrayectoria.Calcular(alumno, ObtenerPlanSeguro(alumno.PlanEstudio), periodo);
+            situacion.MateriasCriticas = criticas.Where(c => c.Critica).ToList();
+            situacion.Semaforo = ReglasSemaforo.Calcular(alumno, periodo, _alertas.Calcular(new[] { alumno }, periodo), DateTime.Today, criticas);
+            // Ya puede inscribir servicio social / experiencia recepcional / prÃ¡cticas (solo informativo, alumnos activos)
+            var aviso = ReglasTrayectoria.SenalRequisitosCumplidos(situacion.RequisitosCreditos);
+            if (aviso != null && situacion.Semaforo.Sistema != "sin") situacion.Semaforo.Senales.Add(aviso);
+            return situacion;
         }
+
+        // Ficha para llevar a la sesiÃ³n de tutorÃ­a (una hoja para imprimir o guardar en PDF)
+        [HttpGet]
+        public IActionResult FichaTutoria(string matricula, string? periodo) => ConDatosDeAlumnos(() =>
+        {
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("MatrÃ­cula requerida.");
+            var alumno = _alumnos.Buscar(matricula);
+            if (alumno == null) return NotFound("Alumno no encontrado.");
+            var plan = ObtenerPlanSeguro(alumno.PlanEstudio);
+            string html = GeneradorFichaTutoria.Generar(alumno, plan, SituacionCompleta(alumno, periodo), periodo ?? "", DateTime.Today);
+            return Content(html, "text/html; charset=utf-8");
+        });
+
+        // Reporte de seguimiento del alumno: el cierre de un periodo o, con historial=true, todos sus periodos
+        // hasta el indicado (para conservar el seguimiento semestre por semestre)
+        [HttpGet]
+        public IActionResult ReportePeriodo(string matricula, string? periodo, bool historial = false) => ConDatosDeAlumnos(() =>
+        {
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("MatrÃ­cula requerida.");
+            if (!ReglasTrayectoria.EsPeriodoValido(periodo)) return BadRequest("El periodo no es vÃ¡lido.");
+            var alumno = _alumnos.Buscar(matricula);
+            if (alumno == null) return NotFound("Alumno no encontrado.");
+
+            var periodos = historial ? _reportePeriodo.PeriodosDelHistorial(alumno, periodo!) : new List<string> { periodo! };
+            if (periodos.Count == 0) periodos.Add(periodo!);
+            var entrada = EntradaDeReporte(alumno, periodos);
+            string titulo = (historial ? "Historial de seguimiento Â· " : "Reporte del periodo Â· ") + alumno.Nombre;
+            return Content(GeneradorReportePeriodo.Generar(new[] { entrada }, titulo, historial, DateTime.Today), "text/html; charset=utf-8");
+        });
+
+        // Cierre de periodo del grupo: el reporte del periodo de cada alumno activo, cada uno en hoja aparte
+        [HttpGet]
+        public IActionResult ReportesDelPeriodo(string? periodo) => ConDatosDeAlumnos(() =>
+        {
+            if (!ReglasTrayectoria.EsPeriodoValido(periodo)) return BadRequest("El periodo no es vÃ¡lido.");
+            var entradas = _alumnos.ObtenerTodos()
+                .Where(a => string.IsNullOrEmpty(a.Situacion) || a.Situacion == "Activo")
+                .OrderBy(a => a.Nombre, StringComparer.CurrentCultureIgnoreCase)
+                .Select(a => EntradaDeReporte(a, new List<string> { periodo! }))
+                .ToList();
+            return Content(GeneradorReportePeriodo.Generar(entradas, "Reportes del periodo " + periodo, false, DateTime.Today), "text/html; charset=utf-8");
+        });
+
+        private GeneradorReportePeriodo.Entrada EntradaDeReporte(AlumnoAvance alumno, List<string> periodos)
+        {
+            string plan = (alumno.PlanEstudio ?? "").Trim();
+            return new GeneradorReportePeriodo.Entrada
+            {
+                Alumno = alumno,
+                Programa = ObtenerPlanSeguro(plan)?.Programa ?? plan.Replace('_', ' '),
+                Periodos = periodos.Select(p => _reportePeriodo.Resumir(alumno, p, DateTime.Today)).ToList()
+            };
+        }
+
+        [HttpGet]
+        public IActionResult DescargarWordTutorias(string matricula) => ConDatosDeAlumnos(() =>
+        {
+            if (string.IsNullOrEmpty(matricula)) return BadRequest("MatrÃ­cula invÃ¡lida");
+            if (!_alumnos.HayRegistros) return NotFound("No hay datos.");
+            var alumno = _alumnos.Buscar(matricula);
+            if (alumno == null) return NotFound("Alumno no encontrado.");
+
+            // El tÃ­tulo lleva el programa del plan del alumno
+            string planAlumno = (alumno.PlanEstudio ?? "").Trim();
+            string programa = ObtenerPlanSeguro(planAlumno)?.Programa ?? planAlumno.Replace('_', ' ');
+            string html = GeneradorDocumentoTutorias.Generar(alumno, programa);
+            return File(Encoding.UTF8.GetBytes(html), "application/msword", $"Tutorias_{matricula}.doc");
+        });
+
+        // =========================================================================
+        // ALERTAS Y REPORTES
+        // 'periodo' es el Periodo de Trabajo elegido en pantalla; con Ã©l se sabe en quÃ© periodo va cada alumno
+        // =========================================================================
+
+        [HttpGet]
+        public IActionResult ObtenerReporteAlertas(string? periodo) => ConDatosDeAlumnos(() =>
+            Json(new { success = true, data = _alertas.Calcular(_alumnos.ObtenerTodos(), periodo) }));
+
+        [HttpGet]
+        public IActionResult ObtenerReporteGlobal(string? periodo) => ConDatosDeAlumnos(() =>
+            Json(new { success = true, data = _reportes.ReporteGlobal(_alumnos.ObtenerTodos(), periodo) }));
+
+        [HttpGet]
+        public IActionResult ObtenerPanelGrupo(string? periodo) => ConDatosDeAlumnos(() =>
+            Json(new { success = true, data = _reportes.PanelGrupo(_alumnos.ObtenerTodos(), periodo) }));
+
+        [HttpGet]
+        public IActionResult ObtenerMateriasCriticas(string? periodo) => ConDatosDeAlumnos(() =>
+            Json(new { success = true, data = ReglasMateriasCriticas.Calcular(_alumnos.ObtenerTodos(), periodo),
+                       minimoIntentos = ReglasMateriasCriticas.MinimoIntentos, porcentajeCritico = ReglasMateriasCriticas.PorcentajeCritico }));
+
+        // =========================================================================
+        // PLANES DE ESTUDIO
+        // =========================================================================
 
         [HttpPost]
         public async Task<IActionResult> SubirPlanEstudio(IFormFile archivoPlan)
         {
             if (archivoPlan == null || archivoPlan.Length == 0)
-                return Json(new { success = false, message = "No se seleccionó ningún archivo." });
+                return Json(new { success = false, message = "No se seleccionÃ³ ningÃºn archivo." });
 
-            if (!archivoPlan.FileName.EndsWith(".xlsx"))
-                return Json(new { success = false, message = "El archivo debe ser un formato Excel válido (.xlsx)." });
+            if (!archivoPlan.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                return Json(new { success = false, message = "El archivo debe ser un formato Excel vÃ¡lido (.xlsx)." });
+
+            if (archivoPlan.Length > RepositorioPlanesExcel.TamanoMaximo)
+                return Json(new { success = false, message = "El archivo es demasiado grande (mÃ¡ximo 5 MB)." });
 
             try
             {
-                string carpetaPlanes = Path.Combine(_env.ContentRootPath, "PlanesEstudio");
-
-                if (!Directory.Exists(carpetaPlanes))
-                {
-                    Directory.CreateDirectory(carpetaPlanes);
-                }
-
-                string rutaCompleta = Path.Combine(carpetaPlanes, archivoPlan.FileName);
-
-                using (var stream = new FileStream(rutaCompleta, FileMode.Create))
-                {
-                    await archivoPlan.CopyToAsync(stream);
-                }
-
-                return Json(new { success = true, message = "Plan de estudios subido correctamente." });
+                var avisos = await _planes.GuardarAsync(archivoPlan);
+                return Json(new { success = true, message = "Plan de estudios subido correctamente.", avisos });
             }
-            catch (System.Exception ex)
+            catch (ArgumentException ex)
             {
-                return Json(new { success = false, message = "Error interno al guardar: " + ex.Message });
+                return Json(new { success = false, message = ex.Message });   // la plantilla no es vÃ¡lida: se explica por quÃ©
+            }
+            catch (IOException)
+            {
+                return Json(new { success = false, message = "No se pudo guardar el plan. Si ese archivo estÃ¡ abierto en Excel, ciÃ©rralo e intenta de nuevo." });
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("Error al subir un plan: " + ex);
+                return Json(new { success = false, message = "No se pudo guardar el plan de estudios." });
             }
         }
 
         [HttpGet]
-        public IActionResult ObtenerPlanesEstudio()
+        public IActionResult ObtenerPlanesEstudio() => Json(_planes.Listar());
+
+        // Opciones del formato guiado de tutorÃ­a (temas, situaciones, canalizaciones, modalidades)
+        [HttpGet]
+        public IActionResult ObtenerCatalogoTutorias() => Json(new
         {
-            string carpetaPlanes = Path.Combine(_env.ContentRootPath, "PlanesEstudio");
+            modalidades = CatalogoTutorias.Modalidades,
+            temas = CatalogoTutorias.Temas,
+            situaciones = CatalogoTutorias.Situaciones,
+            problematicas = CatalogoTutorias.Problematicas,
+            estadosCaso = CatalogoTutorias.EstadosCaso,
+            canalizaciones = CatalogoTutorias.Canalizaciones
+        });
 
-            if (!Directory.Exists(carpetaPlanes))
-            {
-                return Json(new List<string>());
-            }
-
-            var archivos = Directory.GetFiles(carpetaPlanes, "*.xlsx")
-                                    .Select(Path.GetFileNameWithoutExtension)
-                                    .ToList();
-
-            return Json(archivos);
-        }
-        [HttpGet]
         [HttpGet]
         public IActionResult ObtenerMapaCurricular(string planNombre)
         {
             if (string.IsNullOrEmpty(planNombre))
                 return Json(new { success = false, message = "Nombre del plan no proporcionado." });
 
-            string rutaArchivo = Path.Combine(_env.ContentRootPath, "PlanesEstudio", planNombre + ".xlsx");
-
-            if (!System.IO.File.Exists(rutaArchivo))
+            if (!_planes.Existe(planNombre))
                 return Json(new { success = false, message = "El plan de estudios no existe en el servidor." });
-
-            var materiasPlan = new List<object>();
 
             try
             {
-                using (var workbook = new XLWorkbook(rutaArchivo))
-                {
-                    var ws = workbook.Worksheet(1);
-                    int fila = 2;
-
-                    while (!ws.Cell(fila, 2).IsEmpty())
-                    {
-                        string semStr = ws.Cell(fila, 1).GetString().Trim();
-                        string nomStr = ws.Cell(fila, 2).GetString().Trim();
-                        string credStr = ws.Cell(fila, 3).GetString().Trim();
-                        string tipoStr = ws.Cell(fila, 4).GetString().Trim();
-                        string reqStr = ws.Cell(fila, 5).GetString().Trim();
-
-                        int.TryParse(semStr, out int semestre);
-                        int.TryParse(credStr, out int creditos);
-
-                        materiasPlan.Add(new
-                        {
-                            Semestre = semestre,
-                            Nombre = nomStr,
-                            Creditos = creditos,
-                            Tipo = tipoStr,
-                            Prerrequisitos = reqStr
-                        });
-
-                        fila++;
-                    }
-                }
-
-                return Json(new { success = true, data = materiasPlan });
+                var plan = _planes.Obtener(planNombre)!;
+                return Json(new { success = true, data = plan.Materias, programa = plan.Programa, creditosTotales = plan.CreditosTotales,
+                                  creditosMaterias = plan.Materias.Sum(m => m.Creditos), optativas = plan.Optativas });
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                return Json(new { success = false, message = "Error C#: " + ex.Message });
+                Console.Error.WriteLine("Error al leer un plan: " + ex);
+                return Json(new { success = false, message = "No se pudo leer el plan: revisa que la plantilla tenga el formato correcto." });
             }
         }
-        private string SanitizarNombreHoja(string nombre) { if (string.IsNullOrWhiteSpace(nombre)) return "SinNombre"; foreach (char c in new[] { '\\', '/', '?', '*', '[', ']', ':' }) nombre = nombre.Replace(c.ToString(), ""); return nombre.Length > 31 ? nombre.Substring(0, 31) : nombre; }
-    }
 
+        // Si el plan no existe o su archivo estÃ¡ daÃ±ado se trata como "sin plan"
+        private PlanInfo? ObtenerPlanSeguro(string? planNombre)
+        {
+            try { return _planes.Obtener((planNombre ?? "").Trim()); } catch { return null; }
+        }
+    }
 }

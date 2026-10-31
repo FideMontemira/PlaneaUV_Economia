@@ -193,3 +193,413 @@
         color: #0dcaf0;
         border-bottom: 3px solid #0dcaf0;
     }
+
+/* Columna del periodo que cursa el alumno según su matrícula y el Periodo de Trabajo */
+.periodo-header.periodo-actual {
+    background-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
+}
+
+    .periodo-header.periodo-actual::after {
+        content: " ◀";
+    }
+
+
+/* =====================================================================
+   TEMA GENERAL DE LA APLICACIÓN
+   Barra superior, tarjetas, indicadores y gráficas por área.
+   ===================================================================== */
+:root {
+    --app-azul: #18529d;
+    --app-azul-oscuro: #0d3a73;
+    --app-fondo: #f2f5f9;
+    --app-borde: #e3e8ef;
+    --app-texto-suave: #64748b;
+}
+
+body {
+    background-color: var(--app-fondo);
+}
+
+/* Ancho máximo para que en monitores grandes el contenido no se estire de más */
+.app-contenedor {
+    max-width: 1720px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* ---------- Barra superior ---------- */
+.app-navbar {
+    background: linear-gradient(90deg, var(--app-azul-oscuro), var(--app-azul));
+    z-index: 1030;
+}
+
+    .app-navbar .navbar-brand {
+        font-size: 1.25rem;
+        letter-spacing: 0.3px;
+    }
+
+    .app-navbar .nav-link {
+        color: rgba(255, 255, 255, 0.88);
+        font-weight: 600;
+        border-radius: 6px;
+        padding: 0.4rem 0.8rem;
+    }
+
+        .app-navbar .nav-link:hover {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+.app-brand-sub {
+    font-size: 0.8rem;
+    font-weight: 400;
+    opacity: 0.75;
+    margin-left: 0.75rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.app-nav-etiqueta {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.app-nav-select {
+    min-width: 190px;
+    border: none;
+}
+
+/* Estado del guardado automático (el JS le agrega .guardando / .ok / .error) */
+.estado-guardado {
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+    .estado-guardado.ok {
+        color: #9df0bf;
+    }
+
+    .estado-guardado.error {
+        color: #ffd0d0;
+    }
+
+/* ---------- Tarjetas ---------- */
+.app-card {
+    border: 1px solid var(--app-borde);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.app-card-header {
+    background-color: #fff;
+    border-bottom: 1px solid var(--app-borde);
+    border-radius: 12px 12px 0 0 !important;
+    padding: 0.85rem 1.25rem;
+}
+
+/* Etiqueta pequeña en mayúsculas sobre cada dato */
+.app-etiqueta {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--app-texto-suave);
+    margin-bottom: 0.25rem;
+}
+
+/* ---------- Alumno ---------- */
+.alumno-avatar {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background-color: #e3ecf8;
+    color: var(--app-azul);
+    font-size: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.alumno-nombre {
+    font-size: 1.25rem;
+    font-weight: 700;
+    padding: 0;
+    text-transform: capitalize;
+    text-overflow: ellipsis;
+}
+
+.alumno-matricula {
+    padding: 0;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--app-texto-suave);
+}
+
+    .alumno-nombre:focus, .alumno-matricula:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
+/* ---------- Indicadores ---------- */
+.indicador {
+    text-align: center;
+    min-width: 84px;
+}
+
+.indicador-numero {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* Gráfica circular de avance global (más grande que antes) */
+.progress-circle {
+    width: 86px;
+    height: 86px;
+}
+
+.progress-circle-inner {
+    width: 68px;
+    height: 68px;
+}
+
+/* ---------- Gráficas por área ---------- */
+.area-grafica {
+    text-align: center;
+    min-width: 92px;
+    max-width: 120px;   /* nombres largos ("Iniciación a la disciplina") pasan a dos renglones */
+}
+
+.area-circulo {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.4s ease;
+}
+
+.area-circulo-interior {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.area-nombre {
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.area-detalle {
+    font-size: 0.72rem;
+    color: var(--app-texto-suave);
+}
+
+/* ---------- Mapa ---------- */
+.periodo-header {
+    background-color: #334155;
+    border-radius: 8px;
+    padding: 6px;
+    letter-spacing: 0.3px;
+}
+
+.materia-card {
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+/* Las AFEL no tenían color propio (salían en blanco) */
+.bg-afel {
+    background-color: #d1f2eb;
+    border-color: #20c997;
+    color: #0f5f4c;
+}
+
+/* ---------- Varios ---------- */
+.modal-content {
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.footer {
+    background-color: #fff;
+}
+
+/* Botón "×" para quitar una AFEL agregada con "+ Agregar AFEL" */
+.btn-quitar-afel {
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    border: none;
+    background: transparent;
+    color: #0f5f4c;
+    font-size: 0.75rem;
+    line-height: 1;
+    padding: 2px 3px;
+    border-radius: 4px;
+    opacity: 0.55;
+}
+
+    .btn-quitar-afel:hover {
+        opacity: 1;
+        color: #fff;
+        background-color: #dc3545;
+    }
+
+
+/* ---------- Semáforo de riesgo ---------- */
+.semaforo-boton, .semaforo-pastilla {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.semaforo-boton {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+    min-width: 150px;
+    cursor: help;   /* solo indicador: al pasar el mouse muestra las razones */
+}
+
+.semaforo-pastilla {
+    padding: 0.15rem 0.6rem;
+    font-size: 0.78rem;
+}
+
+.semaforo-punto {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background-color: currentColor;
+}
+
+.semaforo-rojo { background-color: #fde8e7; color: #b42318; border-color: #f5b5b0; }
+.semaforo-amarillo { background-color: #fff6db; color: #8a5a00; border-color: #f3d27a; }
+.semaforo-verde { background-color: #e5f6ec; color: #1a7f45; border-color: #a7dcbc; }
+.semaforo-sin { background-color: #f1f3f5; color: #6c757d; border-color: #dee2e6; }
+
+
+
+/* ---------- Pasos del reporte de tutoría ---------- */
+.paso-tutoria {
+    border: 1px solid var(--app-borde);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 0.9rem;
+    background-color: #fff;
+}
+
+.paso-tutoria-titulo {
+    font-weight: 700;
+    color: var(--app-azul);
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.paso-numero {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background-color: var(--app-azul);
+    color: #fff;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.categoria-privada {
+    border-color: #d8b4fe !important;
+    background-color: #faf5ff;
+}
+
+
+/* ---------- Trayectoria (avance frente a la estándar y la larga) ---------- */
+.trayectoria { min-width: 165px; margin-top: 4px; }
+
+.trayectoria-barra {
+    position: relative;
+    height: 10px;
+    background-color: #e9ecef;
+    border-radius: 5px;
+}
+
+.trayectoria-barra i {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background-color: #28a745;
+    border-radius: 5px;
+}
+
+.trayectoria-barra s {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    width: 3px;
+    border-radius: 2px;
+    transform: translateX(-1px);
+}
+
+.trayectoria-barra .marca-larga { background-color: #b06a00; }
+.trayectoria-barra .marca-estandar { background-color: #0f2c55; }
+
+.trayectoria-leyenda { font-size: 0.7rem; color: var(--app-texto-suave); margin-top: 3px; }
+
+/* Materia crítica en el mapa */
+.badge-critica {
+    margin-top: 4px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #fff;
+    background-color: #9a3412;
+    border-radius: 4px;
+    padding: 1px 4px;
+}
+
+
+/* Materias críticas en el reporte global: tarjetas en columnas */
+.rejilla-criticas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.5rem;
+}
+
+
+/* ---------- Pantalla de tutoría ---------- */
+/* La columna de señales acompaña al formulario mientras se baja por la página */
+@media (min-width: 992px) {
+    .tutoria-lateral {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+    }
+}
+
+
+/* Títulos y avisos dentro de la rejilla de materias críticas: ocupan todo el ancho */
+.rejilla-criticas > h6,
+.rejilla-criticas > p { grid-column: 1 / -1; }

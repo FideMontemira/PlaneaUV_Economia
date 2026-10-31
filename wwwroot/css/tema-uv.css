@@ -1,0 +1,462 @@
+/* =====================================================================
+   TEMA SITRA-UV · UNIVERSIDAD VERACRUZANA
+   Paleta institucional (azul y verde UV) aplicada sobre Bootstrap 5.1.
+   Se carga al FINAL (Views/Shared/_Layout.cshtml) para que mande sobre los demás estilos.
+   Para cambiar un color de toda la aplicación basta con cambiar la variable aquí.
+   Nota: validar los tonos exactos con el manual de identidad gráfica de la UV.
+   ===================================================================== */
+:root {
+    /* Colores institucionales */
+    --uv-azul: #18529d;
+    --uv-azul-oscuro: #0f2c55;
+    --uv-azul-medio: #2a6cc0;
+    --uv-azul-claro: #e8f0fa;
+    --uv-verde: #28ad56;
+    --uv-verde-oscuro: #1e8443;
+    --uv-verde-claro: #e6f6ec;
+
+    /* Neutros */
+    --uv-fondo: #f3f6fa;
+    --uv-borde: #dde5ef;
+    --uv-texto: #1c2633;
+    --uv-texto-suave: #5a6778;
+
+    /* Estados */
+    --uv-rojo: #c0392b;
+    --uv-ambar: #d99a00;
+
+    /* Las variables que ya usaba el resto de los estilos apuntan a la paleta UV */
+    --app-azul: var(--uv-azul);
+    --app-azul-oscuro: var(--uv-azul-oscuro);
+    --app-fondo: var(--uv-fondo);
+    --app-borde: var(--uv-borde);
+    --app-texto-suave: var(--uv-texto-suave);
+
+    --bs-primary: var(--uv-azul);
+    --bs-primary-rgb: 24, 82, 157;
+    --bs-success: var(--uv-verde);
+    --bs-success-rgb: 40, 173, 86;
+    --bs-body-color: var(--uv-texto);
+    --bs-font-sans-serif: "Segoe UI", "Source Sans Pro", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+    background-color: var(--uv-fondo);
+    color: var(--uv-texto);
+    font-family: var(--bs-font-sans-serif);
+}
+
+a { color: var(--uv-azul); }
+a:hover { color: var(--uv-azul-oscuro); }
+
+h1, h2, h3, h4, h5, h6, .h4, .h5 { color: var(--uv-azul-oscuro); }
+.modal-header h5, .modal-header .modal-title, .offcanvas-header h5 { color: #fff; }
+
+/* ---------- Barra superior: azul UV con franja verde ---------- */
+.app-navbar {
+    background: linear-gradient(90deg, var(--uv-azul-oscuro) 0%, var(--uv-azul) 70%, var(--uv-azul-medio) 100%) !important;
+    border-bottom: 4px solid var(--uv-verde);
+}
+
+.app-navbar .navbar-brand { font-weight: 800; letter-spacing: 0.2px; }
+.app-navbar .navbar-brand i { color: #9fe0b5; }
+
+.app-navbar .nav-link:hover,
+.app-navbar .nav-link:focus { background-color: rgba(255, 255, 255, 0.14); }
+
+.app-navbar .btn-warning {
+    background-color: #ffc845;
+    border-color: #ffc845;
+    color: var(--uv-azul-oscuro);
+}
+
+/* ---------- Botones ---------- */
+.btn { border-radius: 8px; font-weight: 600; }
+
+.btn-primary {
+    background-color: var(--uv-azul);
+    border-color: var(--uv-azul);
+}
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: var(--uv-azul-oscuro) !important;
+    border-color: var(--uv-azul-oscuro) !important;
+}
+
+.btn-outline-primary, .btn-outline-info {
+    color: var(--uv-azul);
+    border-color: var(--uv-azul);
+}
+.btn-outline-primary:hover, .btn-outline-info:hover,
+.btn-check:checked + .btn-outline-primary {
+    background-color: var(--uv-azul);
+    border-color: var(--uv-azul);
+    color: #fff;
+}
+
+.btn-success {
+    background-color: var(--uv-verde);
+    border-color: var(--uv-verde);
+}
+.btn-success:hover, .btn-success:focus, .btn-success:active {
+    background-color: var(--uv-verde-oscuro) !important;
+    border-color: var(--uv-verde-oscuro) !important;
+}
+
+.btn-outline-success { color: var(--uv-verde-oscuro); border-color: var(--uv-verde); }
+.btn-outline-success:hover, .btn-check:checked + .btn-outline-success {
+    background-color: var(--uv-verde);
+    border-color: var(--uv-verde);
+    color: #fff;
+}
+
+.btn:focus, .form-control:focus, .form-select:focus, .form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(24, 82, 157, 0.25) !important;
+    border-color: var(--uv-azul-medio);
+}
+
+/* ---------- Colores de utilidad de Bootstrap ---------- */
+.bg-primary { background-color: var(--uv-azul) !important; }
+.text-primary { color: var(--uv-azul) !important; }
+.border-primary { border-color: var(--uv-azul) !important; }
+.bg-success { background-color: var(--uv-verde) !important; }
+.text-success { color: var(--uv-verde-oscuro) !important; }
+.border-success { border-color: var(--uv-verde) !important; }
+.text-info { color: var(--uv-azul-medio) !important; }
+.progress-bar.bg-success, .progress-bar { background-color: var(--uv-verde); }
+
+.form-check-input:checked {
+    background-color: var(--uv-azul);
+    border-color: var(--uv-azul);
+}
+
+.dropdown-item:active, .dropdown-item.active { background-color: var(--uv-azul); }
+
+/* ---------- Pestañas ---------- */
+.nav-tabs .nav-link { color: var(--uv-texto-suave); border: none; border-bottom: 3px solid transparent; }
+.nav-tabs .nav-link:hover { color: var(--uv-azul); border-bottom-color: var(--uv-borde); }
+.nav-tabs .nav-link.active {
+    color: var(--uv-azul);
+    background-color: transparent;
+    border-bottom: 3px solid var(--uv-verde);
+}
+.nav-pills .nav-link.active { background-color: var(--uv-azul); }
+
+/* ---------- Tarjetas ---------- */
+.app-card {
+    border: 1px solid var(--uv-borde);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 44, 85, 0.05), 0 4px 14px rgba(15, 44, 85, 0.04);
+    background-color: #fff;
+}
+
+.app-card-header { border-bottom: 1px solid var(--uv-borde); }
+.app-card-header h2 { color: var(--uv-azul-oscuro); }
+
+.app-etiqueta { color: var(--uv-texto-suave); }
+
+.alumno-avatar {
+    background: linear-gradient(135deg, var(--uv-azul-claro), var(--uv-verde-claro));
+    color: var(--uv-azul);
+}
+
+/* ---------- Ventanas: todos los encabezados con el azul UV ---------- */
+.modal-content { border: none; border-radius: 14px; overflow: hidden; box-shadow: 0 18px 50px rgba(15, 44, 85, 0.25); }
+
+.modal-header,
+.offcanvas-header {
+    background: linear-gradient(90deg, var(--uv-azul-oscuro), var(--uv-azul)) !important;
+    color: #fff !important;
+    border-bottom: 3px solid var(--uv-verde) !important;
+}
+.modal-header .btn-close, .offcanvas-header .btn-close { filter: invert(1) grayscale(1) brightness(2); }
+.modal-header small, .modal-header .opacity-75 { color: rgba(255, 255, 255, 0.8); }
+
+.modal-footer { border-top: 1px solid var(--uv-borde); }
+
+/* Reporte global: encabezados de sección blancos con una franja del color de la categoría */
+#modalReporteGlobal .card { border-radius: 12px; border: 1px solid var(--uv-borde) !important; overflow: hidden; }
+#modalReporteGlobal .card-header {
+    background-color: #fff !important;
+    color: var(--uv-azul-oscuro) !important;
+    border-bottom: 1px solid var(--uv-borde);
+    border-top: 4px solid var(--uv-azul);
+}
+#modalReporteGlobal .card-header.bg-warning { border-top-color: var(--uv-ambar); }
+#modalReporteGlobal .card-header.bg-secondary { border-top-color: #64748b; }
+#modalReporteGlobal .card-header.bg-danger { border-top-color: var(--uv-rojo); }
+#modalReporteGlobal .card-header.bg-dark { border-top-color: var(--uv-verde); }
+#modalReporteGlobal .card-header .opacity-75 { color: var(--uv-texto-suave); opacity: 1 !important; }
+
+/* Tablas con encabezado oscuro (panel del grupo, sugerencia de carga) */
+.table-dark {
+    --bs-table-bg: var(--uv-azul-oscuro);
+    --bs-table-striped-bg: var(--uv-azul-oscuro);
+    --bs-table-hover-bg: var(--uv-azul);
+    border-color: var(--uv-azul-oscuro);
+}
+.table-hover > tbody > tr:hover > * { --bs-table-accent-bg: var(--uv-azul-claro); }
+
+/* ---------- Mapa curricular ---------- */
+.periodo-header {
+    background: var(--uv-azul-oscuro) !important;
+    border-radius: 10px;
+    padding: 7px 6px;
+    font-size: 0.85rem;
+}
+.periodo-header.bg-success { background: var(--uv-verde-oscuro) !important; }   /* columna de AFEL */
+.periodo-header.periodo-actual {
+    background: var(--uv-verde) !important;
+    box-shadow: 0 0 0 3px rgba(40, 173, 86, 0.3);
+}
+
+.materia-card {
+    border-radius: 10px;
+    border-width: 1px;
+    box-shadow: 0 1px 2px rgba(15, 44, 85, 0.06);
+}
+
+/* Áreas del plan: mismos significados, tonos más suaves y coherentes con la paleta */
+.bg-general { background-color: #f4f6f9; border-color: #8a97a8; color: #3a4656; }
+.bg-basica { background-color: #fff6dc; border-color: #e0a800; color: #6e5100; }
+.bg-disciplinar { background-color: var(--uv-verde-claro); border-color: var(--uv-verde); color: #14572c; }
+.bg-terminal { background-color: #fdecea; border-color: #d9534f; color: #7a1f17; }
+.bg-optativa { background-color: var(--uv-azul-claro); border-color: var(--uv-azul-medio); color: var(--uv-azul-oscuro); }
+.bg-afel { background-color: #e3f5f1; border-color: #17a589; color: #0d5c4c; }
+
+/* Estados de la materia */
+.estado-aprobada {
+    border: 2px solid var(--uv-verde) !important;
+    background-color: #f7fbf8 !important;
+    color: #5f6b62 !important;
+}
+.estado-cursando {
+    border: 2px dashed var(--uv-azul-medio) !important;
+    box-shadow: 0 0 0 3px rgba(42, 108, 192, 0.15) !important;
+}
+.estado-reprobada { border: 2px solid var(--uv-rojo) !important; }
+
+/* Indicadores y gráficas */
+.indicador-numero.text-info { color: var(--uv-azul-medio) !important; }
+
+/* ---------- Estado del guardado en la barra ---------- */
+.estado-guardado.ok { color: #9fe0b5; }
+
+/* ---------- Pie de página ---------- */
+.footer {
+    background-color: #fff;
+    border-top: 3px solid var(--uv-verde) !important;
+    color: var(--uv-texto-suave) !important;
+}
+.footer strong { color: var(--uv-azul-oscuro); }
+
+/* ---------- Pantalla de tutoría ---------- */
+.paso-tutoria { border-radius: 12px; border-color: var(--uv-borde); }
+.paso-numero { background-color: var(--uv-azul); }
+.paso-tutoria-titulo { color: var(--uv-azul-oscuro); }
+
+/* ---------- Materia aprobada: palomita como marca de agua ---------- */
+/* Ocupa todo el cuadro de la experiencia, translúcida y detrás del texto (no tapa la información ni los clics) */
+.materia-card.estado-aprobada::after {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2328ad56' d='M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z'/%3E%3C/svg%3E") center / contain no-repeat;
+    opacity: 0.16;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* El contenido de la tarjeta queda por encima de la marca de agua */
+.materia-card.estado-aprobada > *:not(.btn-quitar-afel) { position: relative; z-index: 1; }
+.materia-card.estado-aprobada > .btn-quitar-afel { z-index: 2; }   /* el botón × de las AFEL conserva su posición */
+
+/* ===== Diálogos del sistema (reemplazan alert/confirm del navegador; ver nucleo.js) ===== */
+.dialogo-sistema {
+    position: fixed; inset: 0; z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; background: rgba(15, 44, 85, .45);
+    animation: dialogo-aparecer .12s ease-out;
+}
+.dialogo-caja {
+    width: 100%; max-width: 440px; background: #fff; border-radius: 12px;
+    box-shadow: 0 18px 48px rgba(15, 44, 85, .3); overflow: hidden;
+    border-top: 5px solid var(--uv-azul);
+}
+.dialogo-encabezado {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px 4px; font-weight: 700; font-size: 1.05rem; color: var(--uv-texto);
+}
+.dialogo-encabezado .bi { font-size: 1.35rem; color: var(--uv-azul); }
+.dialogo-mensaje { padding: 6px 20px 18px 52px; color: var(--uv-texto-suave); white-space: pre-line; line-height: 1.5; }
+.dialogo-botones { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: var(--uv-fondo); border-top: 1px solid var(--uv-borde); }
+.dialogo-botones .btn { min-width: 96px; font-weight: 600; }
+.dialogo-exito       { border-top-color: var(--uv-verde); }
+.dialogo-exito .bi   { color: var(--uv-verde); }
+.dialogo-advertencia { border-top-color: var(--uv-ambar); }
+.dialogo-advertencia .bi { color: var(--uv-ambar); }
+.dialogo-error       { border-top-color: var(--uv-rojo); }
+.dialogo-error .bi   { color: var(--uv-rojo); }
+@keyframes dialogo-aparecer { from { opacity: 0; } to { opacity: 1; } }
+
+/* Barra de acciones al final de cada sesión de tutoría (Limpiar / Guardar) */
+.acciones-sesion {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+    margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--uv-borde);
+}
+
+/* =====================================================================
+   ESTILO INSTITUCIONAL UV
+   Afinado sobre la paleta anterior: tipografía institucional (Gill Sans), barra azul profundo con
+   filete verde, tarjetas y ventanas más sobrias y etiquetas en versalitas espaciadas.
+   Si el equipo no tiene Gill Sans (viene con Microsoft Office), se usa Calibri o Segoe UI.
+   ===================================================================== */
+:root {
+    --uv-azul-profundo: #0b2a55;
+    --uv-fondo: #f4f6f9;
+    --uv-borde: #dce3ec;
+    --uv-texto: #1b2430;
+    --uv-texto-suave: #5b6879;
+    --uv-fuente-titulos: "Gill Sans MT", "Gill Sans", Calibri, "Segoe UI", sans-serif;
+    --uv-fuente-texto: "Segoe UI", Calibri, system-ui, -apple-system, Roboto, Arial, sans-serif;
+    --bs-font-sans-serif: var(--uv-fuente-texto);
+    --uv-sombra: 0 1px 2px rgba(11, 42, 85, 0.05), 0 2px 8px rgba(11, 42, 85, 0.04);
+}
+
+body { background-color: var(--uv-fondo); color: var(--uv-texto); }
+
+/* Tipografía institucional en títulos, menús, botones y etiquetas */
+h1, h2, h3, h4, h5, h6, .h4, .h5,
+.navbar-brand, .app-navbar .nav-link, .app-nav-etiqueta,
+.btn, .nav-tabs .nav-link, .modal-title, .modal-header h5,
+.app-etiqueta, .periodo-header, .alumno-nombre, .indicador-numero,
+.dialogo-encabezado, .table thead th, .paso-tutoria-titulo, .footer {
+    font-family: var(--uv-fuente-titulos);
+}
+h1, h2, h3, h4, h5, h6, .h4, .h5 { font-weight: 600; letter-spacing: 0.2px; color: var(--uv-azul-profundo); }
+
+/* ---------- Barra superior ---------- */
+.app-navbar {
+    background: var(--uv-azul-profundo) !important;
+    background-image: linear-gradient(90deg, var(--uv-azul-profundo) 0%, #123d78 60%, var(--uv-azul) 100%) !important;
+    border-bottom: 3px solid var(--uv-verde);
+    box-shadow: 0 2px 10px rgba(11, 42, 85, 0.18) !important;
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+.app-navbar .navbar-brand { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.6px; }
+.app-navbar .navbar-brand i { color: #8fd9a8; }
+.app-brand-sub {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    opacity: 0.8;
+    border-left-color: rgba(255, 255, 255, 0.35);
+}
+.app-navbar .nav-link {
+    font-weight: 500;
+    font-size: 1.02rem;
+    letter-spacing: 0.3px;
+    border-radius: 0;
+    color: rgba(255, 255, 255, 0.86);
+}
+.app-navbar .nav-link:hover, .app-navbar .nav-link:focus {
+    background-color: transparent !important;
+    color: #fff;
+    box-shadow: inset 0 -2px 0 var(--uv-verde);
+}
+.app-nav-etiqueta { font-weight: 500; letter-spacing: 0.6px; text-transform: uppercase; font-size: 0.72rem; }
+.app-nav-select { border-radius: 6px; font-weight: 600; }
+.app-navbar .btn-warning { border-radius: 6px; font-weight: 600; }
+
+/* ---------- Tarjetas ---------- */
+.app-card, .card {
+    border: 1px solid var(--uv-borde);
+    border-radius: 10px;
+    box-shadow: var(--uv-sombra);
+}
+.app-card-header { border-radius: 10px 10px 0 0 !important; }
+.app-card h2, .app-card .h5, .app-card-header h2 { font-size: 1.2rem; }
+
+/* Etiqueta en versalitas espaciadas sobre cada dato */
+.app-etiqueta {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--uv-texto-suave);
+}
+
+.alumno-nombre { font-weight: 600; font-size: 1.4rem; color: var(--uv-azul-profundo); letter-spacing: 0.2px; }
+.alumno-avatar { background: var(--uv-azul-claro); box-shadow: inset 0 0 0 2px #fff, 0 0 0 1px var(--uv-borde); }
+.indicador-numero { font-weight: 600; }
+
+/* ---------- Botones ---------- */
+.btn { border-radius: 6px; font-weight: 600; letter-spacing: 0.3px; }
+.btn-sm { font-size: 0.86rem; }
+.btn-primary { box-shadow: 0 1px 2px rgba(11, 42, 85, 0.2); }
+.btn-outline-primary { background-color: #fff; }
+.btn-outline-secondary { background-color: #fff; }
+
+/* ---------- Formularios ---------- */
+.form-control, .form-select { border-radius: 6px; border-color: #cfd8e3; }
+
+/* ---------- Pestañas ---------- */
+.nav-tabs { border-bottom: 1px solid var(--uv-borde); }
+.nav-tabs .nav-link { font-size: 1.02rem; font-weight: 500; letter-spacing: 0.3px; }
+.nav-tabs .nav-link.active { font-weight: 600; border-bottom-width: 2px; }
+
+/* ---------- Ventanas ---------- */
+.modal-content { border-radius: 10px; box-shadow: 0 20px 60px rgba(11, 42, 85, 0.28); }
+.modal-header, .offcanvas-header {
+    background: var(--uv-azul-profundo) !important;
+    background-image: linear-gradient(90deg, var(--uv-azul-profundo), var(--uv-azul)) !important;
+    border-bottom: 3px solid var(--uv-verde) !important;
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
+}
+.modal-title, .modal-header h5 { font-weight: 600; letter-spacing: 0.4px; font-size: 1.2rem; }
+.modal-footer { background-color: var(--uv-fondo); }
+
+/* ---------- Tablas ---------- */
+.table thead th, .table-light th {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--uv-texto-suave);
+}
+.table-light { --bs-table-bg: #eef2f7; }
+.table-dark th { color: #fff; }
+
+/* ---------- Mapa curricular ---------- */
+.periodo-header {
+    background: var(--uv-azul-profundo) !important;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 6px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+}
+.periodo-header.bg-success { background: var(--uv-verde-oscuro) !important; }
+.periodo-header.periodo-actual { background: var(--uv-verde) !important; box-shadow: 0 0 0 3px rgba(40, 173, 86, 0.25); }
+.materia-card { border-radius: 8px; box-shadow: 0 1px 2px rgba(11, 42, 85, 0.06); }
+.materia-card strong { font-weight: 600; }
+
+/* ---------- Diálogos del sistema ---------- */
+.dialogo-caja { border-radius: 10px; }
+.dialogo-encabezado { font-weight: 600; font-size: 1.15rem; letter-spacing: 0.3px; }
+
+/* ---------- Tutoría ---------- */
+.paso-tutoria { border-radius: 10px; }
+.paso-tutoria-titulo { font-weight: 600; letter-spacing: 0.3px; }
+
+/* ---------- Pie de página ---------- */
+.footer {
+    background-color: #fff;
+    border-top: 3px solid var(--uv-verde) !important;
+    letter-spacing: 0.3px;
+}
+.footer strong { color: var(--uv-azul-profundo); font-weight: 600; }
+/* En grupos de botones (valoración del semáforo) sin espaciado extra, para que quepan en una línea */
+.btn-group .btn { letter-spacing: 0; }

@@ -1,44 +1,50 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - PlaneaUV_Economia</title>
+    <meta name="theme-color" content="#18529d" />
+    <title>@ViewData["Title"] - SITRA-UV</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <!-- Bootstrap Icons incluida en el proyecto (funciona sin internet); sin ella los <i class="bi ..."> salen vacíos -->
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/PlaneaUV_Economia.styles.css" asp-append-version="true" />
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">PlaneaUV_Economia</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                </div>
+        <!-- Barra superior fija. Cada página puede agregar sus propios elementos con la sección "NavItems";
+             en pantallas chicas se pliegan en el menú hamburguesa. -->
+        <nav class="navbar navbar-expand-lg navbar-dark app-navbar sticky-top shadow-sm">
+            <div class="container-fluid app-contenedor">
+                <a class="navbar-brand fw-bold d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index" title="SITRA-UV · Sistema de Información de Trayectorias Académicas">
+                    <i class="bi bi-mortarboard-fill me-2"></i>SITRA-UV
+                    <span class="app-brand-sub d-none d-xl-inline">Universidad Veracruzana</span>
+                </a>
+                @if (IsSectionDefined("NavItems"))
+                {
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal"
+                            aria-controls="menuPrincipal" aria-expanded="false" aria-label="Abrir menú">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="menuPrincipal">
+                        @await RenderSectionAsync("NavItems", required: false)
+                    </div>
+                }
             </div>
         </nav>
     </header>
-    <div class="container">
+    <div class="container-fluid app-contenedor">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
+    @* Tema institucional: va después de las hojas de estilo de cada página para que mande sobre ellas *@
+    <link rel="stylesheet" href="~/css/tema-uv.css" asp-append-version="true" />
 
     <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - PlaneaUV_Economia - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        <div class="container-fluid app-contenedor small">
+            <strong>SITRA-UV</strong> · Sistema de Información de Trayectorias Académicas · Universidad Veracruzana &copy; 2026
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
