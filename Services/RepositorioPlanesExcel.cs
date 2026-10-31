@@ -152,7 +152,9 @@ namespace PlaneaUV_Economia.Services
             var plan = new PlanInfo { Programa = planNombre.Replace('_', ' ') };
             int creditosDeclarados = 0;
 
-            using (var libro = new XLWorkbook(ruta))
+            // Se abre compartido: si el coordinador tiene el plan abierto en Excel, se lee lo último que guardó
+            using (var archivo = new FileStream(ruta, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            using (var libro = new XLWorkbook(archivo))
             {
                 var ws = libro.Worksheet(1);
                 // La primera hoja puede ser el mapa curricular dibujado (formato de la UV) o la tabla de materias

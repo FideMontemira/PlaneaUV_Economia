@@ -137,6 +137,15 @@ namespace PlaneaUV_Economia.Tests
             Assert.Contains("Servicio social", aviso);
         }
 
+        // Excel deja el archivo abierto para escritura mientras el coordinador lo edita
+        [Fact]
+        public void SeLeeAunqueElPlanEsteAbiertoEnExcel()
+        {
+            CrearMapa("Mapa");
+            using var abiertoEnExcel = new FileStream(Path.Combine(_carpeta.Ruta, "Mapa.xlsx"), FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
+            Assert.Equal(10, Leer("Mapa").Materias.Count);
+        }
+
         [Fact]
         public void UnMapaConColoresDeLaLeyendaNoTieneAvisos()
         {
