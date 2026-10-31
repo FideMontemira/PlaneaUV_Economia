@@ -86,7 +86,11 @@ function subirPlanEstudio() {
             btn.disabled = false;
 
             if (data.success) {
-                avisar(data.message, { tipo: 'exito', titulo: 'Plan de estudios guardado' });
+                // Se guardó, pero puede haber cosas que revisar en la plantilla (p. ej. un color que no está en la leyenda)
+                if (data.avisos && data.avisos.length)
+                    avisar(data.message + "\n\nRevisa en el Excel:\n• " + data.avisos.join("\n• "), { tipo: 'advertencia', titulo: 'Plan guardado con avisos' });
+                else
+                    avisar(data.message, { tipo: 'exito', titulo: 'Plan de estudios guardado' });
                 input.value = ""; // Limpiamos el input
                 if (modalGestorPlanesInstance) modalGestorPlanesInstance.hide();
             } else {

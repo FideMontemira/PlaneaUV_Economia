@@ -57,6 +57,6 @@ namespace PlaneaUV_Economia.Tests
         public IReadOnlyList<string> Listar() => _planes.Keys.ToList();
         public bool Existe(string planNombre) => _planes.ContainsKey(planNombre);
         public PlanInfo? Obtener(string planNombre) => _planes.TryGetValue(planNombre, out var p) ? p : null;
-        public Task GuardarAsync(IFormFile archivo) => Task.CompletedTask;
+        public Task<IReadOnlyList<string>> GuardarAsync(IFormFile archivo) => Task.FromResult<IReadOnlyList<string>>(new List<string>());
     }
 }

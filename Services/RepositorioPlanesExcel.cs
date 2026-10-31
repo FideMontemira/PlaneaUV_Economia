@@ -18,7 +18,8 @@ namespace PlaneaUV_Economia.Services
         IReadOnlyList<string> Listar();
         bool Existe(string planNombre);
         PlanInfo? Obtener(string planNombre);   // null si no existe
-        Task GuardarAsync(IFormFile archivo);
+        // Devuelve los avisos de la plantilla (lo que conviene revisar aunque el plan sí se guardó)
+        Task<IReadOnlyList<string>> GuardarAsync(IFormFile archivo);
     }
 
     // Implementación actual: un .xlsx por plan en la carpeta PlanesEstudio.
@@ -65,7 +66,7 @@ namespace PlaneaUV_Economia.Services
 
         // Guarda primero en un archivo temporal, revisa que sea una plantilla válida y solo entonces
         // reemplaza al plan anterior. Así un archivo dañado o equivocado no borra un plan que funciona.
-        public async Task GuardarAsync(IFormFile archivo)
+        public async Task<IReadOnlyList<string>> GuardarAsync(IFormFile archivo)
         {
             if (archivo.Length > TamanoMaximo) throw new ArgumentException("El archivo es demasiado grande (máximo 5 MB).");
 
@@ -100,6 +101,7 @@ namespace PlaneaUV_Economia.Services
 
                 File.Move(temporal, ruta, overwrite: true);
                 _cache.TryRemove(ruta, out _);
+                return plan.Avisos;
             }
             finally
             {
@@ -154,7 +156,7 @@ namespace PlaneaUV_Economia.Services
             {
                 var ws = libro.Worksheet(1);
                 // La primera hoja puede ser el mapa curricular dibujado (formato de la UV) o la tabla de materias
-                if (LectorMapaCurricular.EsMapa(ws)) plan.Materias.AddRange(LectorMapaCurricular.Leer(ws));
+                if (LectorMapaCurricular.EsMapa(ws)) plan.Materias.AddRange(LectorMapaCurricular.Leer(ws, plan.Avisos));
                 else for (int fila = 2; !ws.Cell(fila, 2).IsEmpty(); fila++)
                 {
                     // Los valores se leen siempre como texto primero (blindaje contra celdas con formato raro)

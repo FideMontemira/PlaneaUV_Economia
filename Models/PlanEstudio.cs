@@ -17,6 +17,9 @@ namespace PlaneaUV_Economia.Models
         public int PeriodosTrayectoriaLarga { get; set; }
         // Apoyos de la facultad con horario y lugar (hoja opcional "Apoyos"); se imprimen en la ficha de tutoría
         public List<ApoyoPlan> Apoyos { get; set; } = new List<ApoyoPlan>();
+        // Lo que conviene revisar en la plantilla sin que impida usarla (p. ej. un color que no está en la leyenda del mapa)
+        [System.Text.Json.Serialization.JsonIgnore]
+        public List<string> Avisos { get; set; } = new List<string>();
     }
 
     public class ApoyoPlan

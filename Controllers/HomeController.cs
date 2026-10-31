@@ -253,8 +253,8 @@ namespace PlaneaUV_Economia.Controllers
 
             try
             {
-                await _planes.GuardarAsync(archivoPlan);
-                return Json(new { success = true, message = "Plan de estudios subido correctamente." });
+                var avisos = await _planes.GuardarAsync(archivoPlan);
+                return Json(new { success = true, message = "Plan de estudios subido correctamente.", avisos });
             }
             catch (ArgumentException ex)
             {

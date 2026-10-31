@@ -30,12 +30,17 @@ namespace PlaneaUV_Economia.Services
         private static readonly string[] Flechas = { "→", "->", "⟶", "➜", "➝", "⇒" };
 
         private class Periodo { public int Numero, ColIni, ColFin; }
-        private class Recuadro { public MateriaPlan Materia = new(); public int FilaIni, FilaFin, ColIni, ColFin; public string Color = ""; }
+        private class Recuadro { public MateriaPlan Materia = new(); public int FilaIni, FilaFin, ColIni, ColFin, Color; }
+
+        private const int Blanco = 0xFFFFFF;
+        // Qué tan distinto puede ser el color de un recuadro del de la leyenda (distancia RGB) para tomarlo como el mismo
+        private const double DistanciaMaxima = 60;
 
         // Es un mapa si la primera hoja tiene al menos dos encabezados de periodo
         public static bool EsMapa(IXLWorksheet ws) => BuscarPeriodos(ws).Count >= 2;
 
-        public static List<MateriaPlan> Leer(IXLWorksheet ws)
+        // 'avisos' (opcional) recibe lo que conviene revisar sin impedir la carga, p. ej. un recuadro cuyo color no está en la leyenda
+        public static List<MateriaPlan> Leer(IXLWorksheet ws, List<string>? avisos = null)
         {
             var periodos = BuscarPeriodos(ws);
             int filaEncabezados = periodos.Count == 0 ? 0 : periodos.Max(p => p.filaFin);
@@ -44,7 +49,7 @@ namespace PlaneaUV_Economia.Services
             var recuadros = new List<Recuadro>();
             var flechas = new List<(int fila, int col)>();
             var afel = new List<MateriaPlan>();
-            var leyenda = new Dictionary<string, string>();
+            var leyenda = new List<(int color, string area)>();
 
             foreach (var celda in ws.CellsUsed(c => c.Address.RowNumber > filaEncabezados))
             {
@@ -65,7 +70,8 @@ namespace PlaneaUV_Economia.Services
                     var bloque = bloques.FirstOrDefault(b => colIni >= b.ColIni && colIni <= b.ColFin);
                     if (bloque == null) continue;   // fuera de los periodos (notas, totales)
                     materia.Semestre = bloque.Numero;
-                    recuadros.Add(new Recuadro { Materia = materia, FilaIni = filaIni, FilaFin = filaFin, ColIni = colIni, ColFin = colFin, Color = Color(celda) });
+                    // Un recuadro sin relleno se ve blanco: cuenta como blanco
+                    recuadros.Add(new Recuadro { Materia = materia, FilaIni = filaIni, FilaFin = filaFin, ColIni = colIni, ColFin = colFin, Color = Color(celda) ?? Blanco });
                     continue;
                 }
 
@@ -73,15 +79,32 @@ namespace PlaneaUV_Economia.Services
                 string? area = AreaDeLeyenda(texto);
                 if (area != null)
                 {
-                    string color = ColorALaIzquierda(ws, filaIni, colIni);
-                    if (color != "" && !leyenda.ContainsKey(color)) leyenda[color] = area;
+                    int? color = ColorALaIzquierda(ws, filaIni, colIni);
+                    if (color != null && !leyenda.Any(l => l.color == color)) leyenda.Add((color.Value, area));
                 }
             }
 
+            var sinArea = new List<string>();
             foreach (var r in recuadros)
             {
                 if (r.Materia.EsOptativa) continue;
-                if (leyenda.TryGetValue(r.Color, out var area) && area != "Electiva") r.Materia.Area = area;
+                // El color más parecido de la leyenda (así un tono casi igual, o el mismo color elegido de la paleta del tema, también cuenta)
+                var cercano = leyenda.OrderBy(l => Distancia(l.color, r.Color)).FirstOrDefault();
+                if (leyenda.Count > 0 && Distancia(cercano.color, r.Color) <= DistanciaMaxima)
+                {
+                    if (cercano.area != "Electiva") r.Materia.Area = cercano.area;
+                }
+                else sinArea.Add(r.Materia.Nombre);
+            }
+            if (avisos != null && recuadros.Count > 0)
+            {
+                if (leyenda.Count == 0)
+                    avisos.Add("No se encontró la leyenda de áreas (\"Área Disciplinar\", \"Área Terminal\"... junto a un cuadro de color): las materias quedaron sin área.");
+                else if (sinArea.Count > 0)
+                    avisos.Add((sinArea.Count == 1
+                        ? $"El color de \"{sinArea[0]}\" no se parece a ninguno de la leyenda y quedó sin área."
+                        : $"El color de estas materias no se parece a ninguno de la leyenda y quedaron sin área: {string.Join(", ", sinArea)}.")
+                        + " Usa el mismo color del cuadro de la leyenda (puedes copiarlo con Copiar formato, la brocha).");
             }
 
             // Flecha: requisito = recuadro a su izquierda en el mismo renglón; materia = el de su derecha
@@ -196,30 +219,68 @@ namespace PlaneaUV_Economia.Services
         }
 
         // Primer cuadro con relleno a la izquierda de la etiqueta (hasta 4 columnas)
-        private static string ColorALaIzquierda(IXLWorksheet ws, int fila, int col)
+        private static int? ColorALaIzquierda(IXLWorksheet ws, int fila, int col)
         {
             for (int c = col - 1; c >= Math.Max(1, col - 4); c--)
             {
                 var celda = ws.Cell(fila, c);
-                var inicio = celda.MergedRange()?.FirstCell() ?? celda;
-                string color = Color(inicio);
-                if (color != "") return color;
+                var color = Color(celda.MergedRange()?.FirstCell() ?? celda);
+                if (color != null) return color;
             }
-            return "";
+            return null;
         }
 
-        private static string Color(IXLCell celda)
+        // Relleno de la celda como RGB (sin transparencia), o null si no tiene. Los colores del tema de Excel
+        // ("Blanco, Fondo 1", "Azul, Énfasis 1" con su tono más claro u oscuro) se convierten a su RGB.
+        private static int? Color(IXLCell celda)
         {
             var fill = celda.Style.Fill;
-            if (fill.PatternType == XLFillPatternValues.None) return "";
+            if (fill.PatternType == XLFillPatternValues.None) return null;
             var c = fill.BackgroundColor;
-            return c.ColorType switch
+            try
             {
-                XLColorType.Color => c.Color.ToArgb().ToString("X8"),
-                XLColorType.Theme => $"tema {c.ThemeColor} {c.ThemeTint.ToString("0.00", CultureInfo.InvariantCulture)}",
-                XLColorType.Indexed => $"indice {c.Indexed}",
-                _ => ""
-            };
+                switch (c.ColorType)
+                {
+                    case XLColorType.Color:
+                    case XLColorType.Indexed:
+                        return c.Color.ToArgb() & 0xFFFFFF;
+                    case XLColorType.Theme:
+                        var baseColor = ColorDelTema(celda.Worksheet.Workbook.Theme, c.ThemeColor);
+                        return baseColor == null ? null : AplicarTono(baseColor.Color.ToArgb() & 0xFFFFFF, c.ThemeTint);
+                }
+            }
+            catch (Exception) { }   // un color que la librería no sabe resolver: se toma como sin relleno
+            return null;
+        }
+
+        private static XLColor? ColorDelTema(IXLTheme tema, XLThemeColor cual) => cual switch
+        {
+            XLThemeColor.Background1 => tema.Background1,
+            XLThemeColor.Text1 => tema.Text1,
+            XLThemeColor.Background2 => tema.Background2,
+            XLThemeColor.Text2 => tema.Text2,
+            XLThemeColor.Accent1 => tema.Accent1,
+            XLThemeColor.Accent2 => tema.Accent2,
+            XLThemeColor.Accent3 => tema.Accent3,
+            XLThemeColor.Accent4 => tema.Accent4,
+            XLThemeColor.Accent5 => tema.Accent5,
+            XLThemeColor.Accent6 => tema.Accent6,
+            XLThemeColor.Hyperlink => tema.Hyperlink,
+            XLThemeColor.FollowedHyperlink => tema.FollowedHyperlink,
+            _ => null
+        };
+
+        // Tono de Excel: positivo aclara hacia blanco, negativo oscurece hacia negro
+        private static int AplicarTono(int rgb, double tono)
+        {
+            int Canal(int v) => (int)Math.Round(tono >= 0 ? v + (255 - v) * tono : v * (1 + tono));
+            return (Canal((rgb >> 16) & 0xFF) << 16) | (Canal((rgb >> 8) & 0xFF) << 8) | Canal(rgb & 0xFF);
+        }
+
+        private static double Distancia(int a, int b)
+        {
+            int dr = ((a >> 16) & 0xFF) - ((b >> 16) & 0xFF), dg = ((a >> 8) & 0xFF) - ((b >> 8) & 0xFF), db = (a & 0xFF) - (b & 0xFF);
+            return Math.Sqrt(dr * dr + dg * dg + db * db);
         }
 
         private static string SinAcentos(string t) =>

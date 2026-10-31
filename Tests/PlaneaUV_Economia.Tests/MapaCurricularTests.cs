@@ -105,10 +105,43 @@ namespace PlaneaUV_Economia.Tests
         }
 
         [Fact]
-        public void SinLeyendaLasMateriasQuedanSinArea()
+        public void SinLeyendaLasMateriasQuedanSinAreaYSeAvisa()
         {
             CrearMapa("Mapa", conLeyenda: false);
-            Assert.All(Leer("Mapa").Materias, m => Assert.Equal("", m.Area));
+            var plan = Leer("Mapa");
+            Assert.All(plan.Materias, m => Assert.Equal("", m.Area));
+            Assert.Contains(plan.Avisos, a => a.Contains("leyenda"));
+        }
+
+        // Así cambia el color alguien en Excel: de la paleta del tema o con un tono casi igual al de la leyenda
+        [Fact]
+        public void ColorDelTemaOParecidoTambienCuentaYElQueNoCoincideSeAvisa()
+        {
+            CrearMapa("Mapa");
+            string ruta = Path.Combine(_carpeta.Ruta, "Mapa.xlsx");
+            using (var libro = new XLWorkbook(ruta))
+            {
+                var ws = libro.Worksheet(1);
+                ws.Range("I25:N27").Style.Fill.BackgroundColor = XLColor.FromTheme(XLThemeColor.Background1);   // "Blanco, Fondo 1"
+                ws.Range("B17:G19").Style.Fill.BackgroundColor = XLColor.FromHtml("#92E80A");                   // casi el verde de la leyenda
+                ws.Range("I21:N23").Style.Fill.BackgroundColor = XLColor.FromHtml("#E00000");                   // rojo: no está en la leyenda
+                libro.Save();
+            }
+            var plan = Leer("Mapa");
+            var area = plan.Materias.ToDictionary(m => m.Nombre, m => m.Area);
+
+            Assert.Equal("Terminal", area["Seminario"]);
+            Assert.Equal("Iniciación a la disciplina", area["Cálculo I"]);
+            Assert.Equal("", area["Servicio social"]);
+            var aviso = Assert.Single(plan.Avisos);
+            Assert.Contains("Servicio social", aviso);
+        }
+
+        [Fact]
+        public void UnMapaConColoresDeLaLeyendaNoTieneAvisos()
+        {
+            CrearMapa("Mapa");
+            Assert.Empty(Leer("Mapa").Avisos);
         }
 
         [Fact]
