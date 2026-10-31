@@ -32,7 +32,7 @@ namespace PlaneaUV_Economia.Models
         public int Creditos { get; set; }
         public string Tipo { get; set; } = "";            // Normal, Optativa o AFEL
         public string Prerrequisitos { get; set; } = "";  // nombres separados por coma
-        public string Area { get; set; } = "";            // General, Básica, Disciplinar o Terminal
+        public string Area { get; set; } = "";            // AFBG, Iniciación a la disciplina, Disciplinar o Terminal (también acepta General y Básica)
         // Porcentaje de los créditos totales que el alumno debe tener aprobados para inscribirla
         // (p. ej. 70 en servicio social, experiencia recepcional y prácticas profesionales). 0 = sin requisito.
         public int PorcentajeCreditos { get; set; }
