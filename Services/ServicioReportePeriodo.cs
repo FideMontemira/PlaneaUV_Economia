@@ -48,21 +48,21 @@ namespace PlaneaUV_Economia.Services
             var alInicio = Copia(alumno, alumno.Materias.Where(m => AntesDelPeriodo(m.Periodo)), new List<TutoriaRecord>());
 
             var fin = ReglasTrayectoria.FinDePeriodo(periodo) ?? hoy;
+            var planDelAlumno = ObtenerPlan(alumno.PlanEstudio);
             var r = new ResumenPeriodo
             {
                 Periodo = periodo,
                 EnPausa = pausas.Contains(periodo),
                 Concluido = fin.Date < hoy.Date,
                 PeriodoQueCursa = ReglasTrayectoria.PeriodoQueCursa(alumno.Matricula, periodo, pausas),
-                CreditosAlInicio = ReglasTrayectoria.CreditosAprobados(alInicio),
-                CreditosAlCierre = ReglasTrayectoria.CreditosAprobados(alCierre)
+                CreditosAlInicio = ReglasTrayectoria.CreditosAprobados(alInicio, planDelAlumno),
+                CreditosAlCierre = ReglasTrayectoria.CreditosAprobados(alCierre, planDelAlumno)
             };
             r.CreditosGanados = Math.Max(0, r.CreditosAlCierre - r.CreditosAlInicio);
 
             // ---------- Materias del periodo (el último registro de cada una en ese periodo) ----------
             var delPeriodo = new Dictionary<string, MateriaCursada>();
             foreach (var m in alumno.Materias.Where(m => m.Periodo == periodo)) delPeriodo[m.Nombre ?? ""] = m;
-            var planDelAlumno = ObtenerPlan(alumno.PlanEstudio);
             // Materias de varios periodos (p. ej. servicio social): la que viene cursando desde antes también es
             // de este periodo, y si al cerrarlo todavía le quedan periodos, "continúa" (no se queda sin resultado)
             var continuan = ReglasTrayectoria.EnCursoDesdePeriodoAnterior(planDelAlumno, alCierre, periodo);

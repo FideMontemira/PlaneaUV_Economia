@@ -298,8 +298,10 @@ namespace PlaneaUV_Economia.Controllers
             try
             {
                 var plan = _planes.Obtener(planNombre)!;
+                // creditosMaterias: lo que suman las materias más el total de AFEL (las tarjetas AFEL no traen créditos)
                 return Json(new { success = true, data = plan.Materias, programa = plan.Programa, creditosTotales = plan.CreditosTotales,
-                                  creditosMaterias = plan.Materias.Sum(m => m.Creditos), optativas = plan.Optativas });
+                                  creditosMaterias = plan.Materias.Sum(m => m.Creditos) + plan.CreditosAfel, creditosAfel = plan.CreditosAfel,
+                                  optativas = plan.Optativas });
             }
             catch (Exception ex)
             {

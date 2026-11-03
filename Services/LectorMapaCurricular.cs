@@ -72,21 +72,24 @@ namespace PlaneaUV_Economia.Services
             return materia;
         }
 
-        // Franja AFEL de la plantilla: "Número de experiencias" [n] y "Créditos de cada una" [c] en el mismo renglón
+        // Franja AFEL de la plantilla: "Total de créditos AFEL" [18]. También se acepta la forma anterior,
+        // "Número de experiencias" [n] y "Créditos de cada una" [c] (total = n × c).
         private static IEnumerable<MateriaPlan> LeerAfelDeCasillas(IXLWorksheet ws, int fila)
         {
-            int? n = null, cr = null;
+            int? n = null, cr = null, total = null;
             string etiqueta = "";
             foreach (var celda in ws.Row(fila).CellsUsed())
             {
                 if (!EsInicioDeSuRango(celda)) continue;
                 var numero = Numero(celda);
                 if (numero == null) { etiqueta = SinAcentos(Texto(celda)).ToLowerInvariant(); continue; }
-                if (etiqueta.Contains("experiencias")) n = numero;
+                if (etiqueta.Contains("total")) total = numero;
+                else if (etiqueta.Contains("experiencias")) n = numero;
                 else if (etiqueta.Contains("cada una")) cr = numero;
             }
-            if (n == null || cr == null || n <= 0) return Enumerable.Empty<MateriaPlan>();
-            return Enumerable.Range(1, Math.Min(n.Value, 20)).Select(i => new MateriaPlan { Nombre = $"AFEL {i}", Creditos = cr.Value, Tipo = "AFEL" });
+            if (total == null && n != null && cr != null) total = n * cr;
+            if (total == null || total <= 0) return Enumerable.Empty<MateriaPlan>();
+            return new[] { new MateriaPlan { Nombre = "AFEL", Creditos = total.Value, Tipo = "AFEL" } };
         }
 
         private static int AnchoCombinado(IXLCell celda)

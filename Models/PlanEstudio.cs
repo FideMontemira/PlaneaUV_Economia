@@ -8,6 +8,9 @@ namespace PlaneaUV_Economia.Models
     {
         public string Programa { get; set; } = "";
         public int CreditosTotales { get; set; }
+        // Créditos de AFEL que pide el plan (del mapa: "AFEL 18 créditos"). Las AFEL no tienen créditos fijos: cada una
+        // vale lo que diga su registro; de lo que curse el alumno solo cuenta para el avance hasta este total.
+        public int CreditosAfel { get; set; }
         public List<MateriaPlan> Materias { get; set; } = new List<MateriaPlan>();
         public List<OptativaPlan> Optativas { get; set; } = new List<OptativaPlan>();
         // Materias "candado": las que son prerrequisito de alguna otra materia del plan

@@ -5,6 +5,12 @@ let tarjetaActual = null;
 
 let modalBootstrapInstance = null;
 
+// Créditos que se muestran en la tarjeta. Una AFEL sin registrar todavía no tiene créditos: se escriben al registrarla.
+function textoCreditosTarjeta(creditos) {
+    const c = parseInt(creditos) || 0;
+    return c > 0 ? `(${c} Cr.)` : '(— Cr.)';
+}
+
 function agregarAfelExtra(nombrePers = "", creditosPers = 0) {
     const contenedor = $('contenedor-afeles');
     if (!contenedor) return null;
@@ -13,7 +19,7 @@ function agregarAfelExtra(nombrePers = "", creditosPers = 0) {
     let numAfel = document.querySelectorAll('.bg-afel').length + 1;
     while (document.querySelector(`.materia-card[data-nombre="AFEL ${numAfel}"]`)) numAfel++;
     let nombreBase = "AFEL " + numAfel;
-    let crOtorga = creditosPers > 0 ? creditosPers : 6;
+    let crOtorga = creditosPers > 0 ? creditosPers : 0;   // sin créditos de inicio: se escriben al registrarla
 
     let nuevaTarjeta = document.createElement('div');
     nuevaTarjeta.className = 'materia-card bg-afel afel-extra shadow-sm mb-2';
@@ -22,7 +28,7 @@ function agregarAfelExtra(nombrePers = "", creditosPers = 0) {
 
     if (nombrePers) nuevaTarjeta.setAttribute('data-nombre-personalizado', nombrePers);
 
-    nuevaTarjeta.innerHTML = `<strong>${escapeHTML(nombrePers || nombreBase)}</strong><br/>(${crOtorga} Cr.)` + BOTON_QUITAR_AFEL;
+    nuevaTarjeta.innerHTML = `<strong>${escapeHTML(nombrePers || nombreBase)}</strong><br/>${textoCreditosTarjeta(crOtorga)}` + BOTON_QUITAR_AFEL;
     nuevaTarjeta.addEventListener("click", manejadorClickTarjeta);
 
     let btnContainer = contenedor.querySelector('.btn-outline-success').parentNode;
@@ -58,7 +64,8 @@ function manejadorClickTarjeta(e) {
 
     tarjetaActual = this;
     $('modalMateriaNombre').innerText = this.getAttribute('data-nombre');
-    $('modalMateriaCreditos').innerText = this.getAttribute('data-creditos') + ' Cr.';
+    const creditosTarjeta = parseInt(this.getAttribute('data-creditos')) || 0;
+    $('modalMateriaCreditos').innerText = creditosTarjeta > 0 ? creditosTarjeta + ' Cr.' : 'Créditos por registrar';
 
     const divOptativa = $('divOptativa');
     const inputOptativa = $('inputOptativa');
@@ -75,7 +82,7 @@ function manejadorClickTarjeta(e) {
         if (divOptativa) divOptativa.classList.add('d-none');
         if (divAfel) divAfel.classList.remove('d-none');
         if (inputNombreAfel) inputNombreAfel.value = this.getAttribute('data-nombre-personalizado') || '';
-        if (inputCreditosAfel) inputCreditosAfel.value = this.getAttribute('data-creditos') || '6';
+        if (inputCreditosAfel) inputCreditosAfel.value = creditosTarjeta > 0 ? creditosTarjeta : '';
     } else {
         if (divOptativa) divOptativa.classList.add('d-none');
         if (divAfel) divAfel.classList.add('d-none');
@@ -200,6 +207,11 @@ async function limpiarEstadoMateria() {
     }
 
     tarjetaActual.removeAttribute('data-historial');
+    // El lugar AFEL del plan vuelve a quedar vacío: sin nombre ni créditos
+    if (tarjetaActual.classList.contains('bg-afel')) {
+        tarjetaActual.removeAttribute('data-nombre-personalizado');
+        tarjetaActual.setAttribute('data-creditos', 0);
+    }
 
     if ($('selectInscripcion')) $('selectInscripcion').disabled = false;
     if ($('selectExamen')) $('selectExamen').disabled = false;
@@ -396,6 +408,13 @@ function guardarAvance() {
         let iptName = inputNAfel ? inputNAfel.value.trim() : '';
         let iptCred = inputCAfel ? parseInt(inputCAfel.value) : 0;
 
+        // La AFEL no trae créditos del plan: hay que escribir los de la experiencia que cursó
+        if (!(iptCred > 0)) {
+            avisar("Escribe los créditos de la AFEL.", { tipo: 'advertencia', titulo: 'Faltan los créditos' });
+            if (inputCAfel) inputCAfel.focus();
+            return;
+        }
+
         if (iptName) {
             tarjetaActual.setAttribute('data-nombre-personalizado', iptName);
             nuevoNombre = iptName;
@@ -541,7 +560,7 @@ function actualizarTarjetaVisual(tarjeta, historialArray) {
     // Se conservan las leyendas "Req:" (prerrequisito y porcentaje de créditos) con su clase; actualizarProgreso decide si se ven
     const leyendas = [...tarjeta.querySelectorAll('.prerequisito-text')];
 
-    let htmlContenido = `<strong>${escapeHTML(nombreActual)}</strong><br/>(${creditosActual} Cr.)`;
+    let htmlContenido = `<strong>${escapeHTML(nombreActual)}</strong><br/>${textoCreditosTarjeta(creditosActual)}`;
     leyendas.forEach(s => { htmlContenido += `<span class="${s.className}">${s.innerHTML}</span>`; });
     if (tarjeta.classList.contains('afel-extra')) htmlContenido += BOTON_QUITAR_AFEL;
 

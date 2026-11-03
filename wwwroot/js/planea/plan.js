@@ -17,6 +17,10 @@ let listaOptativas = [];
 
 let creditosTotalesPlan = 0;
 
+// Créditos de AFEL que pide el plan (del mapa: "AFEL 18 créditos"). Las tarjetas AFEL no traen créditos:
+// cada una vale lo que se registre, y para el avance solo cuenta hasta este total.
+let creditosAfelPlan = 0;
+
 let programaPlan = "";
 
 // Aplica a la pantalla los datos del plan recién cargado (título, total de créditos y catálogo de optativas)
@@ -25,6 +29,7 @@ function aplicarDatosDelPlan(res, planNombre) {
     listaOptativas = optativas.map(o => o.nombre || o.Nombre).filter(n => n);
     programaPlan = res.programa || planNombre || "";
     creditosTotalesPlan = parseInt(res.creditosTotales) || 0;
+    creditosAfelPlan = parseInt(res.creditosAfel) || 0;
 
     const titulo = $('tituloMapa');
     if (titulo) titulo.innerText = programaPlan ? 'Mapa Curricular - ' + programaPlan : 'Mapa Curricular';
@@ -266,7 +271,7 @@ function renderizarMapaVisual() {
 
         const header = document.createElement('div');
         header.className = soloAfel ? 'periodo-header bg-success' : 'periodo-header';
-        header.innerText = soloAfel ? 'Área Libre (AFEL)' : ordinal(numSemestre) + ' Periodo';
+        header.innerText = soloAfel ? 'Área Libre (AFEL)' + (creditosAfelPlan > 0 ? ` · ${creditosAfelPlan} Cr.` : '') : ordinal(numSemestre) + ' Periodo';
         col.appendChild(header);
 
         materias.forEach(mat => {
@@ -300,7 +305,7 @@ function renderizarMapaVisual() {
             const duracionMat = parseInt(mat.periodosDuracion || mat.PeriodosDuracion) || 1;
             if (duracionMat > 1) card.setAttribute('data-periodos-duracion', duracionMat);
 
-            card.innerHTML = `<strong>${escapeHTML(nombreMat)}</strong><br/>(${creditosMat} Cr.)${prerreqHtml}`;
+            card.innerHTML = `<strong>${escapeHTML(nombreMat)}</strong><br/>${textoCreditosTarjeta(creditosMat)}${prerreqHtml}`;
             card.addEventListener('click', manejadorClickTarjeta);
             col.appendChild(card);
         });

@@ -67,15 +67,18 @@ namespace PlaneaUV_Economia.Tests
             var plan = Leer("Mapa");
 
             Assert.Equal("Licenciatura en Pruebas", plan.Programa);
-            Assert.Equal(new[] { "Lengua I", "Cálculo I", "Optativa 1", "Lengua II", "Microeconomía I", "Servicio social", "Seminario", "AFEL 1", "AFEL 2", "AFEL 3" },
+            Assert.Equal(new[] { "Lengua I", "Cálculo I", "Optativa 1", "Lengua II", "Microeconomía I", "Servicio social", "Seminario", "AFEL 1" },
                          plan.Materias.Select(m => m.Nombre));
             var calculo = plan.Materias.Single(m => m.Nombre == "Cálculo I");
             Assert.Equal((1, 9, "Normal"), (calculo.Semestre, calculo.Creditos, calculo.Tipo));
             Assert.Equal(2, plan.Materias.Single(m => m.Nombre == "Microeconomía I").Semestre);
             Assert.Equal(5, plan.Materias.Single(m => m.Nombre == "Seminario").Creditos);
             Assert.Equal("Optativa", plan.Materias.Single(m => m.Nombre == "Optativa 1").Tipo);
-            Assert.All(plan.Materias.Where(m => m.EsAfel), m => Assert.Equal((0, 6), (m.Semestre, m.Creditos)));
-            Assert.Equal(68, plan.CreditosTotales);   // sin "Creditos totales" en Datos: la suma de los recuadros
+            // AFEL: del mapa sale el total; queda un solo lugar sin créditos (cada AFEL vale lo que diga su registro)
+            var afel = Assert.Single(plan.Materias, m => m.EsAfel);
+            Assert.Equal((0, 0), (afel.Semestre, afel.Creditos));
+            Assert.Equal(18, plan.CreditosAfel);
+            Assert.Equal(68, plan.CreditosTotales);   // sin "Creditos totales" en Datos: los recuadros (50) más el total de AFEL (18)
         }
 
         [Fact]
@@ -143,7 +146,7 @@ namespace PlaneaUV_Economia.Tests
         {
             CrearMapa("Mapa");
             using var abiertoEnExcel = new FileStream(Path.Combine(_carpeta.Ruta, "Mapa.xlsx"), FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
-            Assert.Equal(10, Leer("Mapa").Materias.Count);
+            Assert.Equal(8, Leer("Mapa").Materias.Count);
         }
 
         [Fact]
@@ -203,13 +206,13 @@ namespace PlaneaUV_Economia.Tests
             var plan = Leer("Captura");
             var m = plan.Materias.ToDictionary(x => x.Nombre);
 
-            Assert.Equal(new[] { "Contabilidad I", "Lengua I", "Optativa 1", "Contabilidad II", "Servicio social", "Costos", "AFEL 1", "AFEL 2", "AFEL 3" },
+            Assert.Equal(new[] { "Contabilidad I", "Lengua I", "Optativa 1", "Contabilidad II", "Servicio social", "Costos", "AFEL 1" },
                          plan.Materias.Select(x => x.Nombre));
             Assert.Equal((1, 8, "Iniciación a la disciplina"), (m["Contabilidad I"].Semestre, m["Contabilidad I"].Creditos, m["Contabilidad I"].Area));
             Assert.Equal(("Contabilidad I", "Disciplinar"), (m["Contabilidad II"].Prerrequisitos, m["Contabilidad II"].Area));
             Assert.Equal(("Lengua I, Lengua 3", 70, 2, "Terminal"), (m["Servicio social"].Prerrequisitos, m["Servicio social"].PorcentajeCreditos, m["Servicio social"].PeriodosDuracion, m["Servicio social"].Area));
             Assert.Equal("Optativa", m["Optativa 1"].Tipo);
-            Assert.All(plan.Materias.Where(x => x.EsAfel), x => Assert.Equal(6, x.Creditos));
+            Assert.Equal(18, plan.CreditosAfel);   // forma anterior de la franja: 3 experiencias × 6 créditos
         }
 
         [Fact]
@@ -222,6 +225,42 @@ namespace PlaneaUV_Economia.Tests
             Assert.Contains(avisos, a => a.StartsWith("Sin créditos") && a.Contains("Costos"));
             Assert.Contains(avisos, a => a.Contains("\"Lengua 3\""));
             Assert.DoesNotContain(avisos, a => a.Contains("Área Disciplinar"));
+        }
+
+        [Fact]
+        public void PlantillaConTotalDeCreditosAfel()
+        {
+            CrearPlantillaLlena("Captura");
+            string ruta = Path.Combine(_carpeta.Ruta, "Captura.xlsx");
+            using (var libro = new XLWorkbook(ruta))
+            {
+                var ws = libro.Worksheet(1);
+                ws.Range("P32:AC32").Unmerge();
+                ws.Range("P32:AC32").Clear();
+                ws.Range("P32:U32").Merge().Value = "Total de créditos AFEL:"; ws.Cell("V32").Value = 24;
+                libro.Save();
+            }
+            var plan = Leer("Captura");
+            Assert.Equal(24, plan.CreditosAfel);
+            Assert.Equal(0, Assert.Single(plan.Materias, m => m.EsAfel).Creditos);
+        }
+
+        // Las AFEL cuentan para el avance solo hasta el total del plan; lo demás no suma
+        [Fact]
+        public void LasAfelCuentanSoloHastaElTotalDelPlan()
+        {
+            var plan = new PlanInfo { CreditosAfel = 18, Optativas = { new OptativaPlan { Nombre = "Teoría de Juegos" } } };
+            plan.Materias.Add(new MateriaPlan { Semestre = 1, Nombre = "Cálculo I", Creditos = 9, Tipo = "Normal" });
+            plan.Materias.Add(new MateriaPlan { Nombre = "AFEL 1", Tipo = "AFEL" });
+            var alumno = new AlumnoAvance { Matricula = "S24000001" };
+            void Aprobada(string nombre, int cr) => alumno.Materias.Add(new MateriaCursada { Nombre = nombre, Creditos = cr, Estado = "aprobada", Periodo = "Agosto - Enero 2024" });
+            Aprobada("Cálculo I", 9);
+            Aprobada("Teoría de Juegos", 6);
+            Aprobada("Yoga", 6); Aprobada("Fotografía", 8); Aprobada("Danza", 6); Aprobada("Ajedrez", 4);   // 24 de AFEL
+
+            Assert.Equal(9 + 6 + 18, ReglasTrayectoria.CreditosAprobados(alumno, plan));
+            Assert.Equal(24, ReglasTrayectoria.CreditosAfelAprobados(alumno, plan));
+            Assert.Equal(9 + 6 + 24, ReglasTrayectoria.CreditosAprobados(alumno));   // sin plan no hay tope
         }
 
         [Fact]

@@ -210,8 +210,15 @@ namespace PlaneaUV_Economia.Services
                 }
             }
 
-            // Total oficial si el coordinador lo escribió en la hoja "Datos"; si no, la suma de las materias del plan
-            plan.CreditosTotales = creditosDeclarados > 0 ? creditosDeclarados : plan.Materias.Sum(m => m.Creditos);
+            // AFEL: del plan solo importa el total ("AFEL 18 créditos" en el mapa, o la suma de las filas AFEL de la tabla).
+            // En el mapa del alumno queda un solo lugar vacío, sin créditos: cada AFEL vale lo que diga su registro.
+            plan.CreditosAfel = plan.Materias.Where(m => m.EsAfel).Sum(m => m.Creditos);
+            bool teniaAfel = plan.Materias.Any(m => m.EsAfel);
+            plan.Materias.RemoveAll(m => m.EsAfel);
+            if (teniaAfel) plan.Materias.Add(new MateriaPlan { Nombre = "AFEL 1", Tipo = "AFEL", Creditos = 0 });
+
+            // Total oficial si el coordinador lo escribió en la hoja "Datos"; si no, la suma de las materias más el total de AFEL
+            plan.CreditosTotales = creditosDeclarados > 0 ? creditosDeclarados : plan.Materias.Sum(m => m.Creditos) + plan.CreditosAfel;
 
             foreach (var m in plan.Materias)
                 foreach (var req in m.Prerrequisitos.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

@@ -89,6 +89,7 @@ function buscarAlumno(materiaAResaltar = null) {
                     } else {
                         t.removeAttribute('data-historial');
                         if (t.classList.contains('bg-optativa') || t.classList.contains('bg-afel')) t.removeAttribute('data-nombre-personalizado');
+                        if (t.classList.contains('bg-afel')) t.setAttribute('data-creditos', 0);   // lugar AFEL vacío: sin créditos
                     }
 
                     actualizarTarjetaVisual(t, historialArray);

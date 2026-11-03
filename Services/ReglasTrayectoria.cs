@@ -160,12 +160,32 @@ namespace PlaneaUV_Economia.Services
             return rezago;
         }
 
-        // Créditos aprobados: cada materia aprobada cuenta una sola vez (con los créditos de su registro)
-        public static int CreditosAprobados(AlumnoAvance alumno)
+        // Créditos aprobados: cada materia aprobada cuenta una sola vez (con los créditos de su registro).
+        // Con el plan, las AFEL cuentan solo hasta el total de AFEL que pide (lo que pase de ahí no suma al avance).
+        public static int CreditosAprobados(AlumnoAvance alumno, PlanInfo? plan = null)
         {
             var aprobadas = new Dictionary<string, int>();
             foreach (var m in alumno.Materias.Where(EstaAprobada)) aprobadas[m.Nombre ?? ""] = m.Creditos;
-            return aprobadas.Values.Sum();
+            if (plan == null || plan.CreditosAfel <= 0) return aprobadas.Values.Sum();
+
+            int afel = aprobadas.Where(a => EsAfelDelAlumno(plan, a.Key)).Sum(a => a.Value);
+            return aprobadas.Values.Sum() - afel + Math.Min(afel, plan.CreditosAfel);
+        }
+
+        // Créditos de AFEL aprobados por el alumno, aunque pasen del total del plan (para mostrar el excedente)
+        public static int CreditosAfelAprobados(AlumnoAvance alumno, PlanInfo plan)
+        {
+            var aprobadas = new Dictionary<string, int>();
+            foreach (var m in alumno.Materias.Where(EstaAprobada)) aprobadas[m.Nombre ?? ""] = m.Creditos;
+            return aprobadas.Where(a => EsAfelDelAlumno(plan, a.Key)).Sum(a => a.Value);
+        }
+
+        // Una AFEL se registra con su nombre real ("Taller de fotografía"): es AFEL todo lo que no sea una materia
+        // del plan ni una optativa (del catálogo o un lugar "Optativa N"). Igual que la pantalla al acomodar el historial.
+        private static bool EsAfelDelAlumno(PlanInfo plan, string nombre)
+        {
+            if (plan.Materias.Any(m => !m.EsAfel && m.Nombre.Equals(nombre, StringComparison.OrdinalIgnoreCase))) return false;
+            return !plan.Optativas.Any(o => o.Nombre.Equals(nombre, StringComparison.OrdinalIgnoreCase));
         }
 
         // ---------- TRAYECTORIAS ESTÁNDAR Y LARGA ----------
@@ -231,7 +251,7 @@ namespace PlaneaUV_Economia.Services
                 situacion.MateriasEnRezago = MateriasEnRezago(plan, cursa.Value, NoCuentanComoRezago(plan, alumno, periodo)).Select(m => m.Nombre).ToList();
             if (plan != null) situacion.EnCursoDesdeAntes = EnCursoDesdePeriodoAnterior(plan, alumno, periodo).OrderBy(n => n).ToList();
 
-            situacion.CreditosAprobados = CreditosAprobados(alumno);
+            situacion.CreditosAprobados = CreditosAprobados(alumno, plan);
             if (plan != null)
             {
                 situacion.CreditosTotales = plan.CreditosTotales;

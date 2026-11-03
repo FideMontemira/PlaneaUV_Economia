@@ -73,7 +73,7 @@ namespace PlaneaUV_Economia.Services
                     if (leFaltanMaterias && periodoQueCursa >= 2)
                     {
                         int concluidos = periodoQueCursa.Value - 1;
-                        int creditos = ReglasTrayectoria.CreditosAprobados(alumno);
+                        int creditos = ReglasTrayectoria.CreditosAprobados(alumno, plan);
                         int estandar = ReglasTrayectoria.CreditosEsperados(plan, concluidos, duracionPlan);
                         int larga = ReglasTrayectoria.CreditosEsperados(plan, concluidos, ReglasTrayectoria.PeriodosTrayectoriaLarga(plan));
                         string detalle = $"Lleva {creditos} créditos; la trayectoria estándar pide {estandar} y la larga (mínimo) {larga}.";

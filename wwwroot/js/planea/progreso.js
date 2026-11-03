@@ -31,16 +31,26 @@ function dibujarGraficasPorArea() {
 
         const creditos = t => parseInt(t.getAttribute('data-creditos')) || 0;
         const aprobadas = delArea.filter(t => t.getAttribute('data-estado') === 'aprobada');
-        const total = delArea.reduce((s, t) => s + creditos(t), 0);
-        const logrado = aprobadas.reduce((s, t) => s + creditos(t), 0);
+        let total = delArea.reduce((s, t) => s + creditos(t), 0);
+        let logrado = aprobadas.reduce((s, t) => s + creditos(t), 0);
+        // AFEL: la meta es el total del plan; lo que pase de ahí se muestra aparte y no suma
+        let excedente = 0;
+        if (area.clase === 'bg-afel' && creditosAfelPlan > 0) {
+            total = creditosAfelPlan;
+            excedente = Math.max(0, logrado - total);
+            logrado -= excedente;
+        }
         const pct = total > 0 ? Math.round((logrado / total) * 100) : 0;
+        const titulo = excedente > 0 ? `${area.nombre}: lleva ${logrado + excedente} créditos; solo cuentan ${total}`
+                                     : `${area.nombre}: ${aprobadas.length} de ${delArea.length} materias aprobadas`;
 
-        html += `<div class="area-grafica" title="${area.nombre}: ${aprobadas.length} de ${delArea.length} materias aprobadas">
+        html += `<div class="area-grafica" title="${titulo}">
                 <div class="area-circulo" style="background: conic-gradient(${area.color} ${pct}%, #e9ecef ${pct}%);">
                     <div class="area-circulo-interior">${pct}%</div>
                 </div>
                 <div class="area-nombre" style="color: ${area.color};">${area.nombre}</div>
                 <div class="area-detalle">${logrado} / ${total} Cr.</div>
+                ${excedente > 0 ? `<div class="area-detalle text-success">+${excedente} de más (no suman)</div>` : ''}
             </div>`;
     });
     contenedor.innerHTML = html;
@@ -49,15 +59,20 @@ function dibujarGraficasPorArea() {
 function actualizarProgreso() {
     aplicarSituacionAlumno();   // periodo que cursa y rezago, tal como los calculó el servidor
 
-    let creditosAprobados = 0, materiasEnRiesgo = 0, materiasEnCurso = 0;
+    let creditosAprobados = 0, creditosAfel = 0, materiasEnRiesgo = 0, materiasEnCurso = 0;
 
     document.querySelectorAll('.materia-card').forEach(t => {
         const estado = t.getAttribute('data-estado');
-        if (estado === 'aprobada') creditosAprobados += parseInt(t.getAttribute('data-creditos')) || 0;
+        if (estado === 'aprobada') {
+            const c = parseInt(t.getAttribute('data-creditos')) || 0;
+            if (t.classList.contains('bg-afel')) creditosAfel += c; else creditosAprobados += c;
+        }
         else if (estado === 'cursando') materiasEnCurso++;
 
         if (t.getAttribute('data-riesgo') === 'true') materiasEnRiesgo++;
     });
+    // Las AFEL cuentan solo hasta el total que pide el plan (misma regla que el servidor)
+    creditosAprobados += creditosAfelPlan > 0 ? Math.min(creditosAfel, creditosAfelPlan) : creditosAfel;
 
     // El total sale del plan del alumno; sin plan cargado no hay total contra el cual calcular
     let hayMapa = !!document.querySelector('#contenedor-mapa-dinamico .materia-card');
