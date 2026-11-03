@@ -98,6 +98,11 @@ namespace PlaneaUV_Economia.Services
                 var malaDuracion = plan.Materias.FirstOrDefault(m => m.PeriodosDuracion < 1);
                 if (malaDuracion != null)
                     throw new ArgumentException($"Los periodos que dura \"{malaDuracion.Nombre}\" deben ser un número entero de 1 a {MaxPeriodosDuracion} (columna H o \"dura N periodos\" en el mapa).");
+                // Un nombre repetido haría que dos tarjetas compartan los mismos registros del alumno
+                var repetidas = plan.Materias.Where(m => !m.EsAfel).GroupBy(m => m.Nombre.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                if (repetidas.Count > 0)
+                    throw new ArgumentException($"Hay materias repetidas en el plan: {string.Join(", ", repetidas)}. Cada materia debe aparecer una sola vez (si son distintas, ponles nombres distintos, por ejemplo \"Optativa 1\" y \"Optativa 2\").");
 
                 File.Move(temporal, ruta, overwrite: true);
                 _cache.TryRemove(ruta, out _);
@@ -218,7 +223,13 @@ namespace PlaneaUV_Economia.Services
             if (teniaAfel) plan.Materias.Add(new MateriaPlan { Nombre = "AFEL 1", Tipo = "AFEL", Creditos = 0 });
 
             // Total oficial si el coordinador lo escribió en la hoja "Datos"; si no, la suma de las materias más el total de AFEL
-            plan.CreditosTotales = creditosDeclarados > 0 ? creditosDeclarados : plan.Materias.Sum(m => m.Creditos) + plan.CreditosAfel;
+            int suma = plan.Materias.Sum(m => m.Creditos) + plan.CreditosAfel;
+            plan.CreditosTotales = creditosDeclarados > 0 ? creditosDeclarados : suma;
+            if (creditosDeclarados > 0 && creditosDeclarados != suma)
+                plan.Avisos.Add($"La hoja \"Datos\" dice {creditosDeclarados} créditos totales, pero las materias y las AFEL suman {suma}. "
+                              + "El avance y el % de créditos se miden contra el número de \"Datos\": corrígelo o deja la casilla vacía para que se calcule solo.");
+            if (!teniaAfel)
+                plan.Avisos.Add("El plan no tiene total de créditos AFEL: el mapa no tendrá columna de AFEL. Escribe el total en la franja AFEL (por ejemplo 18).");
 
             foreach (var m in plan.Materias)
                 foreach (var req in m.Prerrequisitos.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

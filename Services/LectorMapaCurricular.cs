@@ -132,6 +132,7 @@ namespace PlaneaUV_Economia.Services
             bool captura = EsPlantillaDeCaptura(ws);
             var usadas = new HashSet<(int fila, int col)>();   // casillas ya leídas como parte de un recuadro de la plantilla
             var sinCreditos = new List<string>();
+            var noLeidos = new List<(int fila, string texto)>();
 
             foreach (var celda in ws.CellsUsed(c => c.Address.RowNumber > filaEncabezados))
             {
@@ -181,7 +182,11 @@ namespace PlaneaUV_Economia.Services
                 {
                     int? color = ColorALaIzquierda(ws, filaIni, colIni);
                     if (color != null && !leyenda.Any(l => l.color == color)) leyenda.Add((color.Value, area));
+                    continue;
                 }
+
+                // Texto dentro de un periodo que no se pudo leer como materia (p. ej. un recuadro que perdió su forma)
+                if (bloques.Any(b => colIni >= b.ColIni && colIni <= b.ColFin)) noLeidos.Add((filaIni, texto));
             }
 
             var sinArea = new List<string>();
@@ -231,6 +236,21 @@ namespace PlaneaUV_Economia.Services
             // Un requisito escrito a mano que no coincide con ninguna materia del mapa (p. ej. con otra ortografía) no se podría revisar
             if (avisos != null)
             {
+                // Solo cuenta lo que está entre el primer y el último recuadro (no títulos, totales ni la leyenda), y no las
+                // casillas sueltas de un recuadro roto (acreditación, área, "Req:"): basta con avisar el nombre
+                if (recuadros.Count > 0)
+                {
+                    int desde = recuadros.Min(r => r.FilaIni), hasta = recuadros.Max(r => r.FilaFin);
+                    var sinLeer = noLeidos.Where(x => x.fila >= desde && x.fila <= hasta)
+                        .Select(x => Regex.Replace(x.texto, @"\s+", " ").Trim())
+                        .Where(t => t.Any(char.IsLetter) && !Regex.IsMatch(t, @"^[A-ZÁÉÍÓÚÑ]{1,3}$") && !t.StartsWith("Req", StringComparison.OrdinalIgnoreCase)
+                                    && !EsNombreDeArea(t))
+                        .Distinct().ToList();
+                    if (sinLeer.Count > 0)
+                        avisos.Add($"No se pudo leer como materia: {string.Join(", ", sinLeer.Select(t => $"\"{t}\""))}. Revisa que el recuadro conserve su forma "
+                                 + "(el nombre en sus celdas combinadas) y que tenga créditos; mientras tanto esa materia no está en el plan.");
+                }
+
                 var nombres = new HashSet<string>(recuadros.Select(r => r.Materia.Nombre), StringComparer.OrdinalIgnoreCase);
                 var malos = recuadros.SelectMany(r => r.Materia.Prerrequisitos.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                         .Where(q => !nombres.Contains(q)).Select(q => $"\"{q}\" (requisito de {r.Materia.Nombre})")).ToList();
@@ -326,6 +346,13 @@ namespace PlaneaUV_Economia.Services
         {
             var rango = celda.MergedRange();
             return rango == null || rango.FirstCell().Address.Equals(celda.Address);
+        }
+
+        // Valores de la lista de Área de la plantilla (en un recuadro roto quedan sueltos)
+        private static bool EsNombreDeArea(string texto)
+        {
+            string t = SinAcentos(texto).Trim().ToLowerInvariant();
+            return t is "afbg" or "iniciacion a la disciplina" or "disciplinar" or "terminal" or "optativa" or "electiva";
         }
 
         private static string? AreaDeLeyenda(string texto)

@@ -65,6 +65,15 @@ namespace PlaneaUV_Economia.Tests
             Assert.Null(ReglasTrayectoria.PeriodoQueCursa("PRUEBA10", "Agosto - Enero 2027", new List<string>()));
         }
 
+        // Antes daba -9 (matrícula "s313213": ingreso 2031) o 0 para un periodo anterior al ingreso
+        [Theory]
+        [InlineData("s313213", "Agosto - Enero 2027")]
+        [InlineData("S26000001", "Febrero - Julio 2026")]
+        public void PeriodoQueCursa_NullAntesDelIngreso(string matricula, string periodo)
+        {
+            Assert.Null(ReglasTrayectoria.PeriodoQueCursa(matricula, periodo, new List<string>()));
+        }
+
         [Fact]
         public void DuracionPlan_NoCuentaLasAfel()
         {

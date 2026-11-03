@@ -48,6 +48,8 @@ function construirDatosAlumno() {
         let hist = t.getAttribute('data-historial');
         if (hist) materias.push(...JSON.parse(hist));
     });
+    // Los registros que no tienen tarjeta en el mapa también se guardan (si no, se borrarían del Excel)
+    materias.push(...registrosSinLugar);
 
     return {
         Matricula: matricula,

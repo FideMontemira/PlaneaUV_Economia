@@ -21,9 +21,14 @@ namespace PlaneaUV_Economia.Tests
         [InlineData("<script>", false)]
         [InlineData("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", false)]   // más de 31 caracteres se recortaba
         [InlineData("", false)]
+        [InlineData("s21012345", true)]                     // minúscula también
+        [InlineData("S213231", false)]                      // le faltan dígitos (S + 8 números)
+        [InlineData("SADASDAD", false)]
+        [InlineData("S31321300", false)]                    // ingreso en 2031: todavía no llega
+        [InlineData("S26000001", true)]                     // ingreso este año
         public void FormatoDeMatricula(string matricula, bool valida)
         {
-            Assert.Equal(valida, ValidacionAlumno.ErrorEnMatricula(matricula) == null);
+            Assert.Equal(valida, ValidacionAlumno.ErrorEnMatricula(matricula, new DateTime(2026, 11, 3)) == null);
         }
 
         [Fact]

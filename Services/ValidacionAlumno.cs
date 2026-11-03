@@ -10,8 +10,9 @@ namespace PlaneaUV_Economia.Services
     // o que un texto enorme rompa el Excel (una celda admite como máximo 32,767 caracteres).
     public static class ValidacionAlumno
     {
-        // Matrícula UV: letras y números (ej. S21012345 o zS21012345); se permite guion por si acaso
-        private static readonly Regex FormatoMatricula = new(@"^[A-Za-z0-9-]{3,20}$");
+        // Matrícula UV: S + 8 dígitos (ej. S21012345), con "z" al inicio si viene del correo (zS21012345).
+        // Los dos primeros dígitos son el año de ingreso: de ahí sale el periodo que cursa.
+        private static readonly Regex FormatoMatricula = new(@"^z?S(\d{2})\d{6}$", RegexOptions.IgnoreCase);
 
         public const int MaxNombre = 200;
         public const int MaxTextoLargo = 4000;   // comentarios, acuerdos, motivos
@@ -20,11 +21,15 @@ namespace PlaneaUV_Economia.Services
         public const int MaxTutorias = 200;
         public const int MaxElementosLista = 60;
 
-        public static string? ErrorEnMatricula(string? matricula)
+        public static string? ErrorEnMatricula(string? matricula, System.DateTime? hoy = null)
         {
             if (string.IsNullOrWhiteSpace(matricula)) return "La matrícula es obligatoria.";
-            if (!FormatoMatricula.IsMatch(matricula.Trim()))
-                return "La matrícula solo puede tener letras y números (de 3 a 20 caracteres), por ejemplo S21012345.";
+            var m = FormatoMatricula.Match(matricula.Trim());
+            if (!m.Success)
+                return "La matrícula debe ser una S seguida de 8 números, por ejemplo S21012345 (o zS21012345).";
+            int ingreso = 2000 + int.Parse(m.Groups[1].Value);
+            if (ingreso > (hoy ?? System.DateTime.Today).Year)
+                return $"La matrícula indica ingreso en {ingreso}, que todavía no llega. Revisa los dos primeros números después de la S.";
             return null;
         }
 

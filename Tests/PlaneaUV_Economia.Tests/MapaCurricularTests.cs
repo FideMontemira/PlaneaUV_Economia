@@ -263,6 +263,63 @@ namespace PlaneaUV_Economia.Tests
             Assert.Equal(9 + 6 + 24, ReglasTrayectoria.CreditosAprobados(alumno));   // sin plan no hay tope
         }
 
+        // ---------- Revisiones al subir el plan ----------
+        private void Modificar(string nombre, Action<XLWorkbook> cambio)
+        {
+            string ruta = Path.Combine(_carpeta.Ruta, nombre + ".xlsx");
+            using var libro = new XLWorkbook(ruta);
+            cambio(libro);
+            libro.Save();
+        }
+
+        private async Task<IReadOnlyList<string>> Subir(string nombre)
+        {
+            var bytes = File.ReadAllBytes(Path.Combine(_carpeta.Ruta, nombre + ".xlsx"));
+            using var destino = new CarpetaTemporal();
+            var archivo = new Microsoft.AspNetCore.Http.FormFile(new MemoryStream(bytes), 0, bytes.Length, "archivoPlan", "Subido.xlsx");
+            return await new RepositorioPlanesExcel(destino.Ruta).GuardarAsync(archivo);
+        }
+
+        [Fact]
+        public async Task UnaMateriaRepetidaSeRechazaAlSubir()
+        {
+            CrearMapa("Mapa");
+            Modificar("Mapa", l => l.Worksheet(1).Cell("I25").Value = "Lengua II\n5 créditos");   // "Seminario" pasa a llamarse igual que otra
+            var error = await Assert.ThrowsAsync<ArgumentException>(() => Subir("Mapa"));
+            Assert.Contains("Lengua II", error.Message);
+        }
+
+        [Fact]
+        public async Task AvisaSiElTotalDeDatosNoCuadra()
+        {
+            CrearMapa("Mapa");
+            Modificar("Mapa", l => { var d = l.Worksheet("Datos"); d.Cell(2, 1).Value = "Creditos totales"; d.Cell(2, 2).Value = 60; });
+            var avisos = await Subir("Mapa");
+            Assert.Contains(avisos, a => a.Contains("60") && a.Contains("68"));
+        }
+
+        [Fact]
+        public async Task AvisaSiNoHayTotalDeAfel()
+        {
+            CrearMapa("Mapa");
+            Modificar("Mapa", l => { var ws = l.Worksheet(1); ws.Range("B30:N31").Unmerge(); ws.Range("B30:N31").Clear(); });
+            var avisos = await Subir("Mapa");
+            Assert.Contains(avisos, a => a.Contains("AFEL"));
+        }
+
+        // Un recuadro de la plantilla al que se le deshizo la combinación del nombre ya no se lee: se avisa con su nombre
+        [Fact]
+        public async Task AvisaSiUnRecuadroPerdioSuForma()
+        {
+            CrearPlantillaLlena("Captura");
+            Modificar("Captura", l => l.Worksheet(1).Range("B19:G20").Unmerge());
+            var avisos = await Subir("Captura");
+            var aviso = Assert.Single(avisos, a => a.StartsWith("No se pudo leer"));
+            Assert.Contains("\"Lengua I\"", aviso);
+            Assert.DoesNotContain("\"CT\"", aviso);
+            Assert.DoesNotContain("\"AFBG\"", aviso);
+        }
+
         [Fact]
         public void LaTablaSigueFuncionando()
         {

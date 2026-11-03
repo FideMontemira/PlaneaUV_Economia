@@ -415,6 +415,20 @@ function guardarAvance() {
             return;
         }
 
+        // Los registros se agrupan por nombre: una AFEL con el nombre de otra tarjeta (otra AFEL, una materia del plan
+        // o una optativa del catálogo) se mezclaría con ella al volver a abrir al alumno
+        if (iptName) {
+            const igual = n => (n || '').trim().toLowerCase() === iptName.toLowerCase();
+            const choca = [...document.querySelectorAll('.materia-card')].find(t => t !== tarjetaActual
+                    && (igual(t.getAttribute('data-nombre-personalizado')) || (!t.classList.contains('bg-afel') && igual(t.getAttribute('data-nombre')))));
+            if (choca || listaOptativas.some(igual) || registrosSinLugar.some(r => igual(r.Nombre))) {
+                avisar(`Ya hay una materia llamada "${iptName}" en el mapa de este alumno (o en el catálogo de optativas). `
+                     + 'Usa un nombre distinto para esta AFEL, por ejemplo agregando el periodo o un número.', { tipo: 'advertencia', titulo: 'Nombre repetido' });
+                if (inputNAfel) inputNAfel.focus();
+                return;
+            }
+        }
+
         if (iptName) {
             tarjetaActual.setAttribute('data-nombre-personalizado', iptName);
             nuevoNombre = iptName;

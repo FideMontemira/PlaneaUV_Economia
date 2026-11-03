@@ -3,6 +3,37 @@
 
 let modalInicioInstance = null;
 
+// Registros del alumno que no encontraron tarjeta en el mapa de su plan (una materia que cambió de nombre,
+// más optativas que lugares, AFEL en un plan sin columna AFEL...). No se muestran como tarjeta, pero se
+// conservan tal cual al guardar: antes se perdían en el siguiente guardado.
+let registrosSinLugar = [];
+
+function mostrarRegistrosSinLugar() {
+    const mapa = $('contenedor-mapa-dinamico');
+    if (!mapa) return;
+    let caja = $('avisoRegistrosSinLugar');
+    if (!caja) {
+        caja = document.createElement('div');
+        caja.id = 'avisoRegistrosSinLugar';
+        caja.className = 'alert alert-warning small py-2 mb-3';
+        mapa.parentNode.insertBefore(caja, mapa);
+    }
+    if (registrosSinLugar.length === 0) { caja.hidden = true; caja.innerHTML = ''; return; }
+
+    const porNombre = {};
+    registrosSinLugar.forEach(r => (porNombre[r.Nombre] = porNombre[r.Nombre] || []).push(r));
+    const filas = Object.keys(porNombre).map(n => {
+        const ultimo = porNombre[n][porNombre[n].length - 1];
+        return `<li><strong>${escapeHTML(n)}</strong> · ${escapeHTML(ultimo.Periodo || 'sin periodo')} · ${escapeHTML(ultimo.Estado || '')} · ${parseInt(ultimo.Creditos) || 0} Cr.`
+             + (porNombre[n].length > 1 ? ` (${porNombre[n].length} registros)` : '') + '</li>';
+    }).join('');
+    caja.hidden = false;
+    caja.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Registros sin lugar en el mapa del plan.</strong> '
+        + 'El alumno tiene registros que no coinciden con ninguna materia de su plan (por ejemplo, una materia que cambió de nombre '
+        + 'o más optativas que lugares). Se conservan al guardar; revisa el plan o el nombre de la materia.'
+        + `<ul class="mb-0 mt-1">${filas}</ul>`;
+}
+
 function puedeCambiarDeContexto() {
     // Con la cola de guardado por alumno, cambiar de alumno ya no pierde cambios: los pendientes se guardan solos
     return true;
@@ -17,6 +48,8 @@ function buscarAlumno(materiaAResaltar = null) {
 
     // Mientras llega el alumno nuevo, el mapa todavía muestra al anterior: no se permite guardar
     alumnoCargado = '';
+    registrosSinLugar = [];
+    mostrarRegistrosSinLugar();
 
     // Se espera a que termine el guardado en curso para no leer datos de antes de ese guardado
     esperarGuardadoEnCurso()
@@ -56,6 +89,9 @@ function buscarAlumno(materiaAResaltar = null) {
                 document.querySelectorAll('.materia-card').forEach(t => {
                     let baseName = t.getAttribute('data-nombre');
                     let historialArray = materiasAgrupadas[baseName] || [];
+                    // Cada grupo de registros va a UNA sola tarjeta (si el plan repite un nombre, la segunda queda vacía
+                    // en lugar de duplicar los registros al guardar)
+                    delete materiasAgrupadas[baseName];
 
                     if (t.classList.contains('bg-optativa') && historialArray.length === 0) {
                         for (let k in materiasAgrupadas) {
@@ -95,17 +131,24 @@ function buscarAlumno(materiaAResaltar = null) {
                     actualizarTarjetaVisual(t, historialArray);
                 });
 
+                // Lo que no tomó ninguna tarjeta: si no es optativa del catálogo es una AFEL más (su propia tarjeta).
+                // Lo que no cabe en ningún lado (optativas de más, AFEL en un plan sin columna AFEL) se conserva aparte.
+                registrosSinLugar = [];
                 for (let k in materiasAgrupadas) {
-                    if (!document.querySelector(`.materia-card[data-nombre="${CSS.escape(k)}"]`) && !document.querySelector(`.materia-card[data-nombre-personalizado="${CSS.escape(k)}"]`) && !listaOptativas.includes(k)) {
-                        let historialExtra = materiasAgrupadas[k];
-                        let creditosExtra = historialExtra[0] ? historialExtra[0].Creditos : 6;
-                        let nuevaTarjeta = agregarAfelExtra(k, creditosExtra);
-                        if (nuevaTarjeta) {
-                            nuevaTarjeta.setAttribute('data-historial', JSON.stringify(historialExtra));
-                            actualizarTarjetaVisual(nuevaTarjeta, historialExtra);
-                        }
+                    let historialExtra = materiasAgrupadas[k];
+                    let nuevaTarjeta = null;
+                    if (!listaOptativas.includes(k)) {
+                        let creditosExtra = historialExtra[0] ? historialExtra[0].Creditos : 0;
+                        nuevaTarjeta = agregarAfelExtra(k, creditosExtra);
+                    }
+                    if (nuevaTarjeta) {
+                        nuevaTarjeta.setAttribute('data-historial', JSON.stringify(historialExtra));
+                        actualizarTarjetaVisual(nuevaTarjeta, historialExtra);
+                    } else {
+                        registrosSinLugar.push(...historialExtra);
                     }
                 }
+                mostrarRegistrosSinLugar();
 
                 // Desde aquí el mapa en pantalla es de este alumno y ya se pueden guardar sus cambios
                 alumnoCargado = matricula;

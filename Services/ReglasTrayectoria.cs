@@ -70,6 +70,8 @@ namespace PlaneaUV_Economia.Services
             int? ingreso = AnioIngresoDeMatricula(matricula);
             int? corridos = NumeroDePeriodo(ingreso, periodo);
             if (corridos == null) return null;
+            // Un periodo anterior a su ingreso (o una matrícula con año futuro) no es un periodo que curse: sin número
+            if (corridos < 1) return null;
             int pausas = periodosSinInscripcion.Select(p => NumeroDePeriodo(ingreso, p)).Count(n => n >= 1 && n < corridos);
             return corridos - pausas;
         }
